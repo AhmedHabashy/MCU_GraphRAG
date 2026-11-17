@@ -4,8 +4,10 @@ from src.source_data_collection.collect_characters import (
     character_qids,
     character_row,
     earth_of,
+    linked_qids,
     marvel_db_page,
     marvel_db_row,
+    wants_marvel_db_page,
 )
 
 
@@ -61,13 +63,26 @@ def test_character_row_flattens_names_universes_and_variant_links():
     assert row["pseudonyms"] == "Loki of Asgard"
     assert row["universe_qids"] == "Q642878"
     assert row["universe_earths"] == "Earth-199999"
-    assert row["based_on_qids"] == "Q1147326" and row["based_on_labels"] == "Loki"
+    assert row["based_on_qids"] == "Q1147326"          # comics item ID only, kept as a grouping key
+    assert "based_on_labels" not in row
     assert row["same_as_qids"] == "Q1147326"
     assert row["different_from_labels"] == "Sylvie"
     assert row["performer_qids"] == "Q295803"
     assert row["marvel_db_page"] == "Loki Laufeyson (Earth-199999)"
     assert row["source_url"] == "https://www.wikidata.org/wiki/Q24046118"
     assert row["license"] == "CC0-1.0"
+
+
+def test_comics_pages_are_not_fetched():
+    assert wants_marvel_db_page("Loki Laufeyson (Earth-199999)")
+    assert not wants_marvel_db_page("Magneto (Earth-616)")       # comics: out of scope for now
+    assert not wants_marvel_db_page("")
+
+
+def test_linked_items_cover_universes_and_identity_links_but_not_comics_originals():
+    entity = {"claims": {"P1080": [item("Q642878")], "P144": [item("Q1147326")],
+                         "P460": [item("Q1")], "P1889": [item("Q107723311")]}}
+    assert linked_qids({"Q24046118": entity}) == ["Q642878", "Q1", "Q107723311"]
 
 
 def test_marvel_db_row_parses_the_character_infobox():

@@ -43,7 +43,10 @@ P_FANDOM_ARTICLE_ID = "P6262"
 P_PSEUDONYM = "P742"
 P_BIRTH_NAME = "P1477"
 P_PERFORMER = "P175"
-LINK_PROPERTIES = (P_NARRATIVE_UNIVERSE, P_BASED_ON, P_SAME_AS, P_DIFFERENT_FROM)
+# Linked items fetched for labels: universes and identity links. Comics originals (P144) are
+# out of scope for now; their IDs are kept only as a key for grouping screen variants.
+LINK_PROPERTIES = (P_NARRATIVE_UNIVERSE, P_SAME_AS, P_DIFFERENT_FROM)
+MARVEL_DB_COMICS_EARTH = "Earth-616"  # the Marvel Database's comics universe
 
 _EARTH = re.compile(r"\((Earth-[^)]+)\)$")
 
@@ -67,6 +70,16 @@ def marvel_db_page(entity):
 def earth_of(page):
     match = _EARTH.search(page)
     return match.group(1) if match else ""
+
+
+def wants_marvel_db_page(page):
+    """Screen-character pages only; comics (Earth-616 on the Marvel Database) are skipped."""
+    return bool(page) and earth_of(page) != MARVEL_DB_COMICS_EARTH
+
+
+def linked_qids(entities):
+    return list(dict.fromkeys(q for e in entities.values() for p in LINK_PROPERTIES
+                              for q in claim_values(e, p)))
 
 
 def _texts(entity, pid):
@@ -100,7 +113,6 @@ def character_row(entity, related, retrieved_at):
         "universe_earths": _joined(p for u in universes
                                    for p in _fandom_pages(related.get(u, {}), MARVEL_DB_WIKI)),
         "based_on_qids": _joined(claim_values(entity, P_BASED_ON)),
-        "based_on_labels": labels(P_BASED_ON),
         "same_as_qids": _joined(claim_values(entity, P_SAME_AS)),
         "different_from_qids": _joined(claim_values(entity, P_DIFFERENT_FROM)),
         "different_from_labels": labels(P_DIFFERENT_FROM),
@@ -141,9 +153,7 @@ def main():
 
     qids = character_qids(read_csv(WIKIDATA_CAST_PATH))
     entities = wikimedia.get_entities(qids, props="labels|aliases|descriptions|claims")
-    linked = list(dict.fromkeys(q for e in entities.values() for p in LINK_PROPERTIES
-                                for q in claim_values(e, p)))
-    related = wikimedia.get_entities(linked, props="labels|aliases|claims")
+    related = wikimedia.get_entities(linked_qids(entities), props="labels|aliases|claims")
     write_json(CHARACTER_ENTITIES_PATH, {"retrieved_at": retrieved_at, "source": "wikidata",
                                          "license": WIKIDATA_LICENSE,
                                          "characters": entities, "related": related})
@@ -153,7 +163,7 @@ def main():
 
     marvel_rows = []
     for row in rows:
-        if not row["marvel_db_page"]:
+        if not wants_marvel_db_page(row["marvel_db_page"]):
             continue
         lead = fandom.lead(MARVEL_DB_WIKI, row["marvel_db_page"])
         if lead:

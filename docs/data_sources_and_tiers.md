@@ -40,8 +40,11 @@ Notes on the list:
 
 ### Tier 1: core for Doomsday (load first)
 
-"Reality" is the main reality the title is set in, as a Marvel Database Earth
-designation. It is curated, because Wikidata files the whole MCU under one universe
+"Reality" is the main reality the title is set in, as an Earth designation. The main MCU
+universe is **Earth-616**, as the films call it (confirmed by the MCU expert). The Marvel
+Database names that page "Earth-199999" and uses "Earth-616" for the comics. Comics are
+out of scope for now, so in this project Earth-616 always means the MCU.
+The column is curated, because Wikidata files the whole MCU under one universe
 and Marvel Database pages are per character, not per film. A character with its own
 screen version in another reality (e.g. the Raimi Green Goblin in No Way Home) keeps
 that reality; the title's reality is the default for everyone else.
@@ -57,41 +60,41 @@ Rows marked † need review by the MCU expert:
 
 | Title | Type | Year | Universe | Reality |
 | --- | --- | --- | --- | --- |
-| Iron Man | Film | 2008 | MCU | Earth-199999 |
-| Iron Man 2 | Film | 2010 | MCU | Earth-199999 |
-| Captain America: The First Avenger | Film | 2011 | MCU | Earth-199999 |
-| Thor | Film | 2011 | MCU | Earth-199999 |
-| The Avengers | Film | 2012 | MCU | Earth-199999 |
-| Iron Man 3 | Film | 2013 | MCU | Earth-199999 |
-| Thor: The Dark World | Film | 2013 | MCU | Earth-199999 |
-| Captain America: The Winter Soldier | Film | 2014 | MCU | Earth-199999 |
-| Avengers: Age of Ultron | Film | 2015 | MCU | Earth-199999 |
-| Captain America: Civil War | Film | 2016 | MCU | Earth-199999 |
-| Doctor Strange | Film | 2016 | MCU | Earth-199999 |
-| Spider-Man: Homecoming | Film | 2017 | MCU | Earth-199999 |
-| Thor: Ragnarok | Film | 2017 | MCU | Earth-199999 |
-| Black Panther | Film | 2018 | MCU | Earth-199999 |
-| Avengers: Infinity War | Film | 2018 | MCU | Earth-199999 |
-| Avengers: Endgame | Film | 2019 | MCU | Earth-199999 |
-| Spider-Man: Far From Home | Film | 2019 | MCU | Earth-199999 |
-| Black Widow | Film | 2021 | MCU | Earth-199999 |
-| Shang-Chi and the Legend of the Ten Rings | Film | 2021 | MCU | Earth-199999 |
-| Spider-Man: No Way Home | Film | 2021 | MCU | Earth-199999 |
-| Loki, season 1 | Series | 2021 | MCU | Earth-199999 |
-| The Falcon and the Winter Soldier | Series | 2021 | MCU | Earth-199999 |
+| Iron Man | Film | 2008 | MCU | Earth-616 |
+| Iron Man 2 | Film | 2010 | MCU | Earth-616 |
+| Captain America: The First Avenger | Film | 2011 | MCU | Earth-616 |
+| Thor | Film | 2011 | MCU | Earth-616 |
+| The Avengers | Film | 2012 | MCU | Earth-616 |
+| Iron Man 3 | Film | 2013 | MCU | Earth-616 |
+| Thor: The Dark World | Film | 2013 | MCU | Earth-616 |
+| Captain America: The Winter Soldier | Film | 2014 | MCU | Earth-616 |
+| Avengers: Age of Ultron | Film | 2015 | MCU | Earth-616 |
+| Captain America: Civil War | Film | 2016 | MCU | Earth-616 |
+| Doctor Strange | Film | 2016 | MCU | Earth-616 |
+| Spider-Man: Homecoming | Film | 2017 | MCU | Earth-616 |
+| Thor: Ragnarok | Film | 2017 | MCU | Earth-616 |
+| Black Panther | Film | 2018 | MCU | Earth-616 |
+| Avengers: Infinity War | Film | 2018 | MCU | Earth-616 |
+| Avengers: Endgame | Film | 2019 | MCU | Earth-616 |
+| Spider-Man: Far From Home | Film | 2019 | MCU | Earth-616 |
+| Black Widow | Film | 2021 | MCU | Earth-616 |
+| Shang-Chi and the Legend of the Ten Rings | Film | 2021 | MCU | Earth-616 |
+| Spider-Man: No Way Home | Film | 2021 | MCU | Earth-616 |
+| Loki, season 1 | Series | 2021 | MCU | Earth-616 |
+| The Falcon and the Winter Soldier | Series | 2021 | MCU | Earth-616 |
 | What If...? (added) | Animated series | 2021-2024 | MCU | Multiverse † |
-| Doctor Strange in the Multiverse of Madness | Film | 2022 | MCU | Earth-199999 |
-| Thor: Love and Thunder (added) | Film | 2022 | MCU | Earth-199999 |
-| Black Panther: Wakanda Forever | Film | 2022 | MCU | Earth-199999 |
-| Ant-Man and the Wasp: Quantumania | Film | 2023 | MCU | Earth-199999 |
-| Loki, season 2 | Series | 2023 | MCU | Earth-199999 |
-| The Marvels | Film | 2023 | MCU | Earth-199999 |
+| Doctor Strange in the Multiverse of Madness | Film | 2022 | MCU | Earth-616 |
+| Thor: Love and Thunder (added) | Film | 2022 | MCU | Earth-616 |
+| Black Panther: Wakanda Forever | Film | 2022 | MCU | Earth-616 |
+| Ant-Man and the Wasp: Quantumania | Film | 2023 | MCU | Earth-616 |
+| Loki, season 2 | Series | 2023 | MCU | Earth-616 |
+| The Marvels | Film | 2023 | MCU | Earth-616 |
 | Deadpool & Wolverine | Film | 2024 | MCU | Earth-10005 |
-| Captain America: Brave New World | Film | 2025 | MCU | Earth-199999 |
-| Thunderbolts\* | Film | 2025 | MCU | Earth-199999 |
+| Captain America: Brave New World | Film | 2025 | MCU | Earth-616 |
+| Thunderbolts\* | Film | 2025 | MCU | Earth-616 |
 | The Fantastic Four: First Steps | Film | 2025 | MCU | Earth-828 |
-| Spider-Man: Brand New Day (added) | Film | 2026 | MCU | Earth-199999 |
-| Avengers: Doomsday (added) | Film | 2026 (Dec 18, upcoming) | MCU | Earth-199999 |
+| Spider-Man: Brand New Day (added) | Film | 2026 | MCU | Earth-616 |
+| Avengers: Doomsday (added) | Film | 2026 (Dec 18, upcoming) | MCU | Earth-616 |
 | X-Men | Film | 2000 | Fox X-Men | Earth-10005 |
 | X2 | Film | 2003 | Fox X-Men | Earth-10005 |
 | X-Men: The Last Stand | Film | 2006 | Fox X-Men | Earth-10005 |

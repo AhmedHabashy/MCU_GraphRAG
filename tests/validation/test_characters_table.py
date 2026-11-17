@@ -11,6 +11,7 @@ import pytest
 from src.processing.build_characters import (
     ALIASES_PATH, CHARACTERS_PATH, LINKS_PATH, MULTIVERSE, PERFORMANCES_PATH,
 )
+from src.processing.realities import MCU, marvel_db_page_of, reality_of_marvel_db_earth
 from src.source_data_collection.build_title_registry import REGISTRY_PATH
 from src.source_data_collection.cast_matching import normalize_name
 from src.source_data_collection.collect_characters import MARVEL_DB_PATH, SELF_QID, earth_of
@@ -79,13 +80,14 @@ def test_every_title_has_a_reality(titles):
 
 def test_title_reality_agrees_with_clear_marvel_database_majority(titles):
     """Where the title's characters' Marvel Database pages clearly agree on an Earth, the
-    curated reality must match (titles marked for review are reported, not failed)."""
-    earth = {r["character_qid"]: earth_of(r["page"]) for r in read_csv(MARVEL_DB_PATH)}
+    curated reality must match (titles marked for review are skipped)."""
+    reality = {r["character_qid"]: reality_of_marvel_db_earth(earth_of(r["page"]))
+               for r in read_csv(MARVEL_DB_PATH)}
     cast = read_csv(WIKIDATA_CAST_PATH)
     disagree = []
     for qid, t in titles.items():
-        votes = Counter(earth[r["character_qid"]] for r in cast if r["title_qid"] == qid
-                        and earth.get(r["character_qid"]) not in (None, "", "Earth-616"))
+        votes = Counter(reality[r["character_qid"]] for r in cast if r["title_qid"] == qid
+                        and reality.get(r["character_qid"]))
         if not votes or t["needs_review"] == "True":
             continue
         top, n = votes.most_common(1)[0]
@@ -95,19 +97,22 @@ def test_title_reality_agrees_with_clear_marvel_database_majority(titles):
     assert disagree == []
 
 
-def test_every_reality_is_a_marvel_database_page(titles):
+def _missing_marvel_db_pages(realities):
     client = FandomClient()
-    missing = [r for r in sorted({t["reality"] for t in titles.values()})
-               if client.lead("marvel", r) is None]
-    assert missing == []
+    return [r for r in sorted(realities) if client.lead("marvel", marvel_db_page_of(r)) is None]
+
+
+def test_every_title_reality_is_a_marvel_database_page(titles):
+    assert _missing_marvel_db_pages({t["reality"] for t in titles.values()}) == []
 
 
 def test_every_character_reality_is_a_marvel_database_page(characters):
     """Realities taken from Wikidata universes can be stale (e.g. Earth-TRN414)."""
-    client = FandomClient()
-    missing = [r for r in sorted({c["reality"] for c in characters.values()})
-               if client.lead("marvel", r) is None]
-    assert missing == []
+    assert _missing_marvel_db_pages({c["reality"] for c in characters.values()}) == []
+
+
+def test_main_mcu_is_earth_616(titles):
+    assert titles["Q192724"]["reality"] == MCU                              # Iron Man
 
 
 # --- Coverage: every role resolves to a character --------------------------------------
@@ -155,11 +160,8 @@ def test_fox_and_animated_wolverines_are_separate_but_linked(performances, chara
     assert characters[fox]["reality"] == "Earth-10005"
     assert animated and all(characters[a]["reality"] == "Earth-92131" for a in animated)
     assert fox not in animated
-    originals = {l["to_id"] for l in links if l["relation"] in ("based_on", "variant_of")
-                 and l["to_id"].endswith("@Earth-616")}
-    fox_original = {l["to_id"] for l in links if l["from_id"] == fox} & originals
-    animated_original = {l["to_id"] for a in animated for l in links if l["from_id"] == a} & originals
-    assert fox_original & animated_original                                # same comics Wolverine
+    variants = {frozenset((l["from_id"], l["to_id"])) for l in links if l["relation"] == "variant"}
+    assert any(frozenset((fox, a)) in variants for a in animated)
 
 
 def test_crossover_characters_keep_their_own_reality(performances, characters):
@@ -181,8 +183,15 @@ def test_loki_is_marked_different_from_sylvie(performances, characters, links):
                and l["to_label"] == "Sylvie" for l in links)
 
 
-def test_variants_of_one_item_link_to_its_comics_original(characters, links):
-    """Each non-comics character with a 'based on' item links to it."""
-    based = {l["from_id"] for l in links if l["relation"] == "based_on"}
-    expected = {c for c, r in characters.items() if r["based_on_qids"] and r["reality"] != "Earth-616"}
-    assert sorted(expected - based)[:20] == []
+def test_no_comics_data_in_the_table(characters, links):
+    """Comics are out of scope for now: only screen characters and screen-to-screen links."""
+    assert {l["relation"] for l in links} <= {"variant", "same_as", "different_from"}
+    assert all(l["to_id"] in characters for l in links if l["relation"] == "variant")
+    assert all("is_comics_original" not in c for c in characters.values())
+
+
+def test_mcu_variants_of_one_character_are_linked(performances, links):
+    """MCU Loki and his What If...? multiverse variant share an item, so they are variants."""
+    mcu = role(performances, "Q107185252", "Tom Hiddleston")
+    variants = {(l["from_id"], l["to_id"]) for l in links if l["relation"] == "variant"}
+    assert any(a in mcu or b in mcu for a, b in variants)

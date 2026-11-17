@@ -10,7 +10,7 @@ from src.source_data_collection.cast_matching import character_matches
 from src.source_data_collection.collect_characters import (
     CHARACTERS_PATH, FANDOM_LICENSE, MARVEL_DB_PATH, P_BASED_ON, P_BIRTH_NAME, P_DIFFERENT_FROM,
     P_FANDOM_ARTICLE_ID, P_NARRATIVE_UNIVERSE, P_PERFORMER, P_PSEUDONYM, P_SAME_AS, SELF_QID,
-    earth_of,
+    earth_of, wants_marvel_db_page,
 )
 from src.source_data_collection.storage import read_csv
 from src.source_data_collection.tmdb_cast import TMDB_CAST_PATH
@@ -21,7 +21,7 @@ pytestmark = pytest.mark.validation
 
 MIN_WITH_UNIVERSE = 0.95
 MIN_WITH_MARVEL_DB_ID = 0.70
-MIN_MARVEL_DB_FETCHED = 0.95
+MAX_STALE_MARVEL_DB_LINKS = 0.10   # Wikidata links to renamed Marvel Database pages
 MIN_UNIVERSE_AGREEMENT = 0.95
 MIN_REALITY_AGREEMENT = 0.95
 MIN_NAME_AGREEMENT = 0.90
@@ -85,10 +85,18 @@ def test_most_characters_link_to_the_marvel_database(characters):
                  len(characters)) >= MIN_WITH_MARVEL_DB_ID
 
 
-def test_linked_marvel_database_pages_were_fetched(characters, marvel_db):
-    linked = [q for q, r in characters.items() if r["marvel_db_page"]]
-    fetched = [q for q in linked if q in marvel_db and marvel_db[q]["revid"]]
-    assert share(len(fetched), len(linked)) >= MIN_MARVEL_DB_FETCHED, sorted(set(linked) - set(fetched))[:20]
+def test_every_linked_marvel_database_page_was_fetched_or_reported_missing(characters, marvel_db):
+    """No silent gaps: each linked screen page has a row, fetched or marked missing by the wiki.
+    (Network or server errors stop collection, so a missing page is a stale Wikidata link.)"""
+    linked = {q for q, r in characters.items() if wants_marvel_db_page(r["marvel_db_page"])}
+    assert sorted(linked - set(marvel_db)) == []
+
+
+def test_few_wikidata_links_to_the_marvel_database_are_stale(characters, marvel_db):
+    """Stale links are renamed pages (e.g. 'May Parker' -> 'Maybelle Parker'); listed for review."""
+    linked = [q for q, r in characters.items() if wants_marvel_db_page(r["marvel_db_page"])]
+    stale = [marvel_db[q]["page"] for q in linked if marvel_db[q]["fetched"] != "True"]
+    assert share(len(stale), len(linked)) <= MAX_STALE_MARVEL_DB_LINKS, stale
 
 
 def test_universe_agrees_with_marvel_database_earth(characters, marvel_db):
