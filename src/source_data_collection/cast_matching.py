@@ -41,8 +41,14 @@ def _same_character(a, b):
     return bool((set(a.split()) & set(b.split())) - GENERIC_WORDS)
 
 
+def name_parts(tmdb_character):
+    """Display names in a TMDB character string: '/'-separated, annotations removed."""
+    parts = (" ".join(p.split()) for p in _ANNOTATION.sub(" ", tmdb_character).split("/"))
+    return [p for p in parts if p]
+
+
 def _parts(tmdb_character):
-    return [normalize_name(p) for p in _ANNOTATION.sub(" ", tmdb_character).split("/")]
+    return [normalize_name(p) for p in name_parts(tmdb_character)]
 
 
 def distinctive_tokens(tmdb_character):

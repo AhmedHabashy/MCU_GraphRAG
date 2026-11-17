@@ -6,6 +6,7 @@ from src.source_data_collection.cast_matching import (
     character_flags,
     character_matches,
     distinctive_tokens,
+    name_parts,
     normalize_name,
 )
 
@@ -47,6 +48,12 @@ def test_character_flags_are_false_for_plain_names():
 ])
 def test_character_matches_equivalent_names(tmdb_character, wikidata_names):
     assert character_matches(tmdb_character, wikidata_names)
+
+
+def test_name_parts_split_on_slash_and_drop_annotations():
+    assert name_parts("Erik Lehnsherr / Magneto (uncredited)") == ["Erik Lehnsherr", "Magneto"]
+    assert name_parts("Additional Voices (voice)") == ["Additional Voices"]
+    assert name_parts("") == []
 
 
 def test_distinctive_tokens_drop_annotations_and_generic_words():

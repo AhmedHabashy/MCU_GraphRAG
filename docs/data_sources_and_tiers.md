@@ -40,57 +40,72 @@ Notes on the list:
 
 ### Tier 1: core for Doomsday (load first)
 
-| Title | Type | Year | Universe |
-| --- | --- | --- | --- |
-| Iron Man | Film | 2008 | MCU |
-| Iron Man 2 | Film | 2010 | MCU |
-| Captain America: The First Avenger | Film | 2011 | MCU |
-| Thor | Film | 2011 | MCU |
-| The Avengers | Film | 2012 | MCU |
-| Iron Man 3 | Film | 2013 | MCU |
-| Thor: The Dark World | Film | 2013 | MCU |
-| Captain America: The Winter Soldier | Film | 2014 | MCU |
-| Avengers: Age of Ultron | Film | 2015 | MCU |
-| Captain America: Civil War | Film | 2016 | MCU |
-| Doctor Strange | Film | 2016 | MCU |
-| Spider-Man: Homecoming | Film | 2017 | MCU |
-| Thor: Ragnarok | Film | 2017 | MCU |
-| Black Panther | Film | 2018 | MCU |
-| Avengers: Infinity War | Film | 2018 | MCU |
-| Avengers: Endgame | Film | 2019 | MCU |
-| Spider-Man: Far From Home | Film | 2019 | MCU |
-| Black Widow | Film | 2021 | MCU |
-| Shang-Chi and the Legend of the Ten Rings | Film | 2021 | MCU |
-| Spider-Man: No Way Home | Film | 2021 | MCU |
-| Loki, season 1 | Series | 2021 | MCU |
-| The Falcon and the Winter Soldier | Series | 2021 | MCU |
-| What If...? (added) | Animated series | 2021-2024 | MCU |
-| Doctor Strange in the Multiverse of Madness | Film | 2022 | MCU |
-| Thor: Love and Thunder (added) | Film | 2022 | MCU |
-| Black Panther: Wakanda Forever | Film | 2022 | MCU |
-| Ant-Man and the Wasp: Quantumania | Film | 2023 | MCU |
-| Loki, season 2 | Series | 2023 | MCU |
-| The Marvels | Film | 2023 | MCU |
-| Deadpool & Wolverine | Film | 2024 | MCU |
-| Captain America: Brave New World | Film | 2025 | MCU |
-| Thunderbolts\* | Film | 2025 | MCU |
-| The Fantastic Four: First Steps | Film | 2025 | MCU |
-| Spider-Man: Brand New Day (added) | Film | 2026 | MCU |
-| Avengers: Doomsday (added) | Film | 2026 (Dec 18, upcoming) | MCU |
-| X-Men | Film | 2000 | Fox X-Men |
-| X2 | Film | 2003 | Fox X-Men |
-| X-Men: The Last Stand | Film | 2006 | Fox X-Men |
-| X-Men Origins: Wolverine | Film | 2009 | Fox X-Men |
-| X-Men: First Class | Film | 2011 | Fox X-Men |
-| The Wolverine | Film | 2013 | Fox X-Men |
-| X-Men: Days of Future Past | Film | 2014 | Fox X-Men |
-| Deadpool | Film | 2016 | Fox X-Men |
-| X-Men: Apocalypse | Film | 2016 | Fox X-Men |
-| Logan | Film | 2017 | Fox X-Men |
-| Deadpool 2 | Film | 2018 | Fox X-Men |
-| Dark Phoenix | Film | 2019 | Fox X-Men |
-| The New Mutants | Film | 2020 | Fox X-Men |
-| X-Men '97 (added) | Animated series | 2024-2026 | MCU animation |
+"Reality" is the main reality the title is set in, as a Marvel Database Earth
+designation. It is curated, because Wikidata files the whole MCU under one universe
+and Marvel Database pages are per character, not per film. A character with its own
+screen version in another reality (e.g. the Raimi Green Goblin in No Way Home) keeps
+that reality; the title's reality is the default for everyone else.
+Rows marked † need review by the MCU expert:
+
+- Deadpool, Deadpool 2: Deadpool & Wolverine names Deadpool's home Earth-10005, while
+  some Marvel Database pages place the Deadpool films in Earth-TRN414.
+- X-Men: Days of Future Past, X-Men: Apocalypse, Dark Phoenix, The New Mutants: the
+  revised Fox timeline after Days of Future Past. Wikidata calls it Earth-TRN414, but the
+  Marvel Database no longer has that page and files the Fox films under Earth-10005, so
+  Earth-10005 is used.
+- What If...?: an anthology across many realities, so "Multiverse".
+
+| Title | Type | Year | Universe | Reality |
+| --- | --- | --- | --- | --- |
+| Iron Man | Film | 2008 | MCU | Earth-199999 |
+| Iron Man 2 | Film | 2010 | MCU | Earth-199999 |
+| Captain America: The First Avenger | Film | 2011 | MCU | Earth-199999 |
+| Thor | Film | 2011 | MCU | Earth-199999 |
+| The Avengers | Film | 2012 | MCU | Earth-199999 |
+| Iron Man 3 | Film | 2013 | MCU | Earth-199999 |
+| Thor: The Dark World | Film | 2013 | MCU | Earth-199999 |
+| Captain America: The Winter Soldier | Film | 2014 | MCU | Earth-199999 |
+| Avengers: Age of Ultron | Film | 2015 | MCU | Earth-199999 |
+| Captain America: Civil War | Film | 2016 | MCU | Earth-199999 |
+| Doctor Strange | Film | 2016 | MCU | Earth-199999 |
+| Spider-Man: Homecoming | Film | 2017 | MCU | Earth-199999 |
+| Thor: Ragnarok | Film | 2017 | MCU | Earth-199999 |
+| Black Panther | Film | 2018 | MCU | Earth-199999 |
+| Avengers: Infinity War | Film | 2018 | MCU | Earth-199999 |
+| Avengers: Endgame | Film | 2019 | MCU | Earth-199999 |
+| Spider-Man: Far From Home | Film | 2019 | MCU | Earth-199999 |
+| Black Widow | Film | 2021 | MCU | Earth-199999 |
+| Shang-Chi and the Legend of the Ten Rings | Film | 2021 | MCU | Earth-199999 |
+| Spider-Man: No Way Home | Film | 2021 | MCU | Earth-199999 |
+| Loki, season 1 | Series | 2021 | MCU | Earth-199999 |
+| The Falcon and the Winter Soldier | Series | 2021 | MCU | Earth-199999 |
+| What If...? (added) | Animated series | 2021-2024 | MCU | Multiverse † |
+| Doctor Strange in the Multiverse of Madness | Film | 2022 | MCU | Earth-199999 |
+| Thor: Love and Thunder (added) | Film | 2022 | MCU | Earth-199999 |
+| Black Panther: Wakanda Forever | Film | 2022 | MCU | Earth-199999 |
+| Ant-Man and the Wasp: Quantumania | Film | 2023 | MCU | Earth-199999 |
+| Loki, season 2 | Series | 2023 | MCU | Earth-199999 |
+| The Marvels | Film | 2023 | MCU | Earth-199999 |
+| Deadpool & Wolverine | Film | 2024 | MCU | Earth-10005 |
+| Captain America: Brave New World | Film | 2025 | MCU | Earth-199999 |
+| Thunderbolts\* | Film | 2025 | MCU | Earth-199999 |
+| The Fantastic Four: First Steps | Film | 2025 | MCU | Earth-828 |
+| Spider-Man: Brand New Day (added) | Film | 2026 | MCU | Earth-199999 |
+| Avengers: Doomsday (added) | Film | 2026 (Dec 18, upcoming) | MCU | Earth-199999 |
+| X-Men | Film | 2000 | Fox X-Men | Earth-10005 |
+| X2 | Film | 2003 | Fox X-Men | Earth-10005 |
+| X-Men: The Last Stand | Film | 2006 | Fox X-Men | Earth-10005 |
+| X-Men Origins: Wolverine | Film | 2009 | Fox X-Men | Earth-10005 |
+| X-Men: First Class | Film | 2011 | Fox X-Men | Earth-10005 |
+| The Wolverine | Film | 2013 | Fox X-Men | Earth-10005 |
+| X-Men: Days of Future Past | Film | 2014 | Fox X-Men | Earth-10005 † |
+| Deadpool | Film | 2016 | Fox X-Men | Earth-10005 † |
+| X-Men: Apocalypse | Film | 2016 | Fox X-Men | Earth-10005 † |
+| Logan | Film | 2017 | Fox X-Men | Earth-17315 |
+| Deadpool 2 | Film | 2018 | Fox X-Men | Earth-10005 † |
+| Dark Phoenix | Film | 2019 | Fox X-Men | Earth-10005 † |
+| The New Mutants | Film | 2020 | Fox X-Men | Earth-10005 † |
+| X-Men '97 (added) | Animated series | 2024-2026 | MCU animation | Earth-92131 |
 
 ### Tier 2: remaining MCU films and Disney+ series (second pass)
 

@@ -7,6 +7,7 @@ CLAUDE.md
 
 # Data folders (never commit collected or derived data)
 /source_data/
+/processed_data/
 
 # Python
 __pycache__/

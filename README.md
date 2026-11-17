@@ -30,6 +30,12 @@ Collected data is written to `source_data/`, which is not committed (see [Data l
 .venv\Scripts\python.exe -m src.source_data_collection.collect_characters     # character names, universes, variants
 ```
 
+Merged tables built from the collected data are written to `processed_data/` (not committed):
+
+```powershell
+.venv\Scripts\python.exe -m src.processing.build_characters                   # one character per reality, aliases, variant links
+```
+
 ## Tests
 
 ```powershell

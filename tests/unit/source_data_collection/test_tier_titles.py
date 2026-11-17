@@ -44,7 +44,8 @@ def test_reads_a_later_tier(plan_path):
 
 def test_row_fields(plan_path):
     assert load_tier_titles(plan_path, tier=1)[0] == {
-        "title": "Iron Man", "type": "Film", "year": 2008, "universe": "MCU"}
+        "title": "Iron Man", "type": "Film", "year": 2008, "universe": "MCU",
+        "needs_review": False}
 
 
 def test_year_is_first_year_of_a_range_or_annotated_value(plan_path):
@@ -61,6 +62,27 @@ def test_season_titles_get_series_season_type(plan_path):
 def test_missing_tier_raises(plan_path):
     with pytest.raises(ValueError):
         load_tier_titles(plan_path, tier=9)
+
+
+def test_optional_reality_column_is_read_by_header_name(tmp_path):
+    path = tmp_path / "plan.md"
+    path.write_text("### Tier 1: x\n\n| Title | Type | Year | Universe | Reality |\n"
+                    "| --- | --- | --- | --- | --- |\n| Logan | Film | 2017 | Fox X-Men | Earth-17315 |\n",
+                    encoding="utf-8")
+    assert load_tier_titles(path, tier=1) == [{"title": "Logan", "type": "Film", "year": 2017,
+                                               "universe": "Fox X-Men", "reality": "Earth-17315",
+                                               "needs_review": False}]
+
+
+def test_review_marker_is_stripped_and_flagged(tmp_path):
+    path = tmp_path / "plan.md"
+    path.write_text("### Tier 1: x\n\n| Title | Type | Year | Universe | Reality |\n"
+                    "| --- | --- | --- | --- | --- |\n"
+                    "| Deadpool | Film | 2016 | Fox X-Men | Earth-10005 † |\n"
+                    "| Logan | Film | 2017 | Fox X-Men | Earth-17315 |\n", encoding="utf-8")
+    deadpool, logan = load_tier_titles(path, tier=1)
+    assert deadpool["reality"] == "Earth-10005" and deadpool["needs_review"] is True
+    assert logan["needs_review"] is False
 
 
 def test_default_source_is_the_tracked_docs_file():
