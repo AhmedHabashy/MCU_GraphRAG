@@ -129,6 +129,13 @@ class JsonHttpClient:
 class FandomClient(JsonHttpClient):
     """Client for Fandom wikis (MediaWiki API at https://<wiki>.fandom.com/api.php)."""
 
+    def search(self, wiki, query, limit):
+        """Titles of the top full-text search hits."""
+        found = self.get_json(f"https://{wiki}.fandom.com/api.php", {
+            "action": "query", "list": "search", "srsearch": query, "srlimit": limit,
+            "format": "json"})
+        return [hit["title"] for hit in found["query"]["search"]]
+
     def lead(self, wiki, page):
         """Wikitext of the page's first section (where infoboxes live), or None if missing."""
         parsed = self.get_json(f"https://{wiki}.fandom.com/api.php", {

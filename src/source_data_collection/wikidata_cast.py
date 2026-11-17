@@ -8,7 +8,7 @@ Output: source_data/wikidata/tier1_cast.csv          (cast member / voice actor 
                                                        for people from either source)
 """
 
-from src.source_data_collection.build_title_registry import ENTITIES_PATH, WIKIDATA_LICENSE
+from src.source_data_collection.build_title_registry import ENTITIES_PATH, SEASON, WIKIDATA_LICENSE
 from src.source_data_collection.storage import read_json, write_csv, write_json
 from src.source_data_collection.tier_titles import PROJECT_ROOT
 from src.utils import claims_with_qualifiers, label
@@ -25,6 +25,7 @@ P_CHARACTER_ROLE = "P453"
 P_TMDB_PERSON_ID = "P4985"
 
 SPARQL_BATCH = 200
+VIA_PARENT_SERIES = "parent_series"
 
 
 def _provenance(qid, retrieved_at):
@@ -32,14 +33,26 @@ def _provenance(qid, retrieved_at):
             "retrieved_at": retrieved_at, "license": WIKIDATA_LICENSE}
 
 
-def cast_pairs(title, entity):
+def cast_pairs(title, entity, via=""):
     """One row per (actor, character) from cast member and voice actor claims."""
     pairs = []
     for pid in (P_CAST_MEMBER, P_VOICE_ACTOR):
         for actor, characters in claims_with_qualifiers(entity, pid, P_CHARACTER_ROLE):
             for character in characters or [""]:
                 pairs.append({"title": title["title"], "title_qid": title["wikidata_qid"],
-                              "actor_qid": actor, "character_qid": character, "property": pid})
+                              "actor_qid": actor, "character_qid": character, "property": pid,
+                              "via": via})
+    return pairs
+
+
+def title_cast_pairs(title, entities):
+    """The title's own cast; a TV season also gets its parent series' cast (via='parent_series'),
+    because Wikidata records season casts on the series. Which of those actors appear in the
+    season is decided later against the season's TMDB credits."""
+    pairs = cast_pairs(title, entities[title["wikidata_qid"]])
+    parent = title.get("parent_series_qid")
+    if title.get("type") == SEASON and parent in entities:
+        pairs += cast_pairs(title, entities[parent], via=VIA_PARENT_SERIES)
     return pairs
 
 
@@ -80,7 +93,7 @@ def _names(entity):
 
 def collect(titles, person_ids, client, retrieved_at):
     title_entities = read_json(ENTITIES_PATH)["entities"]
-    pairs = [p for t in titles for p in cast_pairs(t, title_entities[t["wikidata_qid"]])]
+    pairs = [p for t in titles for p in title_cast_pairs(t, title_entities)]
 
     qids = list(dict.fromkeys(q for p in pairs for q in (p["actor_qid"], p["character_qid"]) if q))
     entities = client.get_entities(qids, props="labels|aliases")

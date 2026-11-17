@@ -80,9 +80,11 @@ def test_almost_every_character_has_a_universe(characters):
 
 # --- Marvel Database: coverage and agreement with Wikidata ------------------------------
 
-def test_most_characters_link_to_the_marvel_database(characters):
-    assert share(sum(bool(r["marvel_db_page"]) for r in characters.values()),
-                 len(characters)) >= MIN_WITH_MARVEL_DB_ID
+def test_most_cast_role_characters_link_to_the_marvel_database(characters):
+    """Measured on Tier 1 cast roles; characters found via a performer include roles from other
+    titles and are only used to link credits by name."""
+    roles = [r for r in characters.values() if r["found_via"] == "cast_role"]
+    assert share(sum(bool(r["marvel_db_page"]) for r in roles), len(roles)) >= MIN_WITH_MARVEL_DB_ID
 
 
 def test_every_linked_marvel_database_page_was_fetched_or_reported_missing(characters, marvel_db):

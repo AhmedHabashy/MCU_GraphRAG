@@ -4,6 +4,7 @@ from src.source_data_collection.wikidata_cast import (
     ambiguous_person_ids,
     cast_pairs,
     person_qid_rows,
+    title_cast_pairs,
 )
 
 
@@ -25,6 +26,31 @@ def test_cast_pairs_reads_cast_and_voice_cast_with_each_character():
     assert [(p["actor_qid"], p["character_qid"], p["property"]) for p in pairs] == [
         ("Q1", "Q10", "P161"), ("Q2", "Q20", "P725"), ("Q2", "Q21", "P725"), ("Q3", "", "P725")]
     assert pairs[0]["title_qid"] == "Q65980671"
+
+
+def test_cast_pairs_mark_their_origin():
+    entity = {"claims": {"P161": [qualified("Q1", "Q10")]}}
+    assert cast_pairs(TITLE, entity)[0]["via"] == ""
+
+
+def test_season_also_takes_the_parent_series_cast_marked_as_such():
+    season = {"title": "Loki, season 1", "wikidata_qid": "Q107185252", "type": "Series season",
+              "parent_series_qid": "Q64349029"}
+    entities = {"Q107185252": {"claims": {}},
+                "Q64349029": {"claims": {"P161": [qualified("Q295803", "Q24046118"),
+                                                  qualified("Q8", "Q107723311")]}}}
+
+    pairs = title_cast_pairs(season, entities)
+
+    assert [(p["title_qid"], p["actor_qid"], p["character_qid"], p["via"]) for p in pairs] == [
+        ("Q107185252", "Q295803", "Q24046118", "parent_series"),
+        ("Q107185252", "Q8", "Q107723311", "parent_series")]
+
+
+def test_films_do_not_take_any_parent_cast():
+    film = {"title": "Iron Man", "wikidata_qid": "Q192724", "type": "Film", "parent_series_qid": ""}
+    entities = {"Q192724": {"claims": {"P161": [qualified("Q165219", "Q23894967")]}}}
+    assert [p["via"] for p in title_cast_pairs(film, entities)] == [""]
 
 
 class FakeSparqlClient:

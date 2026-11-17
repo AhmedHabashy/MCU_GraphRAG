@@ -151,8 +151,9 @@ def test_wikidata_cast_is_listed_by_tmdb(tmdb, wikidata, persons_by_qid):
     cannot be compared and are left out.
     """
     tmdb_people = {qid: {r["tmdb_person_id"] for r in rows} for qid, rows in by_title(tmdb).items()}
+    own_cast = [r for r in wikidata if not r["via"]]  # parent-series cast spans every season
     low = []
-    for title_qid, rows in by_title(wikidata).items():
+    for title_qid, rows in by_title(own_cast).items():
         linked = {r["actor_qid"] for r in rows if r["actor_qid"] in persons_by_qid}
         if not linked:
             continue

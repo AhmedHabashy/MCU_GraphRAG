@@ -155,6 +155,17 @@ def test_fandom_lead_returns_first_section_with_revision():
     assert params["page"] == "Anthony Stark (Earth-199999)" and params["section"] == 0
 
 
+def test_fandom_search_returns_page_titles():
+    payload = {"query": {"search": [{"title": "Katy Chen"}, {"title": "Katy (disambiguation)"}]}}
+    session = FakeSession([FakeResponse(200, payload=payload)])
+    client = FandomClient(session=session, sleep=lambda _s: None)
+
+    assert client.search("marvelcinematicuniverse", "Katy", limit=2) == ["Katy Chen", "Katy (disambiguation)"]
+    url, params = session.calls[0]
+    assert url == "https://marvelcinematicuniverse.fandom.com/api.php"
+    assert params["srsearch"] == "Katy" and params["srlimit"] == 2
+
+
 def test_fandom_lead_is_none_for_missing_pages():
     session = FakeSession([FakeResponse(200, payload={"error": {"code": "missingtitle"}})])
     assert FandomClient(session=session, sleep=lambda _s: None).lead("marvel", "Nope") is None

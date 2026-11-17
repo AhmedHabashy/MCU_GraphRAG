@@ -14,7 +14,9 @@ from src.processing.build_characters import (
 from src.processing.realities import MCU, marvel_db_page_of, reality_of_marvel_db_earth
 from src.source_data_collection.build_title_registry import REGISTRY_PATH
 from src.source_data_collection.cast_matching import normalize_name
-from src.source_data_collection.collect_characters import MARVEL_DB_PATH, SELF_QID, earth_of
+from src.source_data_collection.collect_characters import (
+    CHARACTERS_PATH as COLLECTED_CHARACTERS_PATH, MARVEL_DB_PATH, SELF_QID, earth_of,
+)
 from src.source_data_collection.storage import read_csv
 from src.source_data_collection.tmdb_cast import TMDB_CAST_PATH
 from src.source_data_collection.wikidata_cast import WIKIDATA_CAST_PATH
@@ -23,7 +25,7 @@ from src.utils import FandomClient
 pytestmark = pytest.mark.validation
 
 TOP_BILLED = 10
-MIN_TOP_BILLED_LINKED = 0.80
+MIN_TOP_BILLED_LINKED = 0.90
 MIN_VOTES_FOR_REALITY_CHECK = 3
 MIN_VOTE_SHARE_FOR_REALITY_CHECK = 0.75
 
@@ -119,7 +121,7 @@ def test_main_mcu_is_earth_616(titles):
 
 def test_every_wikidata_cast_role_has_a_character(performances):
     roles = {(r["title_qid"], r["actor_qid"], r["character_qid"]) for r in read_csv(WIKIDATA_CAST_PATH)
-             if r["character_qid"] and r["character_qid"] != SELF_QID}
+             if r["character_qid"] and r["character_qid"] != SELF_QID and not r["via"]}
     resolved = {(p["title_qid"], p["actor_qid"], p["base_qid"]) for p in performances if p["character_id"]}
     assert sorted(roles - resolved)[:20] == []
 
@@ -144,7 +146,7 @@ def test_every_character_has_its_label_as_an_alias(characters, aliases):
 
 def test_every_alias_names_its_source(aliases):
     sources = {r["source"] for rows in aliases.values() for r in rows}
-    assert sources <= {"wikidata", "marvel_database", "tmdb"} and "tmdb" in sources
+    assert sources == {"wikidata", "marvel_database", "tmdb", "mcu_wiki"}
 
 
 # --- Acceptance criteria: identity and variants --------------------------------------
@@ -181,6 +183,46 @@ def test_loki_is_marked_different_from_sylvie(performances, characters, links):
     assert loki
     assert any(l["relation"] == "different_from" and l["from_id"] in loki
                and l["to_label"] == "Sylvie" for l in links)
+
+
+# --- Character gaps: parent-series cast, performer and MCU wiki identities ----------------
+
+LOKI_S1, LOKI_S2 = "Q107185252", "Q112610403"
+
+
+@pytest.mark.parametrize("actor", ["Sophia Di Martino", "Owen Wilson", "Wunmi Mosaku"])
+def test_loki_supporting_characters_are_one_character_across_both_seasons(performances, actor):
+    """Sylvie (credited as 'The Variant' in season 1), Mobius and B-15."""
+    s1, s2 = role(performances, LOKI_S1, actor), role(performances, LOKI_S2, actor)
+    assert len(s1) == 1 and s1 == s2
+
+
+def test_sylvie_is_linked_through_the_parent_series_cast(performances, characters):
+    [sylvie] = role(performances, LOKI_S1, "Sophia Di Martino")
+    assert characters[sylvie]["label"] == "Sylvie"
+
+
+@pytest.mark.parametrize("title_qid, actor", [
+    ("Q65768589", "Awkwafina"),            # Katy, Shang-Chi
+    ("Q65768589", "Michelle Yeoh"),        # Ying Nan, Shang-Chi
+    ("Q89474225", "Zawe Ashton"),          # Dar-Benn, The Marvels
+    ("Q102180106", "Matthew Macfadyen"),   # Mr. Paradox, Deadpool & Wolverine
+])
+def test_supporting_characters_without_wikidata_items_are_linked(performances, title_qid, actor):
+    assert role(performances, title_qid, actor)
+
+
+def test_parent_series_roles_only_count_for_actors_credited_in_that_season(performances):
+    """Wikidata's Loki series cast spans both seasons; Ke Huy Quan (OB) is only in season 2."""
+    assert not role(performances, LOKI_S1, "Ke Huy Quan")
+    assert not [p for p in performances if p["via"]]
+
+
+def test_mcu_wiki_identity_is_only_used_without_a_wikidata_character(characters):
+    collected = {c["mcu_wiki_page"].replace("_", " ")
+                 for c in read_csv(COLLECTED_CHARACTERS_PATH) if c["mcu_wiki_page"]}
+    assert sorted(c["mcu_wiki_page"] for c in characters.values()
+                  if c["identity_source"] == "mcu_wiki" and c["mcu_wiki_page"] in collected) == []
 
 
 def test_no_comics_data_in_the_table(characters, links):

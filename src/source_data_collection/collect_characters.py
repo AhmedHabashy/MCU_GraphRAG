@@ -18,7 +18,7 @@ import re
 from src.source_data_collection.build_title_registry import WIKIDATA_LICENSE
 from src.source_data_collection.storage import read_csv, utc_now, write_csv, write_json
 from src.source_data_collection.tier_titles import PROJECT_ROOT
-from src.source_data_collection.wikidata_cast import WIKIDATA_CAST_PATH
+from src.source_data_collection.wikidata_cast import PERSON_QIDS_PATH, WIKIDATA_CAST_PATH
 from src.source_data_collection.wikitext import infobox_params, name_list, plain_text
 from src.utils import FandomClient, WikimediaClient, claim_values, fandom_url, label
 
@@ -31,6 +31,8 @@ MARVEL_DB_PATH = FANDOM_DIR / "tier1_marvel_database.csv"
 
 FANDOM_LICENSE = "CC BY-SA 3.0"
 MARVEL_DB_WIKI = "marvel"
+MCU_WIKI = "marvelcinematicuniverse"
+SPARQL_BATCH = 200
 MARVEL_DB_TEMPLATE = "Marvel Database:Character Template"
 SELF_QID = "Q18086706"  # generic "self" item used for people playing themselves
 
@@ -51,9 +53,37 @@ MARVEL_DB_COMICS_EARTH = "Earth-616"  # the Marvel Database's comics universe
 _EARTH = re.compile(r"\((Earth-[^)]+)\)$")
 
 
-def character_qids(cast_rows):
-    return list(dict.fromkeys(r["character_qid"] for r in cast_rows
-                              if r["character_qid"] and r["character_qid"] != SELF_QID))
+def character_qids(cast_rows, performed=()):
+    """Characters to collect: cast roles first, then characters performed by Tier 1 actors."""
+    roles = [r["character_qid"] for r in cast_rows
+             if r["character_qid"] and r["character_qid"] != SELF_QID]
+    return list(dict.fromkeys([*roles, *performed]))
+
+
+def performed_character_qids(actor_qids, client, batch_size=SPARQL_BATCH):
+    """Wikidata items whose performer (P175) is one of the actors."""
+    found = []
+    for i in range(0, len(actor_qids), batch_size):
+        values = " ".join(f"wd:{a}" for a in actor_qids[i:i + batch_size])
+        found += [r["c"] for r in client.sparql(
+            f"SELECT DISTINCT ?c WHERE {{ VALUES ?actor {{ {values} }} ?c wdt:{P_PERFORMER} ?actor }}")]
+    return list(dict.fromkeys(found))
+
+
+def universe_pages_from(related):
+    """Wikidata universe item -> its Marvel Database Earth page (from P6262 'marvel:...')."""
+    pages = {}
+    for qid, entity in related.items():
+        found = _fandom_pages(entity, MARVEL_DB_WIKI)
+        if found:
+            pages[qid] = found[0]
+    return pages
+
+
+def is_marvel_screen_item(entity, universe_pages):
+    """In a Marvel universe that is not the comics (films, series, animation)."""
+    return any(universe_pages.get(q, MARVEL_DB_COMICS_EARTH) != MARVEL_DB_COMICS_EARTH
+               for q in claim_values(entity, P_NARRATIVE_UNIVERSE))
 
 
 def _fandom_pages(entity, wiki):
@@ -118,6 +148,7 @@ def character_row(entity, related, retrieved_at):
         "different_from_labels": labels(P_DIFFERENT_FROM),
         "performer_qids": _joined(claim_values(entity, P_PERFORMER)),
         "marvel_db_page": marvel_db_page(entity),
+        "mcu_wiki_page": next(iter(_fandom_pages(entity, MCU_WIKI)), ""),
         "source": "wikidata",
         "source_url": f"https://www.wikidata.org/wiki/{qid}",
         "retrieved_at": retrieved_at,
@@ -151,15 +182,24 @@ def main():
     retrieved_at = utc_now()
     wikimedia, fandom = WikimediaClient(), FandomClient()
 
-    qids = character_qids(read_csv(WIKIDATA_CAST_PATH))
-    entities = wikimedia.get_entities(qids, props="labels|aliases|descriptions|claims")
+    roles = character_qids(read_csv(WIKIDATA_CAST_PATH))
+    actors = list(dict.fromkeys(r["actor_qid"] for r in read_csv(PERSON_QIDS_PATH)))
+    performed = [q for q in performed_character_qids(actors, wikimedia) if q not in set(roles)]
+    entities = wikimedia.get_entities(character_qids([], [*roles, *performed]),
+                                      props="labels|aliases|descriptions|claims")
     related = wikimedia.get_entities(linked_qids(entities), props="labels|aliases|claims")
+    pages = universe_pages_from(related)
+    kept = [*roles, *(q for q in performed if q in entities and is_marvel_screen_item(entities[q], pages))]
+    entities = {q: entities[q] for q in kept if q in entities}
     write_json(CHARACTER_ENTITIES_PATH, {"retrieved_at": retrieved_at, "source": "wikidata",
                                          "license": WIKIDATA_LICENSE,
                                          "characters": entities, "related": related})
-    rows = [character_row(entities[q], related, retrieved_at) for q in qids if q in entities]
+    rows = [{**character_row(entities[q], related, retrieved_at),
+             "found_via": "cast_role" if q in set(roles) else "performer"}
+            for q in kept if q in entities]
     write_csv(CHARACTERS_PATH, rows)
-    print(f"Wikidata: {len(rows)} characters, {len(related)} linked items", flush=True)
+    print(f"Wikidata: {len(rows)} characters ({len(rows) - len(roles)} via performer), "
+          f"{len(related)} linked items", flush=True)
 
     marvel_rows = []
     for row in rows:

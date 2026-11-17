@@ -4,9 +4,12 @@ from src.source_data_collection.collect_characters import (
     character_qids,
     character_row,
     earth_of,
+    is_marvel_screen_item,
     linked_qids,
     marvel_db_page,
     marvel_db_row,
+    performed_character_qids,
+    universe_pages_from,
     wants_marvel_db_page,
 )
 
@@ -69,8 +72,48 @@ def test_character_row_flattens_names_universes_and_variant_links():
     assert row["different_from_labels"] == "Sylvie"
     assert row["performer_qids"] == "Q295803"
     assert row["marvel_db_page"] == "Loki Laufeyson (Earth-199999)"
+    assert row["mcu_wiki_page"] == "Loki"
     assert row["source_url"] == "https://www.wikidata.org/wiki/Q24046118"
     assert row["license"] == "CC0-1.0"
+
+
+UNIVERSES = {"Q642878": {"claims": {"P6262": [string("marvel:Earth-199999")]}},
+             "Q2246088": {"claims": {"P6262": [string("marvel:Earth-616")]}},
+             "Q57317071": {"claims": {"P6262": [string("marvel:Earth-10005")]}},
+             "Q1": {"claims": {}}}
+
+
+def test_universe_pages_map_universe_items_to_their_marvel_database_earth():
+    assert universe_pages_from(UNIVERSES) == {"Q642878": "Earth-199999", "Q2246088": "Earth-616",
+                                              "Q57317071": "Earth-10005"}
+
+
+def test_marvel_screen_characters_are_in_a_non_comics_marvel_universe():
+    pages = universe_pages_from(UNIVERSES)
+    assert is_marvel_screen_item({"claims": {"P1080": [item("Q642878")]}}, pages)       # MCU
+    assert is_marvel_screen_item({"claims": {"P1080": [item("Q57317071")]}}, pages)     # Fox
+    assert not is_marvel_screen_item({"claims": {"P1080": [item("Q2246088")]}}, pages)  # comics
+    assert not is_marvel_screen_item({"claims": {"P1080": [item("Q1")]}}, pages)        # not Marvel
+
+
+class FakeSparql:
+    def __init__(self, rows):
+        self.rows, self.queries = rows, []
+
+    def sparql(self, query):
+        self.queries.append(query)
+        return self.rows
+
+
+def test_performed_characters_are_looked_up_by_performer_in_batches():
+    client = FakeSparql([{"c": "Q106706981"}, {"c": "Q106706981"}])
+    assert performed_character_qids(["Q1", "Q2", "Q3"], client, batch_size=2) == ["Q106706981"]
+    assert len(client.queries) == 2 and "wdt:P175" in client.queries[0] and "wd:Q1 wd:Q2" in client.queries[0]
+
+
+def test_character_qids_list_cast_roles_first_then_performed_characters():
+    rows = [{"character_qid": "Q1"}, {"character_qid": "Q2"}]
+    assert character_qids(rows, performed=["Q2", "Q3"]) == ["Q1", "Q2", "Q3"]
 
 
 def test_comics_pages_are_not_fetched():
