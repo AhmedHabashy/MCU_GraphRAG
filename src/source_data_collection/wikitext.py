@@ -84,6 +84,39 @@ def episode_entries(wikitext):
     return episodes
 
 
+def infobox_params(wikitext, template_name):
+    """Non-empty parameters of the first `template_name` template, as raw wikitext."""
+    wanted = template_name.lower()
+    for template in mwparserfromhell.parse(wikitext).filter_templates():
+        if str(template.name).strip().lower() == wanted:
+            return {str(p.name).strip(): str(p.value).strip()
+                    for p in template.params if str(p.value).strip()}
+    return {}
+
+
+_LINK_TEMPLATES = {"m"}  # Marvel Database {{m|Page|Shown text}}
+_LIST_SEPARATORS = re.compile(r"\n|\*|<br\s*/?>|;|,")
+_STATUS_PREFIX = re.compile(r"^(formerly|currently|former|current)\s*:?\s*", re.IGNORECASE)
+
+
+def name_list(value):
+    """Split an infobox list (bullets, line breaks, ';' or ',') into plain names."""
+    code = mwparserfromhell.parse(value)
+    for template in code.filter_templates(recursive=False):
+        name = str(template.name).strip().lower()
+        if name in _LINK_TEMPLATES and template.params:
+            shown = template.params[1] if len(template.params) > 1 else template.params[0]
+            code.replace(template, str(shown.value))
+        else:
+            code.remove(template)
+    names = []
+    for piece in _LIST_SEPARATORS.split(str(code)):
+        name = _STATUS_PREFIX.sub("", plain_text(piece)).strip()
+        if name:
+            names.append(name)
+    return names
+
+
 def transcluded_pages(wikitext):
     """Pages pulled in with {{:Page name}}."""
     return [str(t.name).strip()[1:].strip()

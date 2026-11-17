@@ -27,6 +27,7 @@ Collected data is written to `source_data/`, which is not committed (see [Data l
 .venv\Scripts\python.exe -m src.source_data_collection.build_title_registry   # titles, QIDs, crosswalk IDs
 .venv\Scripts\python.exe -m src.source_data_collection.collect_cast           # cast from TMDB, Wikidata, Wikipedia
 .venv\Scripts\python.exe -m src.source_data_collection.collect_plots          # plot and episode summaries
+.venv\Scripts\python.exe -m src.source_data_collection.collect_characters     # character names, universes, variants
 ```
 
 ## Tests
@@ -48,7 +49,8 @@ the volunteers and teams who maintain these sources.
 | [Wikidata](https://www.wikidata.org/) | Titles, IDs, cast, characters, dates | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | In use |
 | [Wikipedia](https://en.wikipedia.org/) | Plot summaries, cast sections | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/); text from Wikipedia contributors | In use |
 | [TMDB](https://www.themoviedb.org/) | Cast and character credits, billing order, ID crosswalk | [TMDB API Terms of Use](https://www.themoviedb.org/api-terms-of-use) | In use |
-| [Marvel Cinematic Universe Wiki / Marvel Database](https://marvelcinematicuniverse.fandom.com/) (Fandom) | Aliases, affiliations, variants, in-universe timeline | [CC BY-SA](https://www.fandom.com/licensing) | Planned |
+| [Marvel Database](https://marvel.fandom.com/) (Fandom) | Character names, aliases, reality (Earth designation), affiliations | [CC BY-SA 3.0](https://www.fandom.com/licensing); text from Marvel Database contributors | In use |
+| [Marvel Cinematic Universe Wiki](https://marvelcinematicuniverse.fandom.com/) (Fandom) | In-universe timeline, team details | [CC BY-SA 3.0](https://www.fandom.com/licensing) | Planned |
 | [Comic Vine](https://comicvine.gamespot.com/api/) | Comic storylines and issues (metadata only) | Comic Vine API terms | Planned |
 | [Grand Comics Database](https://www.comics.org/) | Issue-level character appearances | GCD data license (to be checked before use) | Planned |
 | Box Office Mojo / The Numbers | Spot checks of box office figures only; no data redistributed | Site terms | Planned |

@@ -89,6 +89,10 @@ def enwiki_url(page):
     return f"https://en.wikipedia.org/wiki/{page.replace(' ', '_')}"
 
 
+def fandom_url(wiki, page):
+    return f"https://{wiki}.fandom.com/wiki/{page.replace(' ', '_')}"
+
+
 def _chunks(items, size):
     for i in range(0, len(items), size):
         yield items[i:i + size]
@@ -120,6 +124,21 @@ class JsonHttpClient:
             self.sleep(float(response.headers.get("Retry-After", 2 ** attempt)))
         raise RuntimeError(f"{url} still failing after {MAX_ATTEMPTS} attempts "
                            f"(last status {response.status_code})")
+
+
+class FandomClient(JsonHttpClient):
+    """Client for Fandom wikis (MediaWiki API at https://<wiki>.fandom.com/api.php)."""
+
+    def lead(self, wiki, page):
+        """Wikitext of the page's first section (where infoboxes live), or None if missing."""
+        parsed = self.get_json(f"https://{wiki}.fandom.com/api.php", {
+            "action": "parse", "page": page.replace("_", " "), "prop": "wikitext|revid",
+            "section": 0, "redirects": 1, "format": "json"})
+        if "error" in parsed:
+            return None
+        title = parsed["parse"]["title"]
+        return {"page": title, "revid": parsed["parse"]["revid"],
+                "wikitext": parsed["parse"]["wikitext"]["*"], "url": fandom_url(wiki, title)}
 
 
 class WikimediaClient(JsonHttpClient):

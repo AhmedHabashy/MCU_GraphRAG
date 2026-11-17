@@ -2,6 +2,8 @@
 
 from src.source_data_collection.wikitext import (
     episode_entries,
+    infobox_params,
+    name_list,
     plain_text,
     transcluded_pages,
 )
@@ -108,6 +110,42 @@ def test_single_episode_is_part_one_of_one():
 def test_episode_entries_leave_missing_fields_blank():
     episode = episode_entries("{{Episode list |EpisodeNumber = 4 |Title = TBA }}")[0]
     assert episode["summary_text"] == "" and episode["air_date"] == ""
+
+
+# --- infobox_params / name_list --------------------------------------------------
+
+LEAD = """{{Otheruses}}
+{{Marvel Database:Character Template
+| Name     = [[Tony Stark|Anthony Edward "Tony" Stark]]
+| CurrentAlias = Iron Man
+| Aliases  = * Howard Potts{{r|Avengers: Endgame}} * The Mechanic{{r|Iron Man 3 (film)}}
+| Reality  = [[Earth-199999]]
+| Empty    =
+}}
+'''Tony Stark''' was a billionaire."""
+
+
+def test_infobox_params_reads_the_named_template_only():
+    params = infobox_params(LEAD, "Marvel Database:Character Template")
+    assert params["CurrentAlias"] == "Iron Man"
+    assert params["Reality"] == "[[Earth-199999]]"
+    assert "Empty" not in params
+
+
+def test_infobox_params_is_empty_without_the_template():
+    assert infobox_params("{{Otheruses}} text", "Marvel Database:Character Template") == {}
+
+
+def test_name_list_splits_bullets_breaks_and_commas_and_drops_refs():
+    assert name_list("* Howard Potts{{r|Avengers: Endgame}} * The Mechanic{{r|x}}") == \
+        ["Howard Potts", "The Mechanic"]
+    assert name_list("Logan, Weapon X<br>Patch; ''Jim''") == ["Logan", "Weapon X", "Patch", "Jim"]
+
+
+def test_name_list_keeps_link_template_text_and_drops_status_prefixes():
+    """{{m|Page}} / {{m|Page|Shown}} is the Marvel Database link template."""
+    assert name_list("Formerly: * {{m|Avengers}} * [[X-Men]] * {{m|Strategic Homeland|S.H.I.E.L.D.}}") \
+        == ["Avengers", "X-Men", "S.H.I.E.L.D."]
 
 
 # --- transcluded_pages ----------------------------------------------------------

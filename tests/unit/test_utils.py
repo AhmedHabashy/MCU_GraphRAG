@@ -3,6 +3,7 @@
 import pytest
 
 from src.utils import (
+    FandomClient,
     JsonHttpClient,
     WikimediaClient,
     claim_values,
@@ -134,6 +135,29 @@ def test_claims_with_qualifiers_lists_every_claim_and_qualifier():
     entity = {"claims": {"P161": [qualified("Q1", "Q10", "Q11"), item_snak("Q2")]}}
     assert claims_with_qualifiers(entity, "P161", "P453") == [
         ("Q1", ["Q10", "Q11"]), ("Q2", [])]
+
+
+# --- FandomClient -----------------------------------------------------------
+
+def test_fandom_lead_returns_first_section_with_revision():
+    payload = {"parse": {"title": "Anthony Stark (Earth-199999)", "revid": 11251179,
+                         "wikitext": {"*": "{{Marvel Database:Character Template}}"}}}
+    session = FakeSession([FakeResponse(200, payload=payload)])
+    client = FandomClient(session=session, sleep=lambda _s: None)
+
+    lead = client.lead("marvel", "Anthony_Stark_(Earth-199999)")
+
+    assert lead == {"page": "Anthony Stark (Earth-199999)", "revid": 11251179,
+                    "wikitext": "{{Marvel Database:Character Template}}",
+                    "url": "https://marvel.fandom.com/wiki/Anthony_Stark_(Earth-199999)"}
+    url, params = session.calls[0]
+    assert url == "https://marvel.fandom.com/api.php"
+    assert params["page"] == "Anthony Stark (Earth-199999)" and params["section"] == 0
+
+
+def test_fandom_lead_is_none_for_missing_pages():
+    session = FakeSession([FakeResponse(200, payload={"error": {"code": "missingtitle"}})])
+    assert FandomClient(session=session, sleep=lambda _s: None).lead("marvel", "Nope") is None
 
 
 # --- label ------------------------------------------------------------------
