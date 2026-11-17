@@ -1,0 +1,13 @@
+/my_plan/
+/mcu_explained/
+/.venv/
+.env
+/.claude/
+CLAUDE.md
+
+# Data folders (never commit collected or derived data)
+/source_data/
+
+# Python
+__pycache__/
+.pytest_cache/
