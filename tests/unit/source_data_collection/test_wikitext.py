@@ -1,0 +1,118 @@
+"""Unit tests for src/source_data_collection/wikitext.py."""
+
+from src.source_data_collection.wikitext import (
+    episode_entries,
+    plain_text,
+    transcluded_pages,
+)
+
+
+# --- plain_text -----------------------------------------------------------------
+
+def test_plain_text_keeps_link_display_text_and_drops_markup():
+    wikitext = ("== Plot ==\n[[Loki (Marvel Cinematic Universe)|Loki]] is arrested in 2012."
+                "{{efn|As in ''[[Avengers: Endgame]]''}} The [[Time Variance Authority]]"
+                "<ref name=a>{{cite web|title=x}}</ref> resets the ''Sacred'' timeline."
+                "<!-- hidden note -->")
+    assert plain_text(wikitext) == \
+        "Loki is arrested in 2012. The Time Variance Authority resets the Sacred timeline."
+
+
+def test_plain_text_keeps_paragraph_breaks():
+    assert plain_text("First paragraph.\n\nSecond  paragraph.") == \
+        "First paragraph.\n\nSecond paragraph."
+
+
+# --- episode_entries ------------------------------------------------------------
+
+EPISODE_TABLE = """<onlyinclude>{{Episode table |background=#754925 |episodes=
+{{Episode list/sublist|Loki season 1
+ |EpisodeNumber   = 1
+ |EpisodeNumber2  = 1
+ |Title           = [[Glorious Purpose (Loki season 1)|Glorious Purpose]]
+ |OriginalAirDate = {{Start date|2021|6|9}}
+ |ShortSummary    = [[Loki (Marvel Cinematic Universe)|Loki]] is arrested by the TVA.
+}}
+{{Episode list/sublist|Loki season 1
+ |EpisodeNumber   = 2
+ |EpisodeNumber2  = 2
+ |Title           = The Variant
+ |OriginalAirDate = {{Start date|2021|6|16}}
+ |ShortSummary    = Mobius recruits Loki.
+}}
+}}</onlyinclude>"""
+
+
+def test_episode_entries_read_each_episode_list_template():
+    episodes = episode_entries(EPISODE_TABLE)
+
+    assert [(e["number_overall"], e["number_in_season"], e["title"], e["air_date"])
+            for e in episodes] == [(1, 1, "Glorious Purpose", "2021-06-09"),
+                                   (2, 2, "The Variant", "2021-06-16")]
+    assert episodes[0]["summary_text"] == "Loki is arrested by the TVA."
+    assert "[[Loki (Marvel Cinematic Universe)|Loki]]" in episodes[0]["summary_wikitext"]
+
+
+def test_episode_entries_use_episode_number_when_there_is_no_season_number():
+    wikitext = """{{Episode list
+ |EpisodeNumber = 3
+ |Title = Power Broker
+ |OriginalAirDate = {{Start date|2021|4|2}}
+ |ShortSummary = Sam and Bucky go to Madripoor.
+}}"""
+    episode = episode_entries(wikitext)[0]
+    assert (episode["number_overall"], episode["number_in_season"]) == (3, 3)
+
+
+def test_multi_part_entry_with_numbered_parts_gives_one_episode_per_part():
+    wikitext = """{{Episode list/sublist|X-Men '97 season 1
+ |EpisodeNumber_1 = 8
+ |EpisodeNumber2_1 = 8
+ |EpisodeNumber_2 = 9
+ |EpisodeNumber2_2 = 9
+ |Title = Tolerance Is Extinction
+ |OriginalAirDate_1 = {{Start date|2024|05|01}}
+ |OriginalAirDate_2 = {{Start date|2024|05|08}}
+ |ShortSummary = Bastion attacks.
+ |NumParts = 2
+}}"""
+    episodes = episode_entries(wikitext)
+
+    assert [(e["number_overall"], e["number_in_season"], e["title"], e["air_date"],
+             e["part"], e["num_parts"], e["summary_text"]) for e in episodes] == [
+        (8, 8, "Tolerance Is Extinction", "2024-05-01", 1, 2, "Bastion attacks."),
+        (9, 9, "Tolerance Is Extinction", "2024-05-08", 2, 2, "Bastion attacks.")]
+
+
+def test_multi_part_entry_with_one_number_is_one_episode_with_joined_titles():
+    wikitext = """{{Episode list/sublist|X-Men '97 season 1
+ |EpisodeNumber = 4
+ |EpisodeNumber2 = 4
+ |Title_1 = Motendo
+ |Title_2 = Lifedeath – Part 1
+ |OriginalAirDate = {{Start date|2024|04|03}}
+ |ShortSummary = Jubilee and Roberto are trapped in a game.
+ |NumParts = 2
+}}"""
+    [episode] = episode_entries(wikitext)
+
+    assert (episode["number_in_season"], episode["title"], episode["part"], episode["num_parts"]) \
+        == (4, "Motendo / Lifedeath – Part 1", 1, 1)
+
+
+def test_single_episode_is_part_one_of_one():
+    episode = episode_entries("{{Episode list |EpisodeNumber = 1 |Title = A }}")[0]
+    assert (episode["part"], episode["num_parts"]) == (1, 1)
+
+
+def test_episode_entries_leave_missing_fields_blank():
+    episode = episode_entries("{{Episode list |EpisodeNumber = 4 |Title = TBA }}")[0]
+    assert episode["summary_text"] == "" and episode["air_date"] == ""
+
+
+# --- transcluded_pages ----------------------------------------------------------
+
+def test_transcluded_pages_lists_pages_pulled_in_with_colon_syntax():
+    wikitext = ("=== Season 1 (2021) ===\n{{Main|What If...? season 1}}\n"
+                "{{:What If...? season 1}}\n=== Season 2 ===\n{{:What If...? season 2}}")
+    assert transcluded_pages(wikitext) == ["What If...? season 1", "What If...? season 2"]

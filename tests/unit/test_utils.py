@@ -3,8 +3,10 @@
 import pytest
 
 from src.utils import (
+    JsonHttpClient,
     WikimediaClient,
     claim_values,
+    claims_with_qualifiers,
     earliest_year,
     label,
     qualifier_value,
@@ -123,6 +125,17 @@ def test_qualifier_value_is_none_without_the_claim():
     assert qualifier_value({"claims": {}}, "P179", "P1545") == (None, None)
 
 
+def qualified(qid, *roles):
+    return {**item_snak(qid), "qualifiers": {"P453": [
+        {"datavalue": {"type": "wikibase-entityid", "value": {"id": r}}} for r in roles]}}
+
+
+def test_claims_with_qualifiers_lists_every_claim_and_qualifier():
+    entity = {"claims": {"P161": [qualified("Q1", "Q10", "Q11"), item_snak("Q2")]}}
+    assert claims_with_qualifiers(entity, "P161", "P453") == [
+        ("Q1", ["Q10", "Q11"]), ("Q2", [])]
+
+
 # --- label ------------------------------------------------------------------
 
 def test_label_prefers_english():
@@ -171,6 +184,67 @@ def test_client_gives_up_after_max_retries():
     client, _ = make_client([FakeResponse(503)] * 10)
     with pytest.raises(RuntimeError):
         client.get_json("https://example.org/api", {})
+
+
+def test_client_errors_never_include_request_parameters():
+    """Parameters can hold secrets (TMDB api_key), so errors name only the URL."""
+    client = JsonHttpClient(session=FakeSession([FakeResponse(401)]), sleep=lambda _s: None)
+    with pytest.raises(RuntimeError) as error:
+        client.get_json("https://api.example.org/3/movie/1", {"api_key": "SECRET"})
+    assert "SECRET" not in str(error.value)
+    assert "401" in str(error.value)
+
+
+# --- WikimediaClient: sparql ------------------------------------------------
+
+def test_sparql_returns_bindings_as_plain_values():
+    payload = {"results": {"bindings": [
+        {"actor": {"type": "uri", "value": "http://www.wikidata.org/entity/Q165219"},
+         "tmdb": {"type": "literal", "value": "3223"}}]}}
+    client, session = make_client([FakeResponse(200, payload=payload)])
+
+    rows = client.sparql("SELECT ...")
+
+    assert rows == [{"actor": "Q165219", "tmdb": "3223"}]
+    assert session.calls[0][0] == "https://query.wikidata.org/sparql"
+
+
+# --- WikimediaClient: top_level_section -------------------------------------
+
+def test_top_level_section_returns_wikitext_of_first_matching_heading():
+    sections = {"parse": {"title": "Loki season 2", "revid": 1376841848, "sections": [
+        {"index": "1", "line": "Episodes", "toclevel": 1},
+        {"index": "6", "line": "Casting", "toclevel": 2},
+        {"index": "2", "line": "Cast and characters", "toclevel": 1}]}}
+    wikitext = {"parse": {"title": "Loki season 2", "wikitext": {"*": "* [[Tom Hiddleston]] as Loki"}}}
+    client, session = make_client([FakeResponse(200, payload=sections),
+                                   FakeResponse(200, payload=wikitext)])
+
+    section = client.top_level_section("Loki season 2", prefix="Cast")
+
+    assert section == {"page": "Loki season 2", "revid": 1376841848,
+                       "heading": "Cast and characters",
+                       "index": "2", "wikitext": "* [[Tom Hiddleston]] as Loki"}
+    assert session.calls[1][1]["section"] == "2"
+    assert session.calls[1][1]["oldid"] == 1376841848  # text from the same revision
+
+
+def test_top_level_section_prefers_earlier_prefixes_over_page_order():
+    sections = {"parse": {"title": "F", "revid": 7, "sections": [
+        {"index": "1", "line": "Premise", "toclevel": 1},
+        {"index": "2", "line": "Plot", "toclevel": 1}]}}
+    wikitext = {"parse": {"title": "F", "wikitext": {"*": "== Plot =="}}}
+    client, _ = make_client([FakeResponse(200, payload=sections),
+                             FakeResponse(200, payload=wikitext)])
+
+    assert client.top_level_section("F", prefix=("Plot", "Premise"))["heading"] == "Plot"
+
+
+def test_top_level_section_is_none_when_heading_absent():
+    sections = {"parse": {"title": "X", "revid": 1, "sections": [
+        {"index": "1", "line": "Plot", "toclevel": 1}]}}
+    client, _ = make_client([FakeResponse(200, payload=sections)])
+    assert client.top_level_section("X", prefix="Cast") is None
 
 
 # --- WikimediaClient: resolve_enwiki_titles ---------------------------------

@@ -64,7 +64,7 @@ Notes on the list:
 | Spider-Man: No Way Home | Film | 2021 | MCU |
 | Loki, season 1 | Series | 2021 | MCU |
 | The Falcon and the Winter Soldier | Series | 2021 | MCU |
-| What If...? (added) | Animated series | 2021-2023 | MCU |
+| What If...? (added) | Animated series | 2021-2024 | MCU |
 | Doctor Strange in the Multiverse of Madness | Film | 2022 | MCU |
 | Thor: Love and Thunder (added) | Film | 2022 | MCU |
 | Black Panther: Wakanda Forever | Film | 2022 | MCU |
@@ -90,7 +90,7 @@ Notes on the list:
 | Deadpool 2 | Film | 2018 | Fox X-Men |
 | Dark Phoenix | Film | 2019 | Fox X-Men |
 | The New Mutants | Film | 2020 | Fox X-Men |
-| X-Men '97 (added) | Animated series | 2024 | MCU animation |
+| X-Men '97 (added) | Animated series | 2024-2026 | MCU animation |
 
 ### Tier 2: remaining MCU films and Disney+ series (second pass)
 

@@ -1,1 +1,68 @@
 # MCU_GraphRAG
+
+A knowledge graph of the Marvel screen universe (MCU plus the Fox X-Men films)
+and a GraphRAG chatbot built on it. The graph answers multi-hop, timeline,
+identity/variant and affiliation questions that plain retrieval struggles with.
+
+Scope and data sources are defined in [docs/data_sources_and_tiers.md](docs/data_sources_and_tiers.md).
+
+## Setup
+
+```powershell
+python -m venv .venv
+.venv\Scripts\pip.exe install requests python-dotenv mwparserfromhell pytest
+```
+
+Create a `.env` file in the project root with a TMDB API key:
+
+```
+TMDB_API_KEY=your_key_here
+```
+
+## Collecting data
+
+Collected data is written to `source_data/`, which is not committed (see [Data licensing](#data-licensing)).
+
+```powershell
+.venv\Scripts\python.exe -m src.source_data_collection.build_title_registry   # titles, QIDs, crosswalk IDs
+.venv\Scripts\python.exe -m src.source_data_collection.collect_cast           # cast from TMDB, Wikidata, Wikipedia
+.venv\Scripts\python.exe -m src.source_data_collection.collect_plots          # plot and episode summaries
+```
+
+## Tests
+
+```powershell
+.venv\Scripts\python.exe -m pytest -m "not validation"   # unit tests (offline)
+.venv\Scripts\python.exe -m pytest -m validation         # checks on collected data (run after collecting)
+```
+
+## Credits
+
+### Data sources
+
+This project is built on openly licensed and publicly documented data. Thanks to
+the volunteers and teams who maintain these sources.
+
+| Source | Used for | License / terms | Status |
+| --- | --- | --- | --- |
+| [Wikidata](https://www.wikidata.org/) | Titles, IDs, cast, characters, dates | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | In use |
+| [Wikipedia](https://en.wikipedia.org/) | Plot summaries, cast sections | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/); text from Wikipedia contributors | In use |
+| [TMDB](https://www.themoviedb.org/) | Cast and character credits, billing order, ID crosswalk | [TMDB API Terms of Use](https://www.themoviedb.org/api-terms-of-use) | In use |
+| [Marvel Cinematic Universe Wiki / Marvel Database](https://marvelcinematicuniverse.fandom.com/) (Fandom) | Aliases, affiliations, variants, in-universe timeline | [CC BY-SA](https://www.fandom.com/licensing) | Planned |
+| [Comic Vine](https://comicvine.gamespot.com/api/) | Comic storylines and issues (metadata only) | Comic Vine API terms | Planned |
+| [Grand Comics Database](https://www.comics.org/) | Issue-level character appearances | GCD data license (to be checked before use) | Planned |
+| Box Office Mojo / The Numbers | Spot checks of box office figures only; no data redistributed | Site terms | Planned |
+
+**TMDB notice:** This product uses the TMDB API but is not endorsed or certified by
+[TMDB](https://www.themoviedb.org/). The TMDB logo will also be shown in the chatbot UI.
+
+Marvel characters, titles and related names are trademarks of Marvel / Disney.
+This is an independent, non-commercial study project and is not affiliated with
+or endorsed by Marvel, Disney, Fox or Sony.
+
+## Data licensing
+
+The code in this repository is MIT licensed (see [LICENSE](LICENSE)). Collected
+data keeps the license of its source: Wikipedia text stays CC BY-SA 4.0 and
+requires attribution if shared; TMDB data is subject to the TMDB API terms. Every
+collected record stores `source`, `source_url`, `retrieved_at` and `license`.

@@ -11,10 +11,7 @@ no date takes its year from its earliest episode (P527 -> P577).
 Run:    .venv\\Scripts\\python.exe -m src.source_data_collection.build_title_registry
 """
 
-import csv
-import json
-from datetime import datetime, timezone
-
+from src.source_data_collection.storage import utc_now, write_csv, write_json
 from src.source_data_collection.tier_titles import PROJECT_ROOT, load_tier_titles
 from src.utils import WikimediaClient, claim_values, earliest_year, label, qualifier_value
 
@@ -138,18 +135,12 @@ def build_rows(titles, client, retrieved_at):
 
 def main():
     titles = load_tier_titles(tier=1)
-    retrieved_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    retrieved_at = utc_now()
     rows, entities = build_rows(titles, WikimediaClient(), retrieved_at)
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    with open(REGISTRY_PATH, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=list(rows[0]))
-        writer.writeheader()
-        writer.writerows(rows)
-    with open(ENTITIES_PATH, "w", encoding="utf-8") as f:
-        json.dump({"retrieved_at": retrieved_at, "source": "wikidata",
-                   "license": WIKIDATA_LICENSE, "entities": entities},
-                  f, ensure_ascii=False, indent=1)
+    write_csv(REGISTRY_PATH, rows)
+    write_json(ENTITIES_PATH, {"retrieved_at": retrieved_at, "source": "wikidata",
+                               "license": WIKIDATA_LICENSE, "entities": entities})
 
     print(f"Wrote {len(rows)} rows to {REGISTRY_PATH}")
     print(f"Wrote {len(entities)} raw entities to {ENTITIES_PATH}")

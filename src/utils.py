@@ -6,6 +6,8 @@ import requests
 
 WIKIDATA_API = "https://www.wikidata.org/w/api.php"
 ENWIKI_API = "https://en.wikipedia.org/w/api.php"
+WIKIDATA_SPARQL = "https://query.wikidata.org/sparql"
+ENTITY_URI_PREFIX = "http://www.wikidata.org/entity/"
 USER_AGENT = "MCU-GraphRAG/0.1 (personal research project; python-requests)"
 
 BATCH_SIZE = 50          # MediaWiki limit for ids/titles per request
@@ -44,13 +46,25 @@ def claim_values(entity, pid):
     return [v for v in values if v is not None]
 
 
+def claims_with_qualifiers(entity, pid, qualifier_pid):
+    """[(value, [qualifier values])] for every best-rank `pid` claim that has a value."""
+    pairs = []
+    for claim in _best_claims(entity, pid):
+        value = _snak_value(claim["mainsnak"])
+        if value is None:
+            continue
+        snaks = claim.get("qualifiers", {}).get(qualifier_pid, [])
+        pairs.append((value, [q for q in map(_snak_value, snaks) if q is not None]))
+    return pairs
+
+
 def qualifier_value(entity, pid, qualifier_pid):
-    """(value, qualifier value) of the first best-rank `pid` claim; None where absent."""
-    claims = _best_claims(entity, pid)
-    if not claims:
+    """(value, first qualifier value) of the first best-rank `pid` claim; None where absent."""
+    pairs = claims_with_qualifiers(entity, pid, qualifier_pid)
+    if not pairs:
         return None, None
-    qualifiers = claims[0].get("qualifiers", {}).get(qualifier_pid, [])
-    return _snak_value(claims[0]["mainsnak"]), (_snak_value(qualifiers[0]) if qualifiers else None)
+    value, qualifiers = pairs[0]
+    return value, (qualifiers[0] if qualifiers else None)
 
 
 def label(entity):
@@ -71,17 +85,22 @@ def earliest_year(entity):
     return None
 
 
+def enwiki_url(page):
+    return f"https://en.wikipedia.org/wiki/{page.replace(' ', '_')}"
+
+
 def _chunks(items, size):
     for i in range(0, len(items), size):
         yield items[i:i + size]
 
 
-# --- HTTP client --------------------------------------------------------------
+# --- HTTP clients -------------------------------------------------------------
 
-class WikimediaClient:
-    """Thin client for the MediaWiki Action APIs of en.wikipedia and Wikidata.
+class JsonHttpClient:
+    """GET JSON with retry on rate limiting / server errors (honours Retry-After).
 
     `session` and `sleep` are injected so tests can run without the network.
+    Error messages name only the URL, never the parameters, which may hold secrets.
     """
 
     def __init__(self, session=None, sleep=time.sleep):
@@ -90,17 +109,48 @@ class WikimediaClient:
         self.sleep = sleep
 
     def get_json(self, url, params):
-        """GET with retry on rate limiting / server errors (honours Retry-After)."""
         for attempt in range(1, MAX_ATTEMPTS + 1):
             response = self.session.get(url, params=params, timeout=30)
-            if response.status_code not in RETRYABLE_STATUS:
-                response.raise_for_status()
+            if response.status_code < 400:
                 return response.json()
+            if response.status_code not in RETRYABLE_STATUS:
+                raise RuntimeError(f"{url} returned HTTP {response.status_code}")
             if attempt == MAX_ATTEMPTS:
                 break
             self.sleep(float(response.headers.get("Retry-After", 2 ** attempt)))
         raise RuntimeError(f"{url} still failing after {MAX_ATTEMPTS} attempts "
                            f"(last status {response.status_code})")
+
+
+class WikimediaClient(JsonHttpClient):
+    """Client for the en.wikipedia and Wikidata APIs and the Wikidata SPARQL endpoint."""
+
+    def sparql(self, query):
+        """Run a SPARQL SELECT; entity URIs are shortened to their ID."""
+        bindings = self.get_json(WIKIDATA_SPARQL, {"format": "json", "query": query})
+        return [{name: cell["value"].removeprefix(ENTITY_URI_PREFIX)
+                 for name, cell in row.items()}
+                for row in bindings["results"]["bindings"]]
+
+    def top_level_section(self, page, prefix):
+        """Top-level section of `page` whose heading starts with `prefix`, or None.
+
+        `prefix` may be a tuple; earlier prefixes win over page order. The wikitext
+        is read from the same revision as the section list, and its revid returned.
+        """
+        parsed = self.get_json(ENWIKI_API, {"action": "parse", "page": page,
+                                            "prop": "sections|revid",
+                                            "redirects": 1, "format": "json"})["parse"]
+        top = [s for s in parsed["sections"] if s["toclevel"] == 1]
+        prefixes = (prefix,) if isinstance(prefix, str) else prefix
+        section = next((s for p in prefixes for s in top if s["line"].startswith(p)), None)
+        if section is None:
+            return None
+        text = self.get_json(ENWIKI_API, {"action": "parse", "oldid": parsed["revid"],
+                                          "prop": "wikitext", "section": section["index"],
+                                          "format": "json"})["parse"]["wikitext"]["*"]
+        return {"page": parsed["title"], "revid": parsed["revid"], "heading": section["line"],
+                "index": section["index"], "wikitext": text}
 
     def resolve_enwiki_titles(self, titles):
         """Map each requested enwiki title to its page, Wikidata QID and status flags."""
