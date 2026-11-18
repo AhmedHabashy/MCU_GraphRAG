@@ -3,7 +3,7 @@
 import re
 
 import mwparserfromhell
-from mwparserfromhell.nodes import Comment, Heading, Tag, Template
+from mwparserfromhell.nodes import Comment, Heading, Tag, Template, Wikilink
 
 _DATE_TEMPLATES = {"start date", "start date and age", "dts"}
 _DROPPED_TAGS = {"ref", "references"}
@@ -115,6 +115,27 @@ def name_list(value):
         if name:
             names.append(name)
     return names
+
+
+_NOTE_TAGS = {"ref", "small", "sup"}
+_FORMERLY = re.compile(r"\bformerly\b", re.IGNORECASE)
+
+
+def member_links(value):
+    """Linked members of an infobox list, in order: {page, name (display text), former}.
+    Everything after 'Formerly:' is former; links inside notes and references are ignored."""
+    code = mwparserfromhell.parse(value)
+    members, former = [], False
+    for node in code.nodes:
+        if isinstance(node, Tag) and str(node.tag).lower() in _NOTE_TAGS:
+            continue
+        if isinstance(node, Wikilink):
+            page = str(node.title).strip()
+            name = plain_text(str(node.text)) if node.text else page
+            members.append({"page": page, "name": name, "former": former})
+        elif _FORMERLY.search(str(node)) and not isinstance(node, Template):
+            former = True
+    return members
 
 
 def transcluded_pages(wikitext):

@@ -96,6 +96,12 @@ def test_marvel_screen_characters_are_in_a_non_comics_marvel_universe():
     assert not is_marvel_screen_item({"claims": {"P1080": [item("Q1")]}}, pages)        # not Marvel
 
 
+def test_a_marvel_database_page_that_is_not_an_earth_is_not_a_screen_universe():
+    """The Marvel Database has a 'DC Universe' page, so DC characters must not pass."""
+    pages = universe_pages_from({**UNIVERSES, "QDC": {"claims": {"P6262": [string("marvel:DC_Universe")]}}})
+    assert not is_marvel_screen_item({"claims": {"P1080": [item("QDC")]}}, pages)
+
+
 class FakeSparql:
     def __init__(self, rows):
         self.rows, self.queries = rows, []

@@ -78,6 +78,12 @@ def test_almost_every_character_has_a_universe(characters):
                  len(characters)) >= MIN_WITH_UNIVERSE
 
 
+def test_no_dc_characters_were_collected(characters):
+    """Tier 1 actors also play DC characters (e.g. Henry Cavill's Superman); those must not be kept."""
+    dc_universe = "Q1152150"
+    assert [r["label"] for r in characters.values() if dc_universe in split(r["universe_qids"])] == []
+
+
 # --- Marvel Database: coverage and agreement with Wikidata ------------------------------
 
 def test_most_cast_role_characters_link_to_the_marvel_database(characters):

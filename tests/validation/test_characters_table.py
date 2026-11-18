@@ -300,6 +300,29 @@ def test_damion_poitier_played_thanos(performances, characters):
     assert characters[ids(performances, "Q182218", "Damion Poitier")]["label"] == "Thanos"
 
 
+def test_yelena_is_one_character_in_black_widow_and_thunderbolts(performances):
+    """Wikidata points Thunderbolts* at the comics Yelena and Black Widow at the MCU one."""
+    assert ids(performances, "Q23894626", "Florence Pugh") == ids(performances, "Q112322474", "Florence Pugh")
+
+
+def test_no_reality_keeps_a_comics_role_next_to_its_single_screen_character(performances):
+    """After merging, a comics item and the one screen character based on it never share a reality."""
+    collected = {c["character_qid"]: c for c in read_csv(COLLECTED_CHARACTERS_PATH)}
+    present = {}
+    for p in performances:
+        if p["character_id"]:
+            identity, reality = p["character_id"].rsplit("@", 1)
+            present.setdefault(reality, set()).add(identity)
+    leftovers = []
+    for reality, identities in present.items():
+        for identity in identities:
+            screen = [s for s in identities if identity in collected.get(s, {}).get("based_on_qids", "").split("|")]
+            if len(screen) == 1 and identity in collected and not collected[identity]["universe_qids"].count("Q642878") \
+                    and "Q2246088" in collected[identity]["universe_qids"].split("|"):
+                leftovers.append((reality, identity, screen[0]))
+    assert leftovers == []
+
+
 def test_video_game_realities_are_not_used(characters):
     assert [c for c, r in characters.items() if r["reality"] == "Earth-30847"] == []
 

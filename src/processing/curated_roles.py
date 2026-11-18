@@ -29,7 +29,8 @@ def apply_curated_roles(performances, rows, title_qids, title_realities):
     for p in performances:
         row = next((r for r in rows if _matches(r, p, title_qids)), None)
         p = {**p, "curated": False, "curated_label": "", "curated_variant_of": "",
-             "data_base_qid": p["base_qid"]}  # the character the data linked, before curation
+             # the character the data linked, before any merge or curation
+             "data_base_qid": p.get("data_base_qid") or p["base_qid"]}
         if row and (p["character_id"] or row["identity"]):
             identity = row["identity"] or p["base_qid"]
             current = p["character_id"].rsplit("@", 1)[1] if p["character_id"] else \

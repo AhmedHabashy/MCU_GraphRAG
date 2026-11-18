@@ -36,7 +36,7 @@ from src.source_data_collection.build_title_registry import REGISTRY_PATH
 from src.source_data_collection.cast_matching import character_matches, name_parts, normalize_name
 from src.source_data_collection.collect_characters import (
     CHARACTER_ENTITIES_PATH, CHARACTERS_PATH as COLLECTED_CHARACTERS_PATH, MARVEL_DB_PATH,
-    SELF_QID, earth_of, is_marvel_screen_item, universe_pages_from,
+    SELF_QID, earth_of, is_marvel_screen_item, is_screen_universe, universe_pages_from,
 )
 from src.source_data_collection.collect_mcu_wiki import MCU_WIKI_CHARACTERS_PATH, MCU_WIKI_CREDITS_PATH
 from src.source_data_collection.storage import read_csv, read_json, write_csv
@@ -223,6 +223,36 @@ def link_tmdb_credits(tmdb_rows, roles, qids_by_person, tmdb_pointer, src):
     return rows
 
 
+def merge_comics_roles(performances, src):
+    """Within one reality, a role pointing at a comics item becomes the screen character that is
+    based on it, when exactly one such character has a role in that reality (e.g. Thunderbolts*
+    points at the comics Yelena Belova, Black Widow at the MCU one). Other realities stay variants."""
+    def is_screen(qid):
+        item = src.characters.get(qid)
+        return bool(item) and any(is_screen_universe(u, src.universe_pages)
+                                  for u in _split(item["universe_qids"]))
+
+    based_on_in_reality = {}
+    for p in performances:
+        if p["character_id"] and is_screen(p["base_qid"]):
+            reality = p["character_id"].rsplit("@", 1)[1]
+            for original in _split(src.characters[p["base_qid"]]["based_on_qids"]):
+                based_on_in_reality.setdefault((reality, original), set()).add(p["base_qid"])
+
+    merged = []
+    for p in performances:
+        p = {**p, "merged_from": "", "data_base_qid": p.get("data_base_qid") or p["base_qid"]}
+        if p["character_id"] and p["base_qid"] in src.characters and not is_screen(p["base_qid"]):
+            reality = p["character_id"].rsplit("@", 1)[1]
+            screen = based_on_in_reality.get((reality, p["base_qid"]), set())
+            if len(screen) == 1:
+                target = next(iter(screen))
+                p.update(merged_from=p["base_qid"], base_qid=target,
+                         character_id=character_id(target, reality))
+        merged.append(p)
+    return merged
+
+
 # --- characters, aliases and links ----------------------------------------------------------
 
 def _link(from_id, relation, to_id="", to_qid="", to_label="", shared_qid=""):
@@ -358,6 +388,7 @@ def main():
     roles = wikidata_roles(read_csv(WIKIDATA_CAST_PATH), src)
     tmdb = link_tmdb_credits(read_csv(TMDB_CAST_PATH), roles, qids_by_person, tmdb_pointer, src)
     performances = [r for r in roles if not r["via"]] + tmdb  # parent-series roles count via TMDB
+    performances = merge_comics_roles(performances, src)
     title_qids = {t["title"]: q for q, t in src.titles.items()}
     performances = apply_curated_roles(performances, curated, title_qids,
                                        {q: t["reality"] for q, t in src.titles.items()})

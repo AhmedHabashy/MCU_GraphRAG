@@ -80,10 +80,16 @@ def universe_pages_from(related):
     return pages
 
 
+def is_screen_universe(universe_qid, universe_pages):
+    """A Marvel universe that is not the comics: its Marvel Database page is an Earth
+    designation other than Earth-616 (the wiki also has pages such as 'DC Universe')."""
+    page = universe_pages.get(universe_qid, "")
+    return page.startswith("Earth-") and page != MARVEL_DB_COMICS_EARTH
+
+
 def is_marvel_screen_item(entity, universe_pages):
-    """In a Marvel universe that is not the comics (films, series, animation)."""
-    return any(universe_pages.get(q, MARVEL_DB_COMICS_EARTH) != MARVEL_DB_COMICS_EARTH
-               for q in claim_values(entity, P_NARRATIVE_UNIVERSE))
+    """In a Marvel film or series universe (see is_screen_universe)."""
+    return any(is_screen_universe(q, universe_pages) for q in claim_values(entity, P_NARRATIVE_UNIVERSE))
 
 
 def _fandom_pages(entity, wiki):

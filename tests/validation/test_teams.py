@@ -1,0 +1,120 @@
+"""Validation of teams and memberships: MCU wiki vs Marvel Database, linked to characters.
+
+Run after building:  .venv\\Scripts\\python.exe -m pytest -m validation
+Build with:          .venv\\Scripts\\python.exe -m src.source_data_collection.collect_teams
+                     .venv\\Scripts\\python.exe -m src.processing.build_teams
+"""
+
+import pytest
+
+from src.processing.build_characters import PERFORMANCES_PATH
+from src.processing.build_teams import MEMBERSHIPS_PATH, TEAMS_PATH, team_id
+from src.source_data_collection.collect_teams import load_teams
+from src.source_data_collection.storage import read_csv
+
+pytestmark = pytest.mark.validation
+
+MIN_MEMBERS_LINKED = 0.80
+MIN_SOURCE_AGREEMENT = 0.70
+
+
+def _load(path):
+    if not path.exists():
+        pytest.skip(f"{path} not built yet; run collect_teams and build_teams")
+    return read_csv(path)
+
+
+@pytest.fixture(scope="module")
+def teams():
+    return {t["team_id"]: t for t in _load(TEAMS_PATH)}
+
+
+@pytest.fixture(scope="module")
+def memberships(teams):
+    return _load(MEMBERSHIPS_PATH)
+
+
+@pytest.fixture(scope="module")
+def performances():
+    return read_csv(PERFORMANCES_PATH)
+
+
+def role_of(performances, title_qid, actor):
+    found = {p["character_id"] for p in performances
+             if p["title_qid"] == title_qid and p["actor_name"] == actor and p["character_id"]}
+    assert len(found) == 1, (title_qid, actor, found)
+    return next(iter(found))
+
+
+def member(memberships, team, character_id, role="member", status=None):
+    return any(m["team_id"] == team and m["character_id"] == character_id and m["role"] == role
+               and (status is None or m["status"] == status) for m in memberships)
+
+
+# --- Coverage --------------------------------------------------------------------------
+
+def test_every_curated_team_was_built(teams):
+    assert sorted({team_id(t["team"], t["reality"]) for t in load_teams()} - set(teams)) == []
+
+
+def test_every_team_has_members(teams, memberships):
+    assert [t for t in teams if not any(m["team_id"] == t and m["role"] == "member" for m in memberships)] == []
+
+
+def test_most_members_link_to_a_character(memberships):
+    linked = [m for m in memberships if m["character_id"]]
+    assert len(linked) / len(memberships) >= MIN_MEMBERS_LINKED, \
+        [(m["team_id"], m["member_page"]) for m in memberships if not m["character_id"]]
+
+
+# --- MCU wiki vs Marvel Database ---------------------------------------------------------
+
+def test_the_wikis_agree_on_members(memberships):
+    """Of the members the MCU wiki lists, most are also listed by the Marvel Database."""
+    by_source = {}
+    for m in memberships:
+        if m["character_id"]:
+            by_source.setdefault((m["team_id"], m["source"]), set()).add(m["character_id"])
+    low = []
+    for (team, source), members in by_source.items():
+        other = by_source.get((team, "marvel"))
+        if source == "marvelcinematicuniverse" and other:
+            share = len(members & other) / len(members)
+            if share < MIN_SOURCE_AGREEMENT:
+                low.append((team, round(share, 2), sorted(members - other)))
+    assert low == []
+
+
+# --- Spot checks (MCU expert's teams) ------------------------------------------------------
+
+def test_avengers(memberships, performances):
+    team = "Avengers@Earth-616"
+    assert member(memberships, team, role_of(performances, "Q192724", "Robert Downey Jr."), status="former")
+    assert member(memberships, team, role_of(performances, "Q22665878", "Chris Hemsworth"))
+
+
+def test_new_avengers_are_the_thunderbolts(teams, memberships, performances):
+    team = "New Avengers@Earth-616"
+    assert "Thunderbolts" in teams[team]["aliases"].split("|")
+    assert member(memberships, team, role_of(performances, "Q112322474", "Florence Pugh"), role="leader")
+    assert member(memberships, team, role_of(performances, "Q112322474", "Sebastian Stan"))
+
+
+def test_fantastic_four_is_led_by_the_first_steps_reed_richards(memberships, performances):
+    reed = role_of(performances, "Q105105219", "Pedro Pascal")
+    assert member(memberships, "Fantastic Four@Earth-828", reed, role="leader")
+
+
+def test_fox_x_men(memberships, performances):
+    team = "X-Men@Earth-10005"
+    assert member(memberships, team, role_of(performances, "Q106182", "Patrick Stewart"), role="leader")
+    assert member(memberships, team, role_of(performances, "Q106182", "Ian McKellen"), status="former")
+
+
+def test_illuminati_include_captain_carter(memberships, performances):
+    carter = role_of(performances, "Q64211112", "Hayley Atwell")
+    assert member(memberships, "Illuminati@Earth-838", carter, status="former")
+
+
+def test_rows_have_provenance(memberships):
+    assert [m for m in memberships if not (m["source"] and m["source_url"] and m["revid"])] == []

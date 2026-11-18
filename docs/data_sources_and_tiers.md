@@ -170,6 +170,22 @@ articles and Wikidata. The Fox films and X-Men '97 are in no phase.
 | Phase Five | The Multiverse Saga |
 | Phase Six | The Multiverse Saga |
 
+### Teams
+
+The teams that matter most for Avengers: Doomsday (MCU expert), one row per team and
+reality. Members come from each team's MCU wiki and Marvel Database pages. Per the expert,
+the New Avengers and the Thunderbolts are one team, and the Illuminati exist only in Doctor
+Strange in the Multiverse of Madness. Team Doom is added once Avengers: Doomsday is released.
+
+| Team | Reality | MCU wiki page | Marvel Database page | Also called |
+| --- | --- | --- | --- | --- |
+| Avengers | Earth-616 | Avengers | Avengers (Earth-199999) | |
+| New Avengers | Earth-616 | New Avengers | New Avengers (Earth-199999) | Thunderbolts |
+| Fantastic Four | Earth-828 | Fantastic Four | Fantastic Four (Earth-828) | |
+| X-Men | Earth-10005 | | X-Men (Earth-10005) | |
+| X-Men | Earth-92131 | | X-Men (Earth-92131) | |
+| Illuminati | Earth-838 | Illuminati | Illuminati (Earth-838) | |
+
 ### Tier 2: remaining MCU films and Disney+ series (second pass)
 
 | Title | Type | Year | Universe |

@@ -3,6 +3,7 @@
 from src.source_data_collection.wikitext import (
     episode_entries,
     infobox_params,
+    member_links,
     name_list,
     plain_text,
     transcluded_pages,
@@ -146,6 +147,29 @@ def test_name_list_keeps_link_template_text_and_drops_status_prefixes():
     """{{m|Page}} / {{m|Page|Shown}} is the Marvel Database link template."""
     assert name_list("Formerly: * {{m|Avengers}} * [[X-Men]] * {{m|Strategic Homeland|S.H.I.E.L.D.}}") \
         == ["Avengers", "X-Men", "S.H.I.E.L.D."]
+
+
+# --- member_links ---------------------------------------------------------------
+
+def test_member_links_keep_page_display_name_and_former_status():
+    value = ("*[[Charles Xavier (Earth-10005)|Professor X]] Formerly: "
+             "*[[Raven Darkhölme (Earth-10005)|Mystique]] (field leader) "
+             "*[[Henry McCoy (Earth-10005)|Beast]]{{r|X-Men: First Class}}")
+    assert member_links(value) == [
+        {"page": "Charles Xavier (Earth-10005)", "name": "Professor X", "former": False},
+        {"page": "Raven Darkhölme (Earth-10005)", "name": "Mystique", "former": True},
+        {"page": "Henry McCoy (Earth-10005)", "name": "Beast", "former": True}]
+
+
+def test_member_links_read_mcu_wiki_lists_with_line_breaks_and_refs():
+    value = "[[Thor Odinson]]<ref>[https://ign.com x]</ref><br>[[Sam Wilson]]<br>[[Bucky Barnes]]"
+    assert [m["page"] for m in member_links(value)] == ["Thor Odinson", "Sam Wilson", "Bucky Barnes"]
+    assert member_links("[[Sue Storm]]")[0] == {"page": "Sue Storm", "name": "Sue Storm", "former": False}
+
+
+def test_member_links_ignore_links_inside_notes_and_references():
+    value = "* [[Lucas Bishop (Earth-31393)|Bishop]] <small>(from [[Earth-31393]])</small><ref>[[Ignored]]</ref>"
+    assert [m["page"] for m in member_links(value)] == ["Lucas Bishop (Earth-31393)"]
 
 
 # --- transcluded_pages ----------------------------------------------------------

@@ -5,6 +5,7 @@ from src.processing.build_characters import (
     Sources,
     character_rows,
     link_tmdb_credits,
+    merge_comics_roles,
     own_realities,
     performance_reality,
     resolve_actor,
@@ -222,6 +223,38 @@ def test_verified_mcu_wiki_page_without_a_wikidata_item_becomes_the_identity():
 def test_unmatched_tmdb_credit_stays_unlinked():
     row = link(tmdb("Q107185252", "40", "New Actor", "Hunter X"))
     assert row["character_id"] == "" and row["link_method"] == ""
+
+
+# --- merge_comics_roles --------------------------------------------------------------------
+
+YELENA_COMICS = character("Q4009216", "Yelena Belova", universes="Q2246088")
+YELENA_MCU = character("QYELENA", "Yelena Belova", universes="Q642878", based_on="Q4009216")
+
+
+def test_comics_item_role_becomes_the_screen_character_based_on_it_in_that_reality():
+    """Thunderbolts* points at the comics Yelena; Black Widow at the MCU Yelena: one character."""
+    src = sources(characters={**CHARACTERS, "Q4009216": YELENA_COMICS, "QYELENA": YELENA_MCU})
+    perfs = [{"title_qid": "QBW", "base_qid": "QYELENA", "character_id": "QYELENA@Earth-616"},
+             {"title_qid": "QTB", "base_qid": "Q4009216", "character_id": "Q4009216@Earth-616"}]
+    merged = merge_comics_roles(perfs, src)
+    assert {p["character_id"] for p in merged} == {"QYELENA@Earth-616"}
+    assert merged[1]["base_qid"] == "QYELENA" and merged[1]["merged_from"] == "Q4009216"
+
+
+def test_comics_item_role_in_another_reality_stays_separate():
+    src = sources(characters={**CHARACTERS, "Q4009216": YELENA_COMICS, "QYELENA": YELENA_MCU})
+    perfs = [{"title_qid": "QBW", "base_qid": "QYELENA", "character_id": "QYELENA@Earth-616"},
+             {"title_qid": "QWI", "base_qid": "Q4009216", "character_id": "Q4009216@Multiverse"}]
+    assert merge_comics_roles(perfs, src)[1]["character_id"] == "Q4009216@Multiverse"
+
+
+def test_ambiguous_merge_is_not_made():
+    other = character("QOTHER", "Yelena Belova (other)", universes="Q642878", based_on="Q4009216")
+    src = sources(characters={**CHARACTERS, "Q4009216": YELENA_COMICS, "QYELENA": YELENA_MCU, "QOTHER": other})
+    perfs = [{"title_qid": "Q1", "base_qid": "QYELENA", "character_id": "QYELENA@Earth-616"},
+             {"title_qid": "Q2", "base_qid": "QOTHER", "character_id": "QOTHER@Earth-616"},
+             {"title_qid": "Q3", "base_qid": "Q4009216", "character_id": "Q4009216@Earth-616"}]
+    assert merge_comics_roles(perfs, src)[2]["character_id"] == "Q4009216@Earth-616"
 
 
 # --- character_rows: characters, aliases, links -------------------------------------------
