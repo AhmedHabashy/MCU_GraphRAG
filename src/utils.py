@@ -46,6 +46,23 @@ def claim_values(entity, pid):
     return [v for v in values if v is not None]
 
 
+DAY_PRECISION = 11
+
+
+def day_dates(entity, pid):
+    """Sorted 'YYYY-MM-DD' dates of every non-deprecated, day-precision `pid` claim.
+
+    Unlike claim_values (best rank only), this keeps normal-rank dates too, so a film's
+    premiere is found next to a preferred national release date.
+    """
+    dates = set()
+    for claim in entity.get("claims", {}).get(pid, []):
+        value = (claim["mainsnak"].get("datavalue") or {}).get("value")
+        if claim.get("rank") != "deprecated" and value and value.get("precision") == DAY_PRECISION:
+            dates.add(value["time"][1:11])
+    return sorted(dates)
+
+
 def claims_with_qualifiers(entity, pid, qualifier_pid):
     """[(value, [qualifier values])] for every best-rank `pid` claim that has a value."""
     pairs = []

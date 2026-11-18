@@ -25,5 +25,22 @@ class TmdbClient(JsonHttpClient):
             path = f"/tv/{title['tmdb_tv_id']}/aggregate_credits"
         return path, self._get(path)
 
+    def first_release(self, title):
+        """(path, 'YYYY-MM-DD') of a title's first release: a film's earliest date of any
+        country and release type (premieres included), a series' or season's first air date."""
+        if title["type"] == "Film":
+            path = f"/movie/{title['tmdb_movie_id']}/release_dates"
+            dates = [d["release_date"][:10] for country in self._get(path)["results"]
+                     for d in country["release_dates"] if d.get("release_date")]
+            return path, min(dates, default="")
+        if title["type"] == "Series season":
+            path = f"/tv/{title['tmdb_tv_id']}/season/{title['season_number']}"
+            return path, self._get(path).get("air_date") or ""
+        path = f"/tv/{title['tmdb_tv_id']}"
+        return path, self._get(path).get("first_air_date") or ""
+
+    def person(self, person_id):
+        return self._get(f"/person/{person_id}")
+
     def person_external_ids(self, person_id):
         return self._get(f"/person/{person_id}/external_ids")

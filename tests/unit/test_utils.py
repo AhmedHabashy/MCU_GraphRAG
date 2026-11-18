@@ -8,6 +8,7 @@ from src.utils import (
     WikimediaClient,
     claim_values,
     claims_with_qualifiers,
+    day_dates,
     earliest_year,
     label,
     qualifier_value,
@@ -169,6 +170,27 @@ def test_fandom_search_returns_page_titles():
 def test_fandom_lead_is_none_for_missing_pages():
     session = FakeSession([FakeResponse(200, payload={"error": {"code": "missingtitle"}})])
     assert FandomClient(session=session, sleep=lambda _s: None).lead("marvel", "Nope") is None
+
+
+# --- day_dates ----------------------------------------------------------------
+
+def dated(time, precision, rank="normal"):
+    return {"mainsnak": {"datavalue": {"type": "time",
+                                       "value": {"time": time, "precision": precision}}},
+            "rank": rank}
+
+
+def test_day_dates_include_every_non_deprecated_day_precision_date():
+    """Premieres are usually normal rank next to a preferred national release date."""
+    entity = {"claims": {"P577": [dated("+2008-05-02T00:00:00Z", 11, "preferred"),
+                                  dated("+2008-04-14T00:00:00Z", 11),
+                                  dated("+2007-01-01T00:00:00Z", 11, "deprecated"),
+                                  dated("+2008-00-00T00:00:00Z", 9)]}}       # year only
+    assert day_dates(entity, "P577") == ["2008-04-14", "2008-05-02"]
+
+
+def test_day_dates_is_empty_without_claims():
+    assert day_dates({"claims": {}}, "P577") == []
 
 
 # --- label ------------------------------------------------------------------
