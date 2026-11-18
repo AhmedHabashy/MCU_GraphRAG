@@ -108,6 +108,12 @@ def test_single_episode_is_part_one_of_one():
     assert (episode["part"], episode["num_parts"]) == (1, 1)
 
 
+def test_untitled_episodes_use_the_raw_title_field():
+    """Wikipedia uses RTitle for titles shown without quotation marks, e.g. 'Episode 1'."""
+    episode = episode_entries("{{Episode list |EpisodeNumber = 1 |RTitle = Episode 1 }}")[0]
+    assert episode["title"] == "Episode 1"
+
+
 def test_episode_entries_leave_missing_fields_blank():
     episode = episode_entries("{{Episode list |EpisodeNumber = 4 |Title = TBA }}")[0]
     assert episode["summary_text"] == "" and episode["air_date"] == ""
@@ -165,6 +171,11 @@ def test_member_links_read_mcu_wiki_lists_with_line_breaks_and_refs():
     value = "[[Thor Odinson]]<ref>[https://ign.com x]</ref><br>[[Sam Wilson]]<br>[[Bucky Barnes]]"
     assert [m["page"] for m in member_links(value)] == ["Thor Odinson", "Sam Wilson", "Bucky Barnes"]
     assert member_links("[[Sue Storm]]")[0] == {"page": "Sue Storm", "name": "Sue Storm", "former": False}
+
+
+def test_member_links_read_links_inside_italic_and_bold_text():
+    value = "''[[Captain Marvel (film)|Captain Marvel]]''<ref>[[Ignored]]</ref> '''[[Iron Man 2]]'''"
+    assert [m["page"] for m in member_links(value)] == ["Captain Marvel (film)", "Iron Man 2"]
 
 
 def test_member_links_ignore_links_inside_notes_and_references():

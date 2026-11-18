@@ -1,4 +1,4 @@
-"""Validation of source_data/wikidata/tier1_titles.csv against the acceptance criteria.
+"""Validation of source_data/wikidata/titles.csv (Tiers 1 and 2) against the acceptance criteria.
 
 Run after collection:  .venv\\Scripts\\python.exe -m pytest -m validation
 """
@@ -12,15 +12,17 @@ from src.source_data_collection.build_title_registry import (
     ALLOWED_INSTANCE_OF, P_HAS_PARTS, P_IMDB_ID, P_INSTANCE_OF, P_PART_OF_THE_SERIES,
     P_SERIES_ORDINAL, P_TMDB_MOVIE_ID, P_TMDB_TV_ID, REGISTRY_PATH, SEASON,
 )
-from src.source_data_collection.tier_titles import load_tier_titles
+from src.source_data_collection.tier_titles import load_scope_titles, load_tier_titles
 from src.utils import P_PUBLICATION_DATE, P_START_TIME, WikimediaClient, label
 
 pytestmark = pytest.mark.validation
 
 EXPECTED_TIER1_COUNT = 49
+EXPECTED_TIER2_COUNT = 28   # I Am Groot's two seasons are one title
 
-TMDB_FIELD_BY_TYPE = {"Film": "tmdb_movie_id", "Series": "tmdb_tv_id",
-                      "Animated series": "tmdb_tv_id", SEASON: "tmdb_tv_id"}
+TMDB_FIELD_BY_TYPE = {"Film": "tmdb_movie_id", "Special": "tmdb_movie_id", "Series": "tmdb_tv_id",
+                      "Animated series": "tmdb_tv_id", "Animated shorts": "tmdb_tv_id",
+                      SEASON: "tmdb_tv_id"}
 PROVENANCE_FIELDS = ["source", "source_url", "retrieved_at", "license"]
 
 EXPECTED_PROPERTY_LABELS = {
@@ -69,12 +71,13 @@ def test_netflix_daredevil_and_punisher_are_in_tier_2():
 
 # Check 1: every tier title resolved, no blanks, no duplicates.
 
-def test_docs_list_every_tier1_title():
+def test_docs_list_every_title_in_scope():
     assert len(load_tier_titles(tier=1)) == EXPECTED_TIER1_COUNT
+    assert len(load_tier_titles(tier=2)) == EXPECTED_TIER2_COUNT
 
 
 def test_registry_has_one_row_per_tier_title(rows):
-    assert [r["title"] for r in rows] == [t["title"] for t in load_tier_titles(tier=1)]
+    assert [(r["title"], r["tier"]) for r in rows] == [(t["title"], str(t["tier"])) for t in load_scope_titles()]
 
 
 def test_every_title_has_a_qid(rows):

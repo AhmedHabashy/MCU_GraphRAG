@@ -1,4 +1,4 @@
-"""Validation of Tier 1 title details: Wikidata cross-checked with TMDB.
+"""Validation of title details (Tiers 1 and 2): Wikidata cross-checked with TMDB.
 
 Run after collection:  .venv\\Scripts\\python.exe -m pytest -m validation
 Collect with:          .venv\\Scripts\\python.exe -m src.source_data_collection.collect_title_details
@@ -17,6 +17,8 @@ from src.source_data_collection.collect_title_details import (
     TMDB_FIRST_RELEASES_PATH,
 )
 from src.source_data_collection.storage import read_csv
+from src.source_data_collection.tmdb_cast import TMDB_CAST_PATH, top_billed_person_ids
+from src.title_types import MOVIE_TYPES
 from src.utils import WikimediaClient, label
 
 pytestmark = pytest.mark.validation
@@ -42,7 +44,7 @@ def details():
 
 @pytest.fixture(scope="module")
 def films(details):
-    return [d for d in details.values() if d["type"] == "Film"]
+    return [d for d in details.values() if d["type"] in MOVIE_TYPES]
 
 
 @pytest.fixture(scope="module")
@@ -150,7 +152,7 @@ def test_release_order_spot_checks(order, details):
 
 
 def test_follows_links_point_to_earlier_titles(details, order):
-    """Where Wikidata says title A follows title B and both are in Tier 1, B came out first."""
+    """Where Wikidata says title A follows title B and both are in scope, B came out first."""
     wrong = [(d["title"], d["follows_names"]) for q, d in details.items()
              for prev in d["follows_qids"].split("|") if prev in order and order[prev] >= order[q]]
     assert wrong == []
@@ -167,12 +169,23 @@ def test_known_sequels(details, title_qid, previous):
 # --- Actor birth dates ----------------------------------------------------------------------
 
 def test_top_billed_actors_have_birth_dates():
-    births = _load(ACTOR_BIRTHS_PATH)
+    """Every credited actor is collected; coverage is measured on the top-billed, because many
+    minor actors have no published birth date."""
+    top = set(top_billed_person_ids(read_csv(TMDB_CAST_PATH)))
+    births = [b for b in _load(ACTOR_BIRTHS_PATH) if b["tmdb_person_id"] in top]
     assert share(sum(bool(b["birth_dates"]) for b in births), len(births)) >= MIN_ACTORS_WITH_BIRTH_DATE
 
 
+def test_birth_dates_were_collected_beyond_the_top_billed():
+    top = set(top_billed_person_ids(read_csv(TMDB_CAST_PATH)))
+    assert len({b["tmdb_person_id"] for b in _load(ACTOR_BIRTHS_PATH)} - top) > len(top)
+
+
 def test_birth_dates_agree_with_tmdb():
-    tmdb = {r["tmdb_person_id"]: r["birthday"] for r in _load(TMDB_BIRTHDAYS_PATH)}
+    """Measured on the top-billed, like coverage: minor actors' birthdays are often wrong in one
+    of the sources."""
+    top = set(top_billed_person_ids(read_csv(TMDB_CAST_PATH)))
+    tmdb = {r["tmdb_person_id"]: r["birthday"] for r in _load(TMDB_BIRTHDAYS_PATH) if r["tmdb_person_id"] in top}
     pairs = [(b["tmdb_person_id"], b["birth_dates"].split("|"), tmdb.get(b["tmdb_person_id"]))
              for b in _load(ACTOR_BIRTHS_PATH) if b["birth_dates"] and tmdb.get(b["tmdb_person_id"])]
     agree = [p for p in pairs if p[2] in p[1]]

@@ -183,6 +183,16 @@ class FandomClient(JsonHttpClient):
             self.sleep(2 ** attempt)
         raise RuntimeError(f"{wiki} search failed: {code}")
 
+    def page(self, wiki, page):
+        """Whole-page wikitext with its revision, or None if missing."""
+        parsed = self.get_json(f"https://{wiki}.fandom.com/api.php", {
+            "action": "parse", "page": page, "prop": "wikitext|revid", "redirects": 1, "format": "json"})
+        if "error" in parsed:
+            return None
+        title = parsed["parse"]["title"]
+        return {"page": title, "revid": parsed["parse"]["revid"],
+                "wikitext": parsed["parse"]["wikitext"]["*"], "url": fandom_url(wiki, title)}
+
     def lead(self, wiki, page):
         """Wikitext of the page's first section (where infoboxes live), or None if missing."""
         parsed = self.get_json(f"https://{wiki}.fandom.com/api.php", {
@@ -205,6 +215,13 @@ class WikimediaClient(JsonHttpClient):
         return [{name: cell["value"].removeprefix(ENTITY_URI_PREFIX)
                  for name, cell in row.items()}
                 for row in bindings["results"]["bindings"]]
+
+    def article(self, page):
+        """Whole enwiki article: {'page', 'revid', 'wikitext', 'url'} (redirects followed)."""
+        parsed = self.get_json(ENWIKI_API, {"action": "parse", "page": page, "prop": "wikitext|revid",
+                                            "redirects": 1, "format": "json"})["parse"]
+        return {"page": parsed["title"], "revid": parsed["revid"], "wikitext": parsed["wikitext"]["*"],
+                "url": enwiki_url(parsed["title"])}
 
     def sections(self, page):
         """{'title', 'revid', 'sections'}: the section list of an enwiki page (redirects followed)."""

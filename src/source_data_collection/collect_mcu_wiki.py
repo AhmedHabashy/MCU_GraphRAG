@@ -4,10 +4,10 @@ Many supporting MCU characters (e.g. Katy, B-15, Dar-Benn) have no Wikidata item
 has a page for them whose character infobox names the actor. A page is accepted for a credit
 only if that infobox lists the credit's TMDB actor, so a name search alone never decides.
 
-Needs:  source_data/wikidata/tier1_titles.csv, source_data/tmdb/tier1_cast.csv
+Needs:  source_data/wikidata/titles.csv, source_data/tmdb/cast.csv
 Output: source_data/fandom/mcu_wiki/<page>.json          (raw first section of each matched page)
-        source_data/fandom/tier1_mcu_wiki_credits.csv     (credit -> matched page, or blank)
-        source_data/fandom/tier1_mcu_wiki_characters.csv  (parsed infobox per matched page)
+        source_data/fandom/mcu_wiki_credits.csv     (credit -> matched page, or blank)
+        source_data/fandom/mcu_wiki_characters.csv  (parsed infobox per matched page)
 Run:    .venv\\Scripts\\python.exe -m src.source_data_collection.collect_mcu_wiki
 """
 
@@ -24,8 +24,8 @@ from src.source_data_collection.wikitext import infobox_params, name_list
 from src.utils import FandomClient
 
 MCU_WIKI_RAW_DIR = FANDOM_DIR / "mcu_wiki"
-MCU_WIKI_CREDITS_PATH = FANDOM_DIR / "tier1_mcu_wiki_credits.csv"
-MCU_WIKI_CHARACTERS_PATH = FANDOM_DIR / "tier1_mcu_wiki_characters.csv"
+MCU_WIKI_CREDITS_PATH = FANDOM_DIR / "mcu_wiki_credits.csv"
+MCU_WIKI_CHARACTERS_PATH = FANDOM_DIR / "mcu_wiki_characters.csv"
 
 MCU_UNIVERSES = {"MCU", "MCU animation"}  # tier-list universes the MCU wiki covers
 MAX_BILLING = 20

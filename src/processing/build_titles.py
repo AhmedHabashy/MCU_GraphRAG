@@ -19,12 +19,16 @@ from src.source_data_collection.collect_phases import (
 from src.source_data_collection.collect_title_details import (
     TITLE_DETAILS_PATH, TMDB_FIRST_RELEASES_PATH,
 )
+from src.source_data_collection.collect_timeline import (
+    VIEWING_TIMELINE_PATH, WIKIPEDIA_TIMELINE_PATH, years_of,
+)
 from src.source_data_collection.storage import read_csv, write_csv
 from src.source_data_collection.tier_titles import PROJECT_ROOT, TIERS_DOC_PATH, read_table
 
 TITLES_DIR = PROJECT_ROOT / "processed_data" / "titles"
 RELEASE_ORDER_PATH = TITLES_DIR / "release_order.csv"
 TITLE_PHASES_PATH = TITLES_DIR / "title_phases.csv"
+TIMELINE_PATH = TITLES_DIR / "timeline.csv"
 PHASES_HEADING = "### Phases and sagas"
 
 
@@ -53,17 +57,48 @@ def release_order_rows(titles):
 
 
 def title_phase_rows(titles, wikipedia_rows, wikidata_phases, phase_sagas):
-    """Phases (in MCU order) named by either source, their sagas, and which sources named them."""
+    """Phases (in MCU order) from Wikipedia's current phase articles, else from Wikidata (which
+    can keep a title's old planned phase, e.g. Ironheart), their sagas, and the agreeing sources."""
     rows = []
     for t in titles:
         qid = t["wikidata_qid"]
         from_wikipedia = {r["phase"] for r in wikipedia_rows if r["title_qid"] == qid}
         from_wikidata = {p for p in wikidata_phases.get(qid, "").split("|") if p}
-        phases = [p for p in PHASES if p in from_wikipedia | from_wikidata]
-        sources = [s for s, found in (("wikipedia", from_wikipedia), ("wikidata", from_wikidata)) if found]
+        chosen = from_wikipedia or from_wikidata
+        phases = [p for p in PHASES if p in chosen]
+        sources = [s for s, found in (("wikipedia", from_wikipedia), ("wikidata", from_wikidata))
+                   if found and found == chosen]
         rows.append({"title_qid": qid, "title": t["title"], "phases": "|".join(phases),
                      "sagas": "|".join(dict.fromkeys(phase_sagas[p] for p in phases)),
                      "phase_sources": "|".join(sources), "source": "derived"})
+    return rows
+
+
+def _span(years):
+    known = [y for y in years if y is not None]
+    return (min(known), max(known)) if known else ("", "")
+
+
+def timeline_rows(titles, viewing_rows, wikipedia_rows):
+    """Chronological order (by a title's first row in the MCU wiki viewing timeline) and the
+    in-universe years each source gives; titles in neither source are left blank."""
+    first_position, mcu_years, wikipedia_years = {}, {}, {}
+    for r in viewing_rows:
+        if r["title_qid"]:
+            first_position.setdefault(r["title_qid"], int(r["position"]))
+            mcu_years.setdefault(r["title_qid"], []).extend(years_of(r["dates"]))
+    for r in wikipedia_rows:
+        if r["title_qid"] and r["start_year"]:
+            wikipedia_years.setdefault(r["title_qid"], []).extend([int(r["start_year"]), int(r["end_year"])])
+    order = {q: i for i, q in enumerate(sorted(first_position, key=first_position.get), 1)}
+    rows = []
+    for t in titles:
+        q = t["wikidata_qid"]
+        mcu_start, mcu_end = _span(mcu_years.get(q, []))
+        wp_start, wp_end = _span(wikipedia_years.get(q, []))
+        rows.append({"title_qid": q, "title": t["title"], "chronological_order": order.get(q, ""),
+                     "mcu_wiki_start_year": mcu_start, "mcu_wiki_end_year": mcu_end,
+                     "wikipedia_start_year": wp_start, "wikipedia_end_year": wp_end, "source": "derived"})
     return rows
 
 
@@ -76,8 +111,13 @@ def main():
     phases = title_phase_rows(read_csv(REGISTRY_PATH), read_csv(WIKIPEDIA_PHASES_PATH), wikidata,
                               load_phase_sagas())
     write_csv(TITLE_PHASES_PATH, phases)
+
+    timeline = timeline_rows(read_csv(REGISTRY_PATH), read_csv(VIEWING_TIMELINE_PATH),
+                             read_csv(WIKIPEDIA_TIMELINE_PATH))
+    write_csv(TIMELINE_PATH, timeline)
     print(f"Release order for {len(order)} titles; phases for "
-          f"{sum(bool(r['phases']) for r in phases)} titles")
+          f"{sum(bool(r['phases']) for r in phases)} titles; chronological order for "
+          f"{sum(r['chronological_order'] != '' for r in timeline)} titles")
 
 
 if __name__ == "__main__":

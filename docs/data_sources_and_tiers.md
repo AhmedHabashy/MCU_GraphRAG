@@ -176,49 +176,56 @@ The teams that matter most for Avengers: Doomsday (MCU expert), one row per team
 reality. Members come from each team's MCU wiki and Marvel Database pages. Per the expert,
 the New Avengers and the Thunderbolts are one team, and the Illuminati exist only in Doctor
 Strange in the Multiverse of Madness. Team Doom is added once Avengers: Doomsday is released.
+Rows marked † are not on the expert's list; they are collected because their films are in
+Tier 2. (The Eternals are a species on both wikis, not a team, so they are not listed.) The Wikipedia page is kept as text for later extraction of who joins or leaves when.
 
-| Team | Reality | MCU wiki page | Marvel Database page | Also called |
-| --- | --- | --- | --- | --- |
-| Avengers | Earth-616 | Avengers | Avengers (Earth-199999) | |
-| New Avengers | Earth-616 | New Avengers | New Avengers (Earth-199999) | Thunderbolts |
-| Fantastic Four | Earth-828 | Fantastic Four | Fantastic Four (Earth-828) | |
-| X-Men | Earth-10005 | | X-Men (Earth-10005) | |
-| X-Men | Earth-92131 | | X-Men (Earth-92131) | |
-| Illuminati | Earth-838 | Illuminati | Illuminati (Earth-838) | |
+| Team | Reality | MCU wiki page | Marvel Database page | Wikipedia page | Also called |
+| --- | --- | --- | --- | --- | --- |
+| Avengers | Earth-616 | Avengers | Avengers (Earth-199999) | Avengers (Marvel Cinematic Universe) | |
+| New Avengers | Earth-616 | New Avengers | New Avengers (Earth-199999) | Avengers (Marvel Cinematic Universe) | Thunderbolts |
+| Fantastic Four | Earth-828 | Fantastic Four | Fantastic Four (Earth-828) | List of Marvel Cinematic Universe teams and organizations | |
+| X-Men | Earth-10005 | | X-Men (Earth-10005) | X-Men in film | |
+| X-Men | Earth-92131 | | X-Men (Earth-92131) | | |
+| Illuminati | Earth-838 | Illuminati | Illuminati (Earth-838) | List of Marvel Cinematic Universe teams and organizations | |
+| Guardians of the Galaxy † | Earth-616 | Guardians of the Galaxy | Guardians of the Galaxy (Earth-199999) | List of Marvel Cinematic Universe teams and organizations | |
 
 ### Tier 2: remaining MCU films and Disney+ series (second pass)
 
-| Title | Type | Year | Universe |
-| --- | --- | --- | --- |
-| The Incredible Hulk | Film | 2008 | MCU |
-| Guardians of the Galaxy | Film | 2014 | MCU |
-| Ant-Man | Film | 2015 | MCU |
-| Guardians of the Galaxy Vol. 2 | Film | 2017 | MCU |
-| Ant-Man and the Wasp | Film | 2018 | MCU |
-| Captain Marvel | Film | 2019 | MCU |
-| WandaVision | Series | 2021 | MCU |
-| Hawkeye | Series | 2021 | MCU |
-| Eternals | Film | 2021 | MCU |
-| Moon Knight | Series | 2022 | MCU |
-| Ms. Marvel | Series | 2022 | MCU |
-| She-Hulk: Attorney at Law | Series | 2022 | MCU |
-| Werewolf by Night | Special | 2022 | MCU |
-| The Guardians of the Galaxy Holiday Special | Special | 2022 | MCU |
-| I Am Groot, season 1 | Animated shorts | 2022 | MCU |
-| Guardians of the Galaxy Vol. 3 | Film | 2023 | MCU |
-| Secret Invasion | Series | 2023 | MCU |
-| I Am Groot, season 2 | Animated shorts | 2023 | MCU |
-| Echo | Series | 2024 | MCU |
-| Agatha All Along | Series | 2024 | MCU |
-| Daredevil: Born Again | Series | 2025 | MCU |
-| Ironheart | Series | 2025 | MCU |
-| Your Friendly Neighborhood Spider-Man | Animated series | 2025 | MCU animation |
-| Eyes of Wakanda | Animated series | 2025 | MCU animation |
-| Marvel Zombies | Animated series | 2025 | MCU animation |
-| Wonder Man | Series | 2026 | MCU |
-| VisionQuest | Series | 2026 | MCU |
-| Daredevil, seasons 1-3 | Series | 2015-2018 | Netflix |
-| The Punisher, seasons 1-2 | Series | 2017-2019 | Netflix |
+"Reality" works as in Tier 1. Rows marked † are not yet confirmed by the MCU expert:
+the Netflix series (Daredevil: Born Again continues Daredevil, so Earth-616 is assumed), and
+the animated series set in their own universes, whose Earth numbers are not known yet.
+I Am Groot has no separate season items on Wikidata, so its two seasons are one title.
+
+| Title | Type | Year | Universe | Reality |
+| --- | --- | --- | --- | --- |
+| The Incredible Hulk | Film | 2008 | MCU | Earth-616 |
+| Guardians of the Galaxy | Film | 2014 | MCU | Earth-616 |
+| Ant-Man | Film | 2015 | MCU | Earth-616 |
+| Guardians of the Galaxy Vol. 2 | Film | 2017 | MCU | Earth-616 |
+| Ant-Man and the Wasp | Film | 2018 | MCU | Earth-616 |
+| Captain Marvel | Film | 2019 | MCU | Earth-616 |
+| WandaVision | Series | 2021 | MCU | Earth-616 |
+| Hawkeye | Series | 2021 | MCU | Earth-616 |
+| Eternals | Film | 2021 | MCU | Earth-616 |
+| Moon Knight | Series | 2022 | MCU | Earth-616 |
+| Ms. Marvel | Series | 2022 | MCU | Earth-616 |
+| She-Hulk: Attorney at Law | Series | 2022 | MCU | Earth-616 |
+| Werewolf by Night | Special | 2022 | MCU | Earth-616 |
+| The Guardians of the Galaxy Holiday Special | Special | 2022 | MCU | Earth-616 |
+| I Am Groot, seasons 1-2 | Animated shorts | 2022-2023 | MCU | Earth-616 |
+| Guardians of the Galaxy Vol. 3 | Film | 2023 | MCU | Earth-616 |
+| Secret Invasion | Series | 2023 | MCU | Earth-616 |
+| Echo | Series | 2024 | MCU | Earth-616 |
+| Agatha All Along | Series | 2024 | MCU | Earth-616 |
+| Daredevil: Born Again | Series | 2025 | MCU | Earth-616 |
+| Ironheart | Series | 2025 | MCU | Earth-616 |
+| Your Friendly Neighborhood Spider-Man | Animated series | 2025 | MCU animation | Unknown † |
+| Eyes of Wakanda | Animated series | 2025 | MCU animation | Earth-616 † |
+| Marvel Zombies | Animated series | 2025 | MCU animation | Unknown † |
+| Wonder Man | Series | 2026 | MCU | Earth-616 |
+| VisionQuest | Series | 2026 | MCU | Earth-616 |
+| Daredevil, seasons 1-3 | Series | 2015-2018 | Netflix | Earth-616 † |
+| The Punisher, seasons 1-2 | Series | 2017-2019 | Netflix | Earth-616 † |
 
 Netflix's Daredevil and The Punisher were promoted from Tier 3 (MCU expert), because
 their characters reappear in the MCU.

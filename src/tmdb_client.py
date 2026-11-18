@@ -1,5 +1,6 @@
 """Client for the TMDB v3 API (credits and person external IDs)."""
 
+from src.title_types import SEASON, is_movie
 from src.utils import JsonHttpClient
 
 TMDB_API = "https://api.themoviedb.org/3"
@@ -17,9 +18,9 @@ class TmdbClient(JsonHttpClient):
 
     def credits(self, title):
         """(path, payload) of the credits that match a registry row's type."""
-        if title["type"] == "Film":
+        if is_movie(title):
             path = f"/movie/{title['tmdb_movie_id']}/credits"
-        elif title["type"] == "Series season":
+        elif title["type"] == SEASON:
             path = f"/tv/{title['tmdb_tv_id']}/season/{title['season_number']}/aggregate_credits"
         else:
             path = f"/tv/{title['tmdb_tv_id']}/aggregate_credits"
@@ -28,12 +29,12 @@ class TmdbClient(JsonHttpClient):
     def first_release(self, title):
         """(path, 'YYYY-MM-DD') of a title's first release: a film's earliest date of any
         country and release type (premieres included), a series' or season's first air date."""
-        if title["type"] == "Film":
+        if is_movie(title):
             path = f"/movie/{title['tmdb_movie_id']}/release_dates"
             dates = [d["release_date"][:10] for country in self._get(path)["results"]
                      for d in country["release_dates"] if d.get("release_date")]
             return path, min(dates, default="")
-        if title["type"] == "Series season":
+        if title["type"] == SEASON:
             path = f"/tv/{title['tmdb_tv_id']}/season/{title['season_number']}"
             return path, self._get(path).get("air_date") or ""
         path = f"/tv/{title['tmdb_tv_id']}"
@@ -41,9 +42,9 @@ class TmdbClient(JsonHttpClient):
 
     def details(self, title):
         """(path, payload) of a film's, series' or season's details."""
-        if title["type"] == "Film":
+        if is_movie(title):
             path = f"/movie/{title['tmdb_movie_id']}"
-        elif title["type"] == "Series season":
+        elif title["type"] == SEASON:
             path = f"/tv/{title['tmdb_tv_id']}/season/{title['season_number']}"
         else:
             path = f"/tv/{title['tmdb_tv_id']}"

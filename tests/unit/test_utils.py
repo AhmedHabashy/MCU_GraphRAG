@@ -140,6 +140,15 @@ def test_claims_with_qualifiers_lists_every_claim_and_qualifier():
         ("Q1", ["Q10", "Q11"]), ("Q2", [])]
 
 
+def test_article_returns_the_whole_page_with_its_revision():
+    payload = {"parse": {"title": "X-Men in film", "revid": 99, "wikitext": {"*": "== History =="}}}
+    client, session = make_client([FakeResponse(200, payload=payload)])
+    assert client.article("X-Men in film") == {"page": "X-Men in film", "revid": 99,
+                                               "wikitext": "== History ==",
+                                               "url": "https://en.wikipedia.org/wiki/X-Men_in_film"}
+    assert "section" not in session.calls[0][1]
+
+
 # --- FandomClient -----------------------------------------------------------
 
 def test_fandom_lead_returns_first_section_with_revision():

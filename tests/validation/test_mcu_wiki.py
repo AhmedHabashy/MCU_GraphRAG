@@ -1,4 +1,4 @@
-"""Validation of MCU wiki matches for Tier 1 TMDB credits.
+"""Validation of MCU wiki matches for TMDB credits (Tiers 1 and 2).
 
 Run after collection:  .venv\\Scripts\\python.exe -m pytest -m validation
 Collect with:          .venv\\Scripts\\python.exe -m src.source_data_collection.collect_mcu_wiki

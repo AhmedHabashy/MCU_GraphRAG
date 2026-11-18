@@ -1,6 +1,11 @@
 """Unit tests for src/processing/build_titles.py."""
 
-from src.processing.build_titles import first_releases, release_order_rows, title_phase_rows
+from src.processing.build_titles import (
+    first_releases,
+    release_order_rows,
+    timeline_rows,
+    title_phase_rows,
+)
 
 
 def detail(qid, title, date):
@@ -47,6 +52,35 @@ def test_title_phases_combine_both_sources_in_phase_order():
     assert (rows["QE"]["phases"], rows["QE"]["sagas"], rows["QE"]["phase_sources"]) == \
         ("Phase Three", "The Infinity Saga", "wikipedia|wikidata")
     assert (rows["QX"]["phases"], rows["QX"]["sagas"]) == ("", "")
+
+
+def test_wikipedias_current_phase_wins_over_a_stale_wikidata_phase():
+    """Ironheart moved from Phase Four to Phase Five; Wikidata still says Phase Four."""
+    titles = [{"wikidata_qid": "QI", "title": "Ironheart"}, {"wikidata_qid": "QO", "title": "Only on Wikidata"}]
+    wikipedia = [{"title_qid": "QI", "phase": "Phase Five"}]
+    wikidata = {"QI": "Phase Four", "QO": "Phase Four"}
+    rows = {r["title_qid"]: r for r in title_phase_rows(titles, wikipedia, wikidata, SAGAS)}
+    assert (rows["QI"]["phases"], rows["QI"]["phase_sources"]) == ("Phase Five", "wikipedia")
+    assert (rows["QO"]["phases"], rows["QO"]["phase_sources"]) == ("Phase Four", "wikidata")
+
+
+# --- timeline_rows ---------------------------------------------------------------------
+
+def test_timeline_orders_titles_by_their_first_viewing_position_and_keeps_both_sources_years():
+    titles = [{"wikidata_qid": "QIM", "title": "Iron Man"}, {"wikidata_qid": "QCA", "title": "First Avenger"},
+              {"wikidata_qid": "QX", "title": "X-Men"}]
+    viewing = [{"position": "1", "title_qid": "QCA", "dates": "March 1942 - 1945"},
+               {"position": "2", "title_qid": "", "dates": "1946"},
+               {"position": "3", "title_qid": "QIM", "dates": "2010"},
+               {"position": "4", "title_qid": "QCA", "dates": "2011"}]          # a later scene
+    wikipedia = [{"title_qid": "QIM", "start_year": "2010", "end_year": "2010"},
+                 {"title_qid": "QCA", "start_year": "1942", "end_year": "1945"}]
+    rows = {r["title_qid"]: r for r in timeline_rows(titles, viewing, wikipedia)}
+
+    assert (rows["QCA"]["chronological_order"], rows["QIM"]["chronological_order"]) == (1, 2)
+    assert (rows["QCA"]["mcu_wiki_start_year"], rows["QCA"]["mcu_wiki_end_year"]) == (1942, 2011)
+    assert (rows["QCA"]["wikipedia_start_year"], rows["QCA"]["wikipedia_end_year"]) == (1942, 1945)
+    assert rows["QX"]["chronological_order"] == "" and rows["QX"]["wikipedia_start_year"] == ""
 
 
 # --- release_order_rows ---------------------------------------------------------------

@@ -48,6 +48,14 @@ def test_film_record_uses_the_plot_section():
     assert client.requests == [("Iron Man (2008 film)", ("Plot", "Premise"))]
 
 
+def test_tv_special_uses_the_plot_section_like_a_film():
+    special = {**IRON_MAN, "title": "Werewolf by Night", "type": "Special",
+               "enwiki_title": "Werewolf by Night (film)"}
+    client = FakeClient({("Werewolf by Night (film)", "Plot"): section(
+        "Werewolf by Night (film)", "Plot", "== Plot ==\nHunters gather.")})
+    assert plot_record(special, client, retrieved_at="t")["kind"] == "plot"
+
+
 def test_unreleased_film_falls_back_to_premise():
     doomsday = {**IRON_MAN, "title": "Avengers: Doomsday", "enwiki_title": "Avengers: Doomsday"}
     client = FakeClient({("Avengers: Doomsday", "Premise"): section(
@@ -126,6 +134,31 @@ def test_wikidata_episodes_of_a_series_limited_to_seasons():
     client = FakeClient({}, {"S1": season("S1", 1, ["E1"]), "S3": season("S3", 3, ["E3"]),
                              "E1": {"id": "E1", "claims": {}}, "E3": {"id": "E3", "claims": {}}})
     assert [e["id"] for e in wikidata_episodes(series, client, seasons={1, 2})] == ["E1"]
+
+
+def test_inline_seasons_are_read_from_season_subheadings():
+    """I Am Groot lists both seasons in one Episodes section, under 'Season N' subheadings."""
+    groot = {"title": "I Am Groot", "type": "Animated shorts", "wikidata_qid": "Q108170999",
+             "enwiki_title": "I Am Groot", "season_number": "", "seasons": "1|2"}
+    wikitext = ("== Episodes ==\n=== Season 1 (2022) ===\n" + episode(1, "Groot's First Steps", "Groot grows.", 1)
+                + "\n=== Season 2 (2023) ===\n" + episode(6, "Groot's Snow Day", "Groot plays.", 1))
+    client = FakeClient({("I Am Groot", "Episodes"): section("I Am Groot", "Episodes", wikitext)})
+
+    record = plot_record(groot, client, retrieved_at="2026-11-18T00:00:00Z")
+
+    assert [(e["season"], e["number_in_season"]) for e in record["episodes"]] == [(1, 1), (2, 1)]
+
+
+def test_episodes_are_marked_aired_only_with_a_past_air_date():
+    show = {"title": "Marvel Zombies", "type": "Animated series", "wikidata_qid": "Q111382701",
+            "enwiki_title": "Marvel Zombies (TV series)", "season_number": "", "seasons": ""}
+    announced = "{{Episode list\n|EpisodeNumber = 5\n|OriginalAirDate = {{Start date|2027|10|}}\n}}"
+    client = FakeClient({("Marvel Zombies (TV series)", "Episodes"): section(
+        "Marvel Zombies (TV series)", "Episodes", episode(1, "Episode 1", "Zombies.") + announced)})
+
+    record = plot_record(show, client, retrieved_at="2026-11-18T00:00:00Z")
+
+    assert [e["aired"] for e in record["episodes"]] == [True, False]
 
 
 def test_inline_series_episodes_are_season_one():

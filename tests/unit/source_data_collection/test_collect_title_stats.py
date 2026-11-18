@@ -19,6 +19,12 @@ def test_film_stats_from_tmdb_details():
                    "retrieved_at": "t", "license": "TMDB API terms of use (attribution required)"}
 
 
+def test_tv_special_runtime_comes_from_its_movie_details():
+    special = {"title": "Werewolf by Night", "type": "Special", "wikidata_qid": "Q111426635"}
+    row = tmdb_stats_row(special, "/movie/894205", {"runtime": 53}, series_genres=[], retrieved_at="t")
+    assert row["runtime_minutes"] == 53
+
+
 def test_unknown_money_is_blank_not_zero():
     row = tmdb_stats_row(IRON_MAN, "/movie/1", {"budget": 0, "revenue": 0, "runtime": 0},
                          series_genres=[], retrieved_at="t")

@@ -1,4 +1,4 @@
-"""Cross-source validation of the Tier 1 cast data (TMDB vs Wikidata vs Wikipedia).
+"""Cross-source validation of the cast data (Tiers 1 and 2) (TMDB vs Wikidata vs Wikipedia).
 
 Run after collection:  .venv\\Scripts\\python.exe -m pytest -m validation
 Collect with:          .venv\\Scripts\\python.exe -m src.source_data_collection.collect_cast
@@ -183,14 +183,17 @@ def test_every_title_has_a_wikipedia_cast_section(titles):
 
 def test_top_billed_actors_are_named_on_wikipedia(titles, top_billed):
     """Wikipedia lists principal cast only, so a title may miss a few TMDB top-10 names
-    (e.g. Iron Man: Bill Smitrovich and Sayed Badreya appear nowhere in the article)."""
+    (e.g. Iron Man: Bill Smitrovich and Sayed Badreya appear nowhere in the article). For a
+    series spanning several seasons, TMDB ranks by episode count, so its top 10 includes recurring
+    characters Wikipedia lists elsewhere (Netflix Daredevil); those only count overall."""
     texts = {t["wikidata_qid"]: normalize_name(read_json(cast_section_path(t["wikidata_qid"]))["wikitext"])
              for t in titles}
     found = {(r["title_qid"], r["tmdb_person_id"]): normalize_name(r["actor_name"]) in texts[r["title_qid"]]
              for r in top_billed}
     assert sum(found.values()) / len(found) >= MIN_TOP_BILLED_IN_WIKIPEDIA
+    multi_season = {t["wikidata_qid"] for t in titles if t["seasons"]}  # see docstring
     low = []
-    for title_qid in {t for t, _ in found}:
+    for title_qid in {t for t, _ in found} - multi_season:
         hits = [v for (t, _), v in found.items() if t == title_qid]
         if sum(hits) / len(hits) < MIN_TOP_BILLED_IN_WIKIPEDIA_PER_TITLE:
             low.append((title_qid, f"{sum(hits)}/{len(hits)}"))

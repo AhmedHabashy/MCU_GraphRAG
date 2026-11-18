@@ -1,7 +1,7 @@
 """Collect Tier 1 cast credits from TMDB.
 
 Output: source_data/tmdb/credits/<title QID>.json      (raw TMDB responses, as collected)
-        source_data/tmdb/tier1_cast.csv                (one row per actor-character credit)
+        source_data/tmdb/cast.csv                (one row per actor-character credit)
         source_data/tmdb/person_external_ids.csv       (TMDB's own Wikidata ID, for top-billed
                                                         and ambiguously mapped people)
 
@@ -17,7 +17,7 @@ from src.tmdb_client import TMDB_API, TmdbClient
 
 OUTPUT_DIR = PROJECT_ROOT / "source_data" / "tmdb"
 CREDITS_DIR = OUTPUT_DIR / "credits"
-TMDB_CAST_PATH = OUTPUT_DIR / "tier1_cast.csv"
+TMDB_CAST_PATH = OUTPUT_DIR / "cast.csv"
 TMDB_PERSON_WIKIDATA_PATH = OUTPUT_DIR / "person_external_ids.csv"
 
 TMDB_LICENSE = "TMDB API terms of use (attribution required)"

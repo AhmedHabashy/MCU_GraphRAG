@@ -8,8 +8,8 @@ The official phase -> saga structure is curated in docs/data_sources_and_tiers.m
 
 Needs:  build_title_registry
 Output: source_data/wikipedia/phases/<Phase N>.json   (raw section headings, as collected)
-        source_data/wikipedia/tier1_phases.csv        (title -> phase, per heading)
-        source_data/wikidata/tier1_phases.csv         (title -> phases and sagas)
+        source_data/wikipedia/phases.csv        (title -> phase, per heading)
+        source_data/wikidata/phases.csv         (title -> phases and sagas)
 Run:    .venv\\Scripts\\python.exe -m src.source_data_collection.collect_phases
 """
 
@@ -27,12 +27,12 @@ from src.utils import WikimediaClient, claim_values, enwiki_url, label
 
 PHASES = ["Phase One", "Phase Two", "Phase Three", "Phase Four", "Phase Five", "Phase Six"]
 PHASE_ARTICLE = "Marvel Cinematic Universe: {phase}"
-PHASE_SECTIONS = ("Film", "Television")
+PHASE_SECTIONS = ("Film", "Television", "Short")
 
 WIKIPEDIA_DIR = PROJECT_ROOT / "source_data" / "wikipedia"
 PHASE_PAGES_DIR = WIKIPEDIA_DIR / "phases"
-WIKIPEDIA_PHASES_PATH = WIKIPEDIA_DIR / "tier1_phases.csv"
-WIKIDATA_PHASES_PATH = PROJECT_ROOT / "source_data" / "wikidata" / "tier1_phases.csv"
+WIKIPEDIA_PHASES_PATH = WIKIPEDIA_DIR / "phases.csv"
+WIKIDATA_PHASES_PATH = PROJECT_ROOT / "source_data" / "wikidata" / "phases.csv"
 
 _TAGS = re.compile(r"<[^>]+>")
 _YEARS = re.compile(r"\s*\([^)]*\)\s*$")
@@ -60,7 +60,7 @@ def _parse_heading(heading):
     return normalize_name(text), None
 
 
-def _title_scope(title):
+def title_scope(title):
     """(normalized name, season numbers or None) of a tier-list title."""
     if title["type"] == SEASON:
         name = title["title"].rsplit(", season", 1)[0]
@@ -74,7 +74,7 @@ def titles_in_heading(heading, titles):
     name, heading_seasons = _parse_heading(heading)
     found = []
     for t in titles:
-        title_name, title_seasons = _title_scope(t)
+        title_name, title_seasons = title_scope(t)
         if title_name != name:
             continue
         if title_seasons is None or heading_seasons is None or title_seasons & heading_seasons:

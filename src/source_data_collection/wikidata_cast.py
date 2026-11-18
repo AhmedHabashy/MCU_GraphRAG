@@ -1,9 +1,9 @@
 """Collect Tier 1 cast from Wikidata and map TMDB people to Wikidata actors.
 
-Input:  source_data/wikidata/tier1_entities.json (title entities saved by build_title_registry)
+Input:  source_data/wikidata/entities.json (title entities saved by build_title_registry)
         TMDB person IDs from tmdb_cast
-Output: source_data/wikidata/tier1_cast.csv          (cast member / voice actor + character)
-        source_data/wikidata/tier1_cast_entities.json (raw actor and character labels/aliases)
+Output: source_data/wikidata/cast.csv          (cast member / voice actor + character)
+        source_data/wikidata/cast_entities.json (raw actor and character labels/aliases)
         source_data/wikidata/tmdb_person_qids.csv     (TMDB person ID <-> actor QID via P4985,
                                                        for people from either source)
 """
@@ -14,8 +14,8 @@ from src.source_data_collection.tier_titles import PROJECT_ROOT
 from src.utils import claims_with_qualifiers, label
 
 OUTPUT_DIR = PROJECT_ROOT / "source_data" / "wikidata"
-WIKIDATA_CAST_PATH = OUTPUT_DIR / "tier1_cast.csv"
-CAST_ENTITIES_PATH = OUTPUT_DIR / "tier1_cast_entities.json"
+WIKIDATA_CAST_PATH = OUTPUT_DIR / "cast.csv"
+CAST_ENTITIES_PATH = OUTPUT_DIR / "cast_entities.json"
 PERSON_QIDS_PATH = OUTPUT_DIR / "tmdb_person_qids.csv"
 
 # Wikidata property IDs (verified on wikidata.org 2026-11-17).

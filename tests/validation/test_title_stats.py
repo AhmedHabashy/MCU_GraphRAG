@@ -1,4 +1,4 @@
-"""Validation of Tier 1 analytics: TMDB box office, budget, runtime and ratings vs Wikidata.
+"""Validation of title analytics (Tiers 1 and 2): TMDB box office, budget, runtime and ratings vs Wikidata.
 
 Run after collection:  .venv\\Scripts\\python.exe -m pytest -m validation
 Collect with:          .venv\\Scripts\\python.exe -m src.source_data_collection.collect_title_stats
@@ -14,6 +14,7 @@ from src.source_data_collection.collect_title_stats import (
 )
 from src.source_data_collection.storage import read_csv
 from src.source_data_collection.tier_titles import PROJECT_ROOT
+from src.title_types import MOVIE_TYPES
 from src.utils import WikimediaClient, label
 
 pytestmark = pytest.mark.validation
@@ -92,7 +93,7 @@ def test_budget_agrees_with_wikidata(stats, money):
 
 
 def test_runtime_agrees_with_wikidata(stats, money):
-    films = {q: s for q, s in stats.items() if s["type"] == "Film"}
+    films = {q: s for q, s in stats.items() if s["type"] in MOVIE_TYPES}
     rate, off = agreement(films, money, "runtime_minutes", "duration_minutes",
                           lambda a, b: abs(a - b) <= RUNTIME_TOLERANCE_MINUTES)
     assert rate >= MIN_RUNTIME_AGREEMENT, off

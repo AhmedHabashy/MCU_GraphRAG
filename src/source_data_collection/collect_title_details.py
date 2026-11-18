@@ -1,16 +1,16 @@
 """Collect Tier 1 title details: directors, writers, first release date, sequel links, locations,
-and top-billed actors' birth dates, each with a second source for cross-checking.
+and every credited actor's birth date, each with a second source for cross-checking.
 
 "First release" is the earliest release of any kind (premieres included), as chosen for this
 project. Series and seasons use their earliest episode when that is earlier or the item has none.
 
 Needs:  build_title_registry, collect_cast, collect_plots (episode items)
-Output: source_data/wikidata/tier1_title_details.csv   (directors, writers, first release, sequels, locations)
-        source_data/wikidata/tier1_title_people.json   (raw labels of the people, places and titles linked)
-        source_data/wikidata/tier1_actor_births.csv    (top-billed actors' birth dates)
-        source_data/tmdb/tier1_first_releases.csv       (TMDB's first release per title)
-        source_data/tmdb/tier1_crew.csv                 (directors and writers from the saved credits)
-        source_data/tmdb/tier1_person_birthdays.csv     (TMDB birthdays of the same actors)
+Output: source_data/wikidata/title_details.csv   (directors, writers, first release, sequels, locations)
+        source_data/wikidata/title_people.json   (raw labels of the people, places and titles linked)
+        source_data/wikidata/actor_births.csv    (every credited actor's birth dates)
+        source_data/tmdb/first_releases.csv       (TMDB's first release per title)
+        source_data/tmdb/crew.csv                 (directors and writers from the saved credits)
+        source_data/tmdb/person_birthdays.csv     (TMDB birthdays of the same actors)
 Run:    .venv\\Scripts\\python.exe -m src.source_data_collection.collect_title_details
 """
 
@@ -21,7 +21,7 @@ from src.source_data_collection.collect_plots import EPISODE_ENTITIES_PATH
 from src.source_data_collection.storage import read_csv, read_json, utc_now, write_csv, write_json
 from src.source_data_collection.tier_titles import PROJECT_ROOT
 from src.source_data_collection.tmdb_cast import (
-    CREDITS_DIR, TMDB_CAST_PATH, TMDB_LICENSE, make_client, top_billed_person_ids,
+    CREDITS_DIR, TMDB_CAST_PATH, TMDB_LICENSE, make_client,
 )
 from src.source_data_collection.wikidata_cast import PERSON_QIDS_PATH
 from src.tmdb_client import TMDB_API
@@ -29,12 +29,12 @@ from src.utils import WikimediaClient, claim_values, claims_with_qualifiers, day
 
 WIKIDATA_DIR = PROJECT_ROOT / "source_data" / "wikidata"
 TMDB_DIR = PROJECT_ROOT / "source_data" / "tmdb"
-TITLE_DETAILS_PATH = WIKIDATA_DIR / "tier1_title_details.csv"
-TITLE_PEOPLE_PATH = WIKIDATA_DIR / "tier1_title_people.json"
-ACTOR_BIRTHS_PATH = WIKIDATA_DIR / "tier1_actor_births.csv"
-TMDB_FIRST_RELEASES_PATH = TMDB_DIR / "tier1_first_releases.csv"
-TMDB_CREW_PATH = TMDB_DIR / "tier1_crew.csv"
-TMDB_BIRTHDAYS_PATH = TMDB_DIR / "tier1_person_birthdays.csv"
+TITLE_DETAILS_PATH = WIKIDATA_DIR / "title_details.csv"
+TITLE_PEOPLE_PATH = WIKIDATA_DIR / "title_people.json"
+ACTOR_BIRTHS_PATH = WIKIDATA_DIR / "actor_births.csv"
+TMDB_FIRST_RELEASES_PATH = TMDB_DIR / "first_releases.csv"
+TMDB_CREW_PATH = TMDB_DIR / "crew.csv"
+TMDB_BIRTHDAYS_PATH = TMDB_DIR / "person_birthdays.csv"
 
 # Wikidata property IDs (verified on wikidata.org 2026-11-18, see validation).
 P_DIRECTOR = "P57"
@@ -114,12 +114,12 @@ def tmdb_crew_rows(title_qid, saved_credits):
     return rows
 
 
-def _top_billed_actors():
-    """(TMDB person, actor QID) for top-billed people with exactly one Wikidata actor."""
+def _actors():
+    """(TMDB person, actor QID) for every credited person with exactly one Wikidata actor."""
     qids = {}
     for r in read_csv(PERSON_QIDS_PATH):
         qids.setdefault(r["tmdb_person_id"], set()).add(r["actor_qid"])
-    people = top_billed_person_ids(read_csv(TMDB_CAST_PATH))
+    people = list(dict.fromkeys(r["tmdb_person_id"] for r in read_csv(TMDB_CAST_PATH)))
     return [(p, next(iter(qids[p]))) for p in people if len(qids.get(p, ())) == 1]
 
 
@@ -154,7 +154,7 @@ def main():
         t["wikidata_qid"], read_json(CREDITS_DIR / f"{t['wikidata_qid']}.json"))])
     print("TMDB: first releases and crew", flush=True)
 
-    actors = _top_billed_actors()
+    actors = _actors()
     actor_entities = wikimedia.get_entities([q for _, q in actors], props="claims")
     write_csv(ACTOR_BIRTHS_PATH, [
         {"tmdb_person_id": p, "actor_qid": q,
@@ -165,7 +165,7 @@ def main():
         {"tmdb_person_id": p, "birthday": tmdb.person(p).get("birthday") or "",
          "source": "tmdb", "source_url": f"{TMDB_API}/person/{p}",
          "retrieved_at": retrieved_at, "license": TMDB_LICENSE} for p, _ in actors])
-    print(f"Birth dates for {len(actors)} top-billed actors", flush=True)
+    print(f"Birth dates for {len(actors)} actors", flush=True)
 
 
 if __name__ == "__main__":

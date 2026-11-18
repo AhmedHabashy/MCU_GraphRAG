@@ -2,7 +2,13 @@
 
 import pytest
 
-from src.source_data_collection.tier_titles import TIERS_DOC_PATH, load_tier_titles, read_table
+from src.source_data_collection.tier_titles import (
+    SCOPE_TIERS,
+    TIERS_DOC_PATH,
+    load_scope_titles,
+    load_tier_titles,
+    read_table,
+)
 
 PLAN = """\
 # Plan
@@ -103,6 +109,18 @@ def test_read_table_reads_any_markdown_table_under_a_heading(tmp_path):
     assert read_table(path, "### Curated roles") == [
         {"title": "Logan", "actor": "Dafne Keen", "reality": "Earth-17315", "needs_review": True},
         {"title": "*", "actor": "Kerry Condon", "reality": "", "needs_review": False}]
+
+
+def test_scope_titles_are_tiers_one_and_two_with_their_tier(tmp_path):
+    path = tmp_path / "plan.md"
+    path.write_text("### Tier 1: a\n\n| Title | Type | Year | Universe |\n| --- | --- | --- | --- |\n"
+                    "| Iron Man | Film | 2008 | MCU |\n\n"
+                    "### Tier 2: b\n\n| Title | Type | Year | Universe |\n| --- | --- | --- | --- |\n"
+                    "| Ant-Man | Film | 2015 | MCU |\n\n"
+                    "### Tier 3: c\n\n| Title | Type | Year | Universe |\n| --- | --- | --- | --- |\n"
+                    "| Venom | Film | 2018 | Sony |\n", encoding="utf-8")
+    assert SCOPE_TIERS == (1, 2)
+    assert [(t["title"], t["tier"]) for t in load_scope_titles(path)] == [("Iron Man", 1), ("Ant-Man", 2)]
 
 
 def test_default_source_is_the_tracked_docs_file():

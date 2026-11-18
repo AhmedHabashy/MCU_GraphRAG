@@ -16,6 +16,12 @@ def test_film_uses_movie_credits():
     assert session.calls[0] == (f"{TMDB_API}/movie/1726/credits", {"api_key": "KEY"})
 
 
+def test_tv_special_uses_movie_credits():
+    client, _ = make_client()
+    path, _ = client.credits({"type": "Special", "tmdb_movie_id": "894205"})
+    assert path == "/movie/894205/credits"
+
+
 def test_series_uses_aggregate_credits():
     client, _ = make_client()
     path, _ = client.credits({"type": "Animated series", "tmdb_tv_id": "91363"})

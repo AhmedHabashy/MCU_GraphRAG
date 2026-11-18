@@ -4,9 +4,9 @@ Films use the "Plot" section, or "Premise" while unreleased. Series and seasons 
 "Episodes" section, following season pages pulled in with {{:Page}}. For cross-checking,
 the matching Wikidata episode items are saved as well.
 
-Needs:  source_data/wikidata/tier1_titles.csv and tier1_entities.json (build_title_registry)
+Needs:  source_data/wikidata/titles.csv and entities.json (build_title_registry)
 Output: source_data/wikipedia/plots/<title QID>.json      (section wikitext, plain text, episodes)
-        source_data/wikidata/tier1_episode_entities.json   (raw Wikidata episode items per title)
+        source_data/wikidata/episode_entities.json   (raw Wikidata episode items per title)
 Run:    .venv\\Scripts\\python.exe -m src.source_data_collection.collect_plots
 """
 
@@ -20,10 +20,11 @@ from src.source_data_collection.storage import read_csv, read_json, utc_now, wri
 from src.source_data_collection.tier_titles import PROJECT_ROOT
 from src.source_data_collection.wikipedia_cast import WIKIPEDIA_LICENSE
 from src.source_data_collection.wikitext import episode_entries, plain_text, transcluded_pages
+from src.title_types import is_movie
 from src.utils import WikimediaClient, claim_values, enwiki_url, qualifier_value
 
 PLOTS_DIR = PROJECT_ROOT / "source_data" / "wikipedia" / "plots"
-EPISODE_ENTITIES_PATH = PROJECT_ROOT / "source_data" / "wikidata" / "tier1_episode_entities.json"
+EPISODE_ENTITIES_PATH = PROJECT_ROOT / "source_data" / "wikidata" / "episode_entities.json"
 
 FILM_HEADINGS = ("Plot", "Premise")  # "Premise" only for unreleased films
 EPISODES_HEADING = "Episodes"
@@ -39,9 +40,27 @@ def _section_meta(section):
             "url": enwiki_url(section["page"]), "wikitext": section["wikitext"]}
 
 
-def _episodes(section, season):
-    return [{**e, "season": season, "source_page": section["page"]}
-            for e in episode_entries(section["wikitext"])]
+_SUBHEADING = re.compile(r"^===\s*(.*?)\s*===\s*$", re.MULTILINE)
+_SEASON_HEADING = re.compile(r"^Season (\d+)", re.IGNORECASE)
+
+
+def _episodes(section, season, retrieved_at, wanted=frozenset()):
+    """Episodes of a section; a 'Season N' subheading inside it sets the season of the episodes
+    below it (I Am Groot lists both seasons in one section). An episode has aired when it has
+    a full air date on or before the collection day; announced episodes are kept but marked."""
+    today = retrieved_at[:10]
+    parts = _SUBHEADING.split(section["wikitext"])   # [text, heading, text, heading, text, ...]
+    episodes = []
+    for i in range(0, len(parts), 2):
+        if i:
+            match = _SEASON_HEADING.match(plain_text(parts[i - 1]))
+            season = int(match.group(1)) if match else season
+        if wanted and season not in wanted:
+            continue
+        episodes += [{**e, "season": season, "source_page": section["page"],
+                      "aired": bool(e["air_date"]) and e["air_date"] <= today}
+                     for e in episode_entries(parts[i])]
+    return episodes
 
 
 def _season_from_page(page):
@@ -52,7 +71,7 @@ def _season_from_page(page):
 def plot_record(title, client, retrieved_at):
     """Plot text (films) or episode summaries (series and seasons) for one title."""
     sections, text, episodes, kind = [], "", [], ""
-    if title["type"] == "Film":
+    if is_movie(title):
         section = client.top_level_section(title["enwiki_title"], prefix=FILM_HEADINGS)
         if section:
             sections = [section]
@@ -63,15 +82,15 @@ def plot_record(title, client, retrieved_at):
         if section:
             kind = "episodes"
             season = int(title["season_number"]) if title["type"] == SEASON else 1
-            sections, episodes = [section], _episodes(section, season)
             wanted = selected_seasons(title)
+            sections, episodes = [section], _episodes(section, season, retrieved_at, wanted)
             for page in transcluded_pages(section["wikitext"]):
                 if wanted and _season_from_page(page) not in wanted:
                     continue
                 season_section = client.top_level_section(page, prefix=EPISODES_HEADING)
                 if season_section:
                     sections.append(season_section)
-                    episodes += _episodes(season_section, _season_from_page(page))
+                    episodes += _episodes(season_section, _season_from_page(page), retrieved_at)
     return {"title": title["title"], "title_qid": title["wikidata_qid"], "type": title["type"],
             "kind": kind, "text": text, "episodes": episodes,
             "sections": [_section_meta(s) for s in sections],
@@ -115,7 +134,7 @@ def main():
     for title in titles:
         record = plot_record(title, client, retrieved_at)
         write_json(plot_path(title["wikidata_qid"]), record)
-        if title["type"] != "Film":
+        if not is_movie(title):
             episode_entities[title["wikidata_qid"]] = wikidata_episodes(
                 title_entities[title["wikidata_qid"]], client, selected_seasons(title))
         print(f"{title['title']}: {record['kind'] or 'MISSING'} "

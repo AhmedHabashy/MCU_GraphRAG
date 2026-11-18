@@ -5,11 +5,11 @@ names, universe (P1080), the comics character it is based on (P144) and same-as 
 different-from links; the Marvel Database (Fandom) infobox gives names, aliases, reality
 and affiliations, as an independent second source.
 
-Needs:  source_data/wikidata/tier1_cast.csv (collect_cast)
-Output: source_data/wikidata/tier1_characters.csv          (one row per character)
-        source_data/wikidata/tier1_character_entities.json (raw characters + linked items)
+Needs:  source_data/wikidata/cast.csv (collect_cast)
+Output: source_data/wikidata/characters.csv          (one row per character)
+        source_data/wikidata/character_entities.json (raw characters + linked items)
         source_data/fandom/marvel_database/<QID>.json      (raw infobox section, as collected)
-        source_data/fandom/tier1_marvel_database.csv       (parsed infobox fields)
+        source_data/fandom/marvel_database.csv       (parsed infobox fields)
 Run:    .venv\\Scripts\\python.exe -m src.source_data_collection.collect_characters
 """
 
@@ -23,11 +23,11 @@ from src.source_data_collection.wikitext import infobox_params, name_list, plain
 from src.utils import FandomClient, WikimediaClient, claim_values, fandom_url, label
 
 WIKIDATA_DIR = PROJECT_ROOT / "source_data" / "wikidata"
-CHARACTERS_PATH = WIKIDATA_DIR / "tier1_characters.csv"
-CHARACTER_ENTITIES_PATH = WIKIDATA_DIR / "tier1_character_entities.json"
+CHARACTERS_PATH = WIKIDATA_DIR / "characters.csv"
+CHARACTER_ENTITIES_PATH = WIKIDATA_DIR / "character_entities.json"
 FANDOM_DIR = PROJECT_ROOT / "source_data" / "fandom"
 MARVEL_DB_RAW_DIR = FANDOM_DIR / "marvel_database"
-MARVEL_DB_PATH = FANDOM_DIR / "tier1_marvel_database.csv"
+MARVEL_DB_PATH = FANDOM_DIR / "marvel_database.csv"
 
 FANDOM_LICENSE = "CC BY-SA 3.0"
 MARVEL_DB_WIKI = "marvel"

@@ -1,4 +1,4 @@
-"""Cross-source validation of Tier 1 characters: Wikidata vs Marvel Database (Fandom) vs TMDB.
+"""Cross-source validation of characters (Tiers 1 and 2): Wikidata vs Marvel Database (Fandom) vs TMDB.
 
 Run after collection:  .venv\\Scripts\\python.exe -m pytest -m validation
 Collect with:          .venv\\Scripts\\python.exe -m src.source_data_collection.collect_characters
@@ -12,6 +12,7 @@ from src.source_data_collection.collect_characters import (
     P_FANDOM_ARTICLE_ID, P_NARRATIVE_UNIVERSE, P_PERFORMER, P_PSEUDONYM, P_SAME_AS, SELF_QID,
     earth_of, wants_marvel_db_page,
 )
+from src.source_data_collection.build_title_registry import REGISTRY_PATH
 from src.source_data_collection.storage import read_csv
 from src.source_data_collection.tmdb_cast import TMDB_CAST_PATH
 from src.source_data_collection.wikidata_cast import PERSON_QIDS_PATH, WIKIDATA_CAST_PATH
@@ -21,6 +22,7 @@ pytestmark = pytest.mark.validation
 
 MIN_WITH_UNIVERSE = 0.95
 MIN_WITH_MARVEL_DB_ID = 0.70
+MIN_TIER2_WITH_MARVEL_DB_ID = 0.50
 MAX_STALE_MARVEL_DB_LINKS = 0.10   # Wikidata links to renamed Marvel Database pages
 MIN_UNIVERSE_AGREEMENT = 0.95
 MIN_REALITY_AGREEMENT = 0.95
@@ -79,18 +81,26 @@ def test_almost_every_character_has_a_universe(characters):
 
 
 def test_no_dc_characters_were_collected(characters):
-    """Tier 1 actors also play DC characters (e.g. Henry Cavill's Superman); those must not be kept."""
+    """Actors in scope also play DC characters (e.g. Henry Cavill's Superman); those must not be kept."""
     dc_universe = "Q1152150"
     assert [r["label"] for r in characters.values() if dc_universe in split(r["universe_qids"])] == []
 
 
 # --- Marvel Database: coverage and agreement with Wikidata ------------------------------
 
-def test_most_cast_role_characters_link_to_the_marvel_database(characters):
-    """Measured on Tier 1 cast roles; characters found via a performer include roles from other
-    titles and are only used to link credits by name."""
-    roles = [r for r in characters.values() if r["found_via"] == "cast_role"]
-    assert share(sum(bool(r["marvel_db_page"]) for r in roles), len(roles)) >= MIN_WITH_MARVEL_DB_ID
+@pytest.mark.parametrize("tier, minimum", [("1", MIN_WITH_MARVEL_DB_ID), ("2", MIN_TIER2_WITH_MARVEL_DB_ID)])
+def test_most_cast_role_characters_link_to_the_marvel_database(characters, tier, minimum):
+    """Measured on cast roles, per tier of the title a character first appears in. Wikidata's
+    Fandom links are sparser for newer (Tier 2) characters; that floor was set after measuring 55%.
+    Characters found via a performer are only used to link credits by name."""
+    tiers = {t["wikidata_qid"]: t["tier"] for t in read_csv(REGISTRY_PATH)}
+    first = {}
+    for r in read_csv(WIKIDATA_CAST_PATH):
+        if r["character_qid"] in characters:
+            first[r["character_qid"]] = min(first.get(r["character_qid"], "9"), tiers[r["title_qid"]])
+    roles = [characters[q] for q, t in first.items()
+             if t == tier and characters[q]["found_via"] == "cast_role"]
+    assert share(sum(bool(r["marvel_db_page"]) for r in roles), len(roles)) >= minimum
 
 
 def test_every_linked_marvel_database_page_was_fetched_or_reported_missing(characters, marvel_db):

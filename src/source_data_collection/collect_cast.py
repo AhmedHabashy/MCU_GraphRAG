@@ -1,6 +1,6 @@
 """Collect Tier 1 cast from TMDB, Wikidata and Wikipedia (for cross-source validation).
 
-Needs: source_data/wikidata/tier1_titles.csv (run build_title_registry first)
+Needs: source_data/wikidata/titles.csv (run build_title_registry first)
        TMDB_API_KEY in .env
 Run:   .venv\\Scripts\\python.exe -m src.source_data_collection.collect_cast
 """

@@ -1,6 +1,7 @@
 """Unit tests for src/source_data_collection/build_title_registry.py (fake client, no network)."""
 
 from src.source_data_collection.build_title_registry import (
+    ALLOWED_INSTANCE_OF,
     build_rows,
     enwiki_candidates,
 )
@@ -54,6 +55,17 @@ IRON_MAN_2008 = entity("Q192724", "Iron Man", ["Q11424"], 2008,
 def test_film_candidates_try_year_then_film_then_bare_title():
     assert enwiki_candidates(IRON_MAN) == [
         "Iron Man (2008 film)", "Iron Man (film)", "Iron Man"]
+
+
+def test_tv_specials_are_looked_up_like_films():
+    title = {"title": "Werewolf by Night", "type": "Special", "year": 2022}
+    assert enwiki_candidates(title) == ["Werewolf by Night (2022 film)", "Werewolf by Night (film)",
+                                        "Werewolf by Night"]
+
+
+def test_tier2_types_are_accepted():
+    assert "Q1261214" in ALLOWED_INSTANCE_OF["Special"]              # television special
+    assert "Q113791292" in ALLOWED_INSTANCE_OF["Animated shorts"]    # animated short film series
 
 
 def test_series_candidates_try_tv_series_disambiguators_then_bare_title():

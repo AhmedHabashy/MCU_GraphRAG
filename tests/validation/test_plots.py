@@ -1,4 +1,4 @@
-"""Validation of Tier 1 plot and episode summaries (Wikipedia, cross-checked with Wikidata and TMDB).
+"""Validation of plot and episode summaries (Wikipedia, cross-checked with Wikidata and TMDB).
 
 Run after collection:  .venv\\Scripts\\python.exe -m pytest -m validation
 Collect with:          .venv\\Scripts\\python.exe -m src.source_data_collection.collect_plots
@@ -13,12 +13,14 @@ from src.source_data_collection.cast_matching import distinctive_tokens, normali
 from src.source_data_collection.collect_plots import EPISODE_ENTITIES_PATH, plot_path
 from src.source_data_collection.storage import read_csv, read_json
 from src.source_data_collection.tmdb_cast import TMDB_CAST_PATH
+from src.title_types import MOVIE_TYPES
 from src.utils import WikimediaClient, claim_values, label
 
 pytestmark = pytest.mark.validation
 
 Q_FILM, Q_FILM_PROJECT = "Q11424", "Q18011172"
 P_NUMBER_OF_EPISODES = "P1113"
+P_NUMBER_OF_SEASONS = "P2437"
 P_PUBLICATION_DATE = "P577"
 
 PLOT_WORDS = (200, 1500)       # Wikipedia's film plot guideline is 400-700 words
@@ -57,7 +59,7 @@ def wikidata_episodes(plots):
 
 
 def expected_kind(title):
-    if title["type"] != "Film":
+    if title["type"] not in MOVIE_TYPES:
         return "episodes"
     return "premise" if Q_FILM_PROJECT in title["instance_of"].split("|") else "plot"
 
@@ -92,20 +94,29 @@ def test_premises_are_not_empty(titles, plots):
 # --- Episodes: complete, numbered, and agreeing with Wikidata -----------------------------
 
 def expected_episode_count(title_qid, title_entities, wikidata_episodes, titles=None):
-    """Wikidata's episode count; for a series limited to some seasons, its episodes in them."""
-    limited = titles and next(t["seasons"] for t in titles if t["wikidata_qid"] == title_qid)
-    counts = claim_values(title_entities[title_qid], P_NUMBER_OF_EPISODES)
-    if counts and not limited:
+    """Wikidata's episode count (P1113). For a series limited to only some of its seasons
+    (fewer than its number of seasons, P2437), the Wikidata episodes in those seasons."""
+    entity = title_entities[title_qid]
+    limit = titles and next(t["seasons"] for t in titles if t["wikidata_qid"] == title_qid)
+    seasons = claim_values(entity, P_NUMBER_OF_SEASONS)
+    partial = limit and (not seasons or len(limit.split("|")) < int(seasons[0]["amount"]))
+    counts = claim_values(entity, P_NUMBER_OF_EPISODES)
+    if counts and not partial:
         return int(counts[0]["amount"])
     return len(wikidata_episodes[title_qid])
+
+
+def aired(record):
+    """Episodes that have aired; announced ones (no full or a future air date) are left out."""
+    return [e for e in record["episodes"] if e["aired"]]
 
 
 def test_episode_counts_match_wikidata(titles, plots, title_entities, wikidata_episodes):
     expected = {t["wikidata_qid"]: expected_episode_count(t["wikidata_qid"], title_entities,
                                                           wikidata_episodes, titles) for t in titles
                 if expected_kind(t) == "episodes"}
-    assert [(t["title"], len(plots[q]["episodes"]), expected[q]) for t in titles
-            if (q := t["wikidata_qid"]) in expected and len(plots[q]["episodes"]) != expected[q]] == []
+    assert [(t["title"], len(aired(plots[q])), expected[q]) for t in titles
+            if (q := t["wikidata_qid"]) in expected and len(aired(plots[q])) != expected[q]] == []
 
 
 def test_what_if_has_only_seasons_one_and_two(plots):
@@ -117,7 +128,7 @@ def test_episodes_are_numbered_one_to_n_within_each_season(plots):
     bad = []
     for record in plots.values():
         seasons = {}
-        for e in record["episodes"]:
+        for e in aired(record):
             seasons.setdefault(e["season"], []).append(e["number_in_season"])
         bad += [(record["title"], s, n) for s, n in seasons.items()
                 if sorted(n) != list(range(1, len(n) + 1))]
@@ -126,7 +137,7 @@ def test_episodes_are_numbered_one_to_n_within_each_season(plots):
 
 def test_every_episode_has_title_air_date_and_summary(plots):
     assert [(r["title"], e["season"], e["number_in_season"]) for r in plots.values()
-            for e in r["episodes"]
+            for e in aired(r)
             if not (e["title"] and e["air_date"]
                     and words(e["summary_text"]) >= MIN_EPISODE_SUMMARY_WORDS)] == []
 
@@ -189,9 +200,10 @@ def test_episode_count_property_id_has_expected_label():
 
 
 def test_episode_numbers_are_unique_per_title(plots):
+    """Aired episodes only: announced specials (Marvel Zombies) restart their own numbering."""
     dupes = []
     for r in plots.values():
-        keys = [(e["season"], e["number_in_season"]) for e in r["episodes"]]
+        keys = [(e["season"], e["number_in_season"]) for e in aired(r)]
         dupes += [(r["title"], k) for k in set(keys) if keys.count(k) > 1]
     assert dupes == []
 

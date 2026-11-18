@@ -4,6 +4,8 @@ the title tiers, and other curated tables (e.g. curated roles)."""
 import re
 from pathlib import Path
 
+from src.title_types import SEASON
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TIERS_DOC_PATH = PROJECT_ROOT / "docs" / "data_sources_and_tiers.md"
 
@@ -57,13 +59,21 @@ def _title_row(row):
         title = title[:match.start()]
     title = title.removesuffix(_ADDED)
     if _SEASON.search(title):
-        kind = "Series season"  # listed as "Series"; a season is its own Wikidata class
+        kind = SEASON  # listed as "Series"; a season is its own Wikidata class
     year = int(re.match(r"\d{4}", row.pop("year")).group())
     needs_review = row.pop("needs_review")
     return {"title": title, "type": kind, "year": year, **row, "seasons": seasons,
             "needs_review": needs_review}
 
 
+SCOPE_TIERS = (1, 2)  # tiers collected (Tier 3 is optional)
+
+
 def load_tier_titles(path=TIERS_DOC_PATH, tier=1):
     """Rows of the '### Tier N' table as {title, type, year, universe[, reality], seasons}."""
     return [_title_row(row) for row in read_table(path, f"### Tier {tier}:")]
+
+
+def load_scope_titles(path=TIERS_DOC_PATH):
+    """Titles of every tier in scope, in tier order, each with its tier number."""
+    return [{**t, "tier": tier} for tier in SCOPE_TIERS for t in load_tier_titles(path, tier)]

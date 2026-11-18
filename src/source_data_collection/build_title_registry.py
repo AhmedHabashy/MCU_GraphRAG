@@ -1,8 +1,8 @@
-"""Resolve the Tier 1 titles to Wikipedia articles, Wikidata QIDs and crosswalk IDs.
+"""Resolve the titles in scope (Tiers 1 and 2) to Wikipedia articles, Wikidata QIDs and crosswalk IDs.
 
-Input:  Tier 1 table in docs/data_sources_and_tiers.md
-Output: source_data/wikidata/tier1_titles.csv    (one row per title)
-        source_data/wikidata/tier1_entities.json (raw Wikidata entities, as collected)
+Input:  Tier 1 and Tier 2 tables in docs/data_sources_and_tiers.md
+Output: source_data/wikidata/titles.csv    (one row per title)
+        source_data/wikidata/entities.json (raw Wikidata entities, as collected)
 
 TV seasons have no TMDB or IMDb ID of their own, so a season row takes them from its
 parent series (P179, with the season number from qualifier P1545). A season item with
@@ -12,12 +12,13 @@ Run:    .venv\\Scripts\\python.exe -m src.source_data_collection.build_title_reg
 """
 
 from src.source_data_collection.storage import utc_now, write_csv, write_json
-from src.source_data_collection.tier_titles import PROJECT_ROOT, load_tier_titles
+from src.source_data_collection.tier_titles import PROJECT_ROOT, load_scope_titles
+from src.title_types import FILM, SEASON, SPECIAL, is_movie
 from src.utils import WikimediaClient, claim_values, earliest_year, label, qualifier_value
 
 OUTPUT_DIR = PROJECT_ROOT / "source_data" / "wikidata"
-REGISTRY_PATH = OUTPUT_DIR / "tier1_titles.csv"
-ENTITIES_PATH = OUTPUT_DIR / "tier1_entities.json"
+REGISTRY_PATH = OUTPUT_DIR / "titles.csv"
+ENTITIES_PATH = OUTPUT_DIR / "entities.json"
 
 WIKIDATA_LICENSE = "CC0-1.0"
 
@@ -30,14 +31,15 @@ P_PART_OF_THE_SERIES = "P179"
 P_SERIES_ORDINAL = "P1545"
 P_HAS_PARTS = "P527"
 
-SEASON = "Series season"
-
 # Wikidata classes accepted for each title type.
 ALLOWED_INSTANCE_OF = {
-    "Film": {"Q11424",                  # film
-             "Q18011172"},              # film project (unreleased, e.g. Avengers: Doomsday)
+    FILM: {"Q11424",                    # film
+           "Q18011172"},                # film project (unreleased, e.g. Avengers: Doomsday)
+    SPECIAL: {"Q1261214"},              # television special
     "Series": {"Q5398426"},             # television series
     "Animated series": {"Q117467246"},  # animated television series
+    "Animated shorts": {"Q113791292",   # animated short film series (I Am Groot)
+                        "Q117467246"},  # animated television series
     SEASON: {"Q3464665"},               # television series season
 }
 
@@ -47,7 +49,7 @@ def enwiki_candidates(title):
     name, year, kind = title["title"], title["year"], title["type"]
     if kind == SEASON:
         return [name.replace(", season", " season")]
-    if kind == "Film":
+    if is_movie(title):
         return [f"{name} ({year} film)", f"{name} (film)", name]
     return [f"{name} (TV series)", f"{name} ({year} TV series)", name]
 
@@ -134,7 +136,7 @@ def build_rows(titles, client, retrieved_at):
 
 
 def main():
-    titles = load_tier_titles(tier=1)
+    titles = load_scope_titles()
     retrieved_at = utc_now()
     rows, entities = build_rows(titles, WikimediaClient(), retrieved_at)
 

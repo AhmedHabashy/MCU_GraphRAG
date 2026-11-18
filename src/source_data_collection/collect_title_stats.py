@@ -5,8 +5,8 @@ are collected as a cross-check.
 
 Needs:  build_title_registry
 Output: source_data/tmdb/title_details/<title QID>.json  (raw TMDB details, as collected)
-        source_data/tmdb/tier1_title_stats.csv           (one row per title)
-        source_data/wikidata/tier1_title_money.csv       (Wikidata figures per title)
+        source_data/tmdb/title_stats.csv           (one row per title)
+        source_data/wikidata/title_money.csv       (Wikidata figures per title)
 Run:    .venv\\Scripts\\python.exe -m src.source_data_collection.collect_title_stats
 """
 
@@ -19,12 +19,13 @@ from src.source_data_collection.storage import read_csv, read_json, utc_now, wri
 from src.source_data_collection.tier_titles import PROJECT_ROOT
 from src.source_data_collection.tmdb_cast import TMDB_LICENSE, make_client
 from src.tmdb_client import TMDB_API
+from src.title_types import is_movie
 from src.utils import quantities
 
 TMDB_DIR = PROJECT_ROOT / "source_data" / "tmdb"
 TMDB_DETAILS_DIR = TMDB_DIR / "title_details"
-TMDB_STATS_PATH = TMDB_DIR / "tier1_title_stats.csv"
-WIKIDATA_MONEY_PATH = PROJECT_ROOT / "source_data" / "wikidata" / "tier1_title_money.csv"
+TMDB_STATS_PATH = TMDB_DIR / "title_stats.csv"
+WIKIDATA_MONEY_PATH = PROJECT_ROOT / "source_data" / "wikidata" / "title_money.csv"
 
 # Wikidata property and unit IDs (verified on wikidata.org, see validation).
 P_BOX_OFFICE = "P2142"
@@ -44,7 +45,7 @@ def _names(items):
 
 def tmdb_stats_row(title, path, payload, series_genres, retrieved_at):
     """One stats row; a season takes its runtime from its episodes and genres from its series."""
-    if title["type"] == "Film":
+    if is_movie(title):
         runtime = payload.get("runtime")
     elif title["type"] == SEASON:
         runtimes = [e["runtime"] for e in payload.get("episodes", []) if e.get("runtime")]

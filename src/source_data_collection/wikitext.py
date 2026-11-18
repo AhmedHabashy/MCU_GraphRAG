@@ -48,8 +48,9 @@ def _num_parts(template):
 
 
 def _title(template, parts):
-    """`Title`, or the `Title_<n>` segments of one episode joined with ' / '."""
-    return _param(template, "Title") or " / ".join(
+    """`Title`, else `RTitle` (a title shown without quotation marks, e.g. 'Episode 1'),
+    else the `Title_<n>` segments of one episode joined with ' / '."""
+    return _param(template, "Title") or _param(template, "RTitle") or " / ".join(
         t for t in (_param(template, f"Title_{i}") for i in range(1, parts + 1)) if t)
 
 
@@ -123,18 +124,24 @@ _FORMERLY = re.compile(r"\bformerly\b", re.IGNORECASE)
 
 def member_links(value):
     """Linked members of an infobox list, in order: {page, name (display text), former}.
-    Everything after 'Formerly:' is former; links inside notes and references are ignored."""
-    code = mwparserfromhell.parse(value)
+    Everything after 'Formerly:' is former; links inside italic or bold text count, links
+    inside notes, references and templates are ignored."""
     members, former = [], False
-    for node in code.nodes:
-        if isinstance(node, Tag) and str(node.tag).lower() in _NOTE_TAGS:
-            continue
-        if isinstance(node, Wikilink):
-            page = str(node.title).strip()
-            name = plain_text(str(node.text)) if node.text else page
-            members.append({"page": page, "name": name, "former": former})
-        elif _FORMERLY.search(str(node)) and not isinstance(node, Template):
-            former = True
+
+    def walk(nodes):
+        nonlocal former
+        for node in nodes:
+            if isinstance(node, Tag):
+                if str(node.tag).lower() not in _NOTE_TAGS:
+                    walk(node.contents.nodes)
+            elif isinstance(node, Wikilink):
+                page = str(node.title).strip()
+                name = plain_text(str(node.text)) if node.text else page
+                members.append({"page": page, "name": name, "former": former})
+            elif not isinstance(node, Template) and _FORMERLY.search(str(node)):
+                former = True
+
+    walk(mwparserfromhell.parse(value).nodes)
     return members
 
 
