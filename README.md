@@ -29,11 +29,14 @@ Collected data is written to `source_data/`, which is not committed (see [Data l
 .venv\Scripts\python.exe -m src.source_data_collection.collect_plots          # plot and episode summaries
 .venv\Scripts\python.exe -m src.source_data_collection.collect_characters     # character names, universes, variants
 .venv\Scripts\python.exe -m src.source_data_collection.collect_mcu_wiki       # MCU wiki pages for supporting characters
+.venv\Scripts\python.exe -m src.source_data_collection.collect_title_details  # directors, writers, first release, sequels
+.venv\Scripts\python.exe -m src.source_data_collection.collect_title_stats    # box office, budget, runtime, ratings
 ```
 
 Merged tables built from the collected data are written to `processed_data/` (not committed):
 
 ```powershell
+.venv\Scripts\python.exe -m src.processing.build_titles                       # first release and release order
 .venv\Scripts\python.exe -m src.processing.build_characters                   # one character per reality, aliases, variant links
 ```
 

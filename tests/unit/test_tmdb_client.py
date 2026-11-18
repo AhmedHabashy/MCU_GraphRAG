@@ -56,6 +56,15 @@ def test_missing_dates_are_blank():
     assert client.first_release({"type": "Series", "tmdb_tv_id": "1"})[1] == ""
 
 
+def test_details_path_per_title_type():
+    for title, path in [({"type": "Film", "tmdb_movie_id": "1726"}, "/movie/1726"),
+                        ({"type": "Series", "tmdb_tv_id": "88396"}, "/tv/88396"),
+                        ({"type": "Series season", "tmdb_tv_id": "84958", "season_number": "1"},
+                         "/tv/84958/season/1")]:
+        client, _ = make_client({"id": 1})
+        assert client.details(title)[0] == path
+
+
 def test_person_details():
     client, session = make_client({"id": 3223, "birthday": "1965-04-04"})
     assert client.person("3223")["birthday"] == "1965-04-04"

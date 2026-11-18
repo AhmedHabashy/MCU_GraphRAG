@@ -39,6 +39,16 @@ class TmdbClient(JsonHttpClient):
         path = f"/tv/{title['tmdb_tv_id']}"
         return path, self._get(path).get("first_air_date") or ""
 
+    def details(self, title):
+        """(path, payload) of a film's, series' or season's details."""
+        if title["type"] == "Film":
+            path = f"/movie/{title['tmdb_movie_id']}"
+        elif title["type"] == "Series season":
+            path = f"/tv/{title['tmdb_tv_id']}/season/{title['season_number']}"
+        else:
+            path = f"/tv/{title['tmdb_tv_id']}"
+        return path, self._get(path)
+
     def person(self, person_id):
         return self._get(f"/person/{person_id}")
 

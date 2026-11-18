@@ -10,6 +10,7 @@ from src.utils import (
     claim_values,
     claims_with_qualifiers,
     day_dates,
+    quantities,
     earliest_year,
     label,
     qualifier_value,
@@ -208,6 +209,25 @@ def test_day_dates_include_every_non_deprecated_day_precision_date():
 
 def test_day_dates_is_empty_without_claims():
     assert day_dates({"claims": {}}, "P577") == []
+
+
+# --- quantities ---------------------------------------------------------------
+
+def amount(value, unit, rank="normal"):
+    return {"mainsnak": {"datavalue": {"type": "quantity", "value": {
+        "amount": value, "unit": f"http://www.wikidata.org/entity/{unit}"}}}, "rank": rank}
+
+
+def test_quantities_return_every_non_deprecated_amount_with_its_unit():
+    entity = {"claims": {"P2142": [amount("+2799439100", "Q4917"), amount("+858373000", "Q4917", "preferred"),
+                                   amount("+1", "Q4917", "deprecated"), amount("+100", "Q4916")]}}
+    assert quantities(entity, "P2142") == [(2799439100.0, "Q4917"), (858373000.0, "Q4917"), (100.0, "Q4916")]
+
+
+def test_quantities_without_a_unit_use_one():
+    entity = {"claims": {"P2047": [{"mainsnak": {"datavalue": {"type": "quantity", "value": {
+        "amount": "+126", "unit": "1"}}}, "rank": "normal"}]}}
+    assert quantities(entity, "P2047") == [(126.0, "1")]
 
 
 # --- label ------------------------------------------------------------------

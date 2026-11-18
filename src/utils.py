@@ -67,6 +67,17 @@ def day_dates(entity, pid):
     return sorted(dates)
 
 
+def quantities(entity, pid):
+    """(amount, unit QID or '1') of every non-deprecated quantity claim, in claim order.
+    Box office has one normal-rank claim per region, so every rank but deprecated is kept."""
+    found = []
+    for claim in entity.get("claims", {}).get(pid, []):
+        value = (claim["mainsnak"].get("datavalue") or {}).get("value")
+        if claim.get("rank") != "deprecated" and value and "amount" in value:
+            found.append((float(value["amount"]), value["unit"].removeprefix(ENTITY_URI_PREFIX)))
+    return found
+
+
 def claims_with_qualifiers(entity, pid, qualifier_pid):
     """[(value, [qualifier values])] for every best-rank `pid` claim that has a value."""
     pairs = []
