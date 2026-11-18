@@ -155,6 +155,21 @@ are the expert's best guess or still open.
 | The Marvels | Kelsey Grammer | Beast | | Earth-10005 | |
 | * | Kerry Condon | F.R.I.D.A.Y. | Q28173125 | | |
 
+### Phases and sagas
+
+Marvel Studios' official structure of the MCU, in order. Which phase each title belongs to
+comes from two sources that must agree: the Wikipedia "Marvel Cinematic Universe: Phase N"
+articles and Wikidata. The Fox films and X-Men '97 are in no phase.
+
+| Phase | Saga |
+| --- | --- |
+| Phase One | The Infinity Saga |
+| Phase Two | The Infinity Saga |
+| Phase Three | The Infinity Saga |
+| Phase Four | The Multiverse Saga |
+| Phase Five | The Multiverse Saga |
+| Phase Six | The Multiverse Saga |
+
 ### Tier 2: remaining MCU films and Disney+ series (second pass)
 
 | Title | Type | Year | Universe |

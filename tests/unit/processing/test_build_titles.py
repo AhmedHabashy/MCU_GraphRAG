@@ -1,6 +1,6 @@
 """Unit tests for src/processing/build_titles.py."""
 
-from src.processing.build_titles import first_releases, release_order_rows
+from src.processing.build_titles import first_releases, release_order_rows, title_phase_rows
 
 
 def detail(qid, title, date):
@@ -26,6 +26,27 @@ def test_same_date_in_both_sources_credits_both():
 def test_a_date_known_to_one_source_only_is_used():
     rows = first_releases([detail("Q1", "A", "")], {"Q1": "2020-01-01"})
     assert (rows[0]["first_release_date"], rows[0]["first_release_source"]) == ("2020-01-01", "tmdb")
+
+
+# --- title_phase_rows -----------------------------------------------------------------
+
+SAGAS = {"Phase Four": "The Multiverse Saga", "Phase Five": "The Multiverse Saga",
+         "Phase Three": "The Infinity Saga"}
+
+
+def test_title_phases_combine_both_sources_in_phase_order():
+    titles = [{"wikidata_qid": "QW", "title": "What If...?"}, {"wikidata_qid": "QE", "title": "Endgame"},
+              {"wikidata_qid": "QX", "title": "X-Men"}]
+    wikipedia = [{"title_qid": "QW", "phase": "Phase Five"}, {"title_qid": "QW", "phase": "Phase Four"},
+                 {"title_qid": "QE", "phase": "Phase Three"}]
+    wikidata = {"QE": "Phase Three", "QW": "", "QX": ""}
+    rows = {r["title_qid"]: r for r in title_phase_rows(titles, wikipedia, wikidata, SAGAS)}
+
+    assert (rows["QW"]["phases"], rows["QW"]["sagas"], rows["QW"]["phase_sources"]) == \
+        ("Phase Four|Phase Five", "The Multiverse Saga", "wikipedia")
+    assert (rows["QE"]["phases"], rows["QE"]["sagas"], rows["QE"]["phase_sources"]) == \
+        ("Phase Three", "The Infinity Saga", "wikipedia|wikidata")
+    assert (rows["QX"]["phases"], rows["QX"]["sagas"]) == ("", "")
 
 
 # --- release_order_rows ---------------------------------------------------------------

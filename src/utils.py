@@ -206,15 +206,18 @@ class WikimediaClient(JsonHttpClient):
                  for name, cell in row.items()}
                 for row in bindings["results"]["bindings"]]
 
+    def sections(self, page):
+        """{'title', 'revid', 'sections'}: the section list of an enwiki page (redirects followed)."""
+        return self.get_json(ENWIKI_API, {"action": "parse", "page": page, "prop": "sections|revid",
+                                          "redirects": 1, "format": "json"})["parse"]
+
     def top_level_section(self, page, prefix):
         """Top-level section of `page` whose heading starts with `prefix`, or None.
 
         `prefix` may be a tuple; earlier prefixes win over page order. The wikitext
         is read from the same revision as the section list, and its revid returned.
         """
-        parsed = self.get_json(ENWIKI_API, {"action": "parse", "page": page,
-                                            "prop": "sections|revid",
-                                            "redirects": 1, "format": "json"})["parse"]
+        parsed = self.sections(page)
         top = [s for s in parsed["sections"] if s["toclevel"] == 1]
         prefixes = (prefix,) if isinstance(prefix, str) else prefix
         section = next((s for p in prefixes for s in top if s["line"].startswith(p)), None)
