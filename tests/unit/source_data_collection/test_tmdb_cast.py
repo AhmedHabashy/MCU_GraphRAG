@@ -3,6 +3,8 @@
 from src.source_data_collection.tmdb_cast import (
     cast_rows,
     external_id_rows,
+    merged_cast_rows,
+    title_credits,
     top_billed_person_ids,
 )
 
@@ -50,6 +52,44 @@ def test_external_id_rows_record_tmdb_wikidata_pointer():
     assert [(r["tmdb_person_id"], r["wikidata_id"], r["imdb_id"]) for r in rows] == [
         ("3223", "Q165219", ""), ("7", "", "")]
     assert rows[0]["source_url"] == "https://api.themoviedb.org/3/person/3223/external_ids"
+
+
+class FakeSeasonCredits:
+    def __init__(self):
+        self.requested = []
+
+    def credits(self, title):
+        self.requested.append(title["season_number"])
+        n = title["season_number"]
+        cast = [{"id": 1, "name": "Jeffrey Wright", "order": 0,
+                 "roles": [{"character": "The Watcher (voice)", "episode_count": 9}]},
+                {"id": int(n) + 10, "name": f"Guest {n}", "order": 1,
+                 "roles": [{"character": f"Guest {n} (voice)", "episode_count": 1}]}]
+        return f"/tv/91363/season/{n}/aggregate_credits", {"cast": cast}
+
+
+def test_series_limited_to_seasons_is_collected_season_by_season():
+    what_if = {"title": "What If...?", "type": "Animated series", "wikidata_qid": "Q65980671",
+               "tmdb_tv_id": "91363", "seasons": "1|2"}
+    client = FakeSeasonCredits()
+
+    payloads = title_credits(what_if, client)
+
+    assert client.requested == ["1", "2"]
+    assert [path for path, _ in payloads] == ["/tv/91363/season/1/aggregate_credits",
+                                              "/tv/91363/season/2/aggregate_credits"]
+
+
+def test_cast_rows_from_several_seasons_keep_one_row_per_person_and_character():
+    what_if = {"title": "What If...?", "type": "Animated series", "wikidata_qid": "Q65980671"}
+    client = FakeSeasonCredits()
+    payloads = [client.credits({"season_number": n}) for n in ("1", "2")]
+
+    rows = merged_cast_rows(what_if, payloads, retrieved_at="t")
+
+    assert [(r["actor_name"], r["character"]) for r in rows] == [
+        ("Jeffrey Wright", "The Watcher (voice)"), ("Guest 1", "Guest 1 (voice)"),
+        ("Guest 2", "Guest 2 (voice)")]
 
 
 def test_top_billed_person_ids_are_unique_and_limited_by_billing():

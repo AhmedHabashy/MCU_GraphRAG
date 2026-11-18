@@ -91,17 +91,26 @@ def test_premises_are_not_empty(titles, plots):
 
 # --- Episodes: complete, numbered, and agreeing with Wikidata -----------------------------
 
-def expected_episode_count(title_qid, title_entities, wikidata_episodes):
+def expected_episode_count(title_qid, title_entities, wikidata_episodes, titles=None):
+    """Wikidata's episode count; for a series limited to some seasons, its episodes in them."""
+    limited = titles and next(t["seasons"] for t in titles if t["wikidata_qid"] == title_qid)
     counts = claim_values(title_entities[title_qid], P_NUMBER_OF_EPISODES)
-    return int(counts[0]["amount"]) if counts else len(wikidata_episodes[title_qid])
+    if counts and not limited:
+        return int(counts[0]["amount"])
+    return len(wikidata_episodes[title_qid])
 
 
 def test_episode_counts_match_wikidata(titles, plots, title_entities, wikidata_episodes):
-    assert [(t["title"], len(plots[t["wikidata_qid"]]["episodes"]),
-             expected_episode_count(t["wikidata_qid"], title_entities, wikidata_episodes))
-            for t in titles if expected_kind(t) == "episodes"
-            and len(plots[t["wikidata_qid"]]["episodes"])
-            != expected_episode_count(t["wikidata_qid"], title_entities, wikidata_episodes)] == []
+    expected = {t["wikidata_qid"]: expected_episode_count(t["wikidata_qid"], title_entities,
+                                                          wikidata_episodes, titles) for t in titles
+                if expected_kind(t) == "episodes"}
+    assert [(t["title"], len(plots[q]["episodes"]), expected[q]) for t in titles
+            if (q := t["wikidata_qid"]) in expected and len(plots[q]["episodes"]) != expected[q]] == []
+
+
+def test_what_if_has_only_seasons_one_and_two(plots):
+    episodes = plots["Q65980671"]["episodes"]
+    assert {e["season"] for e in episodes} == {1, 2} and len(episodes) == 18
 
 
 def test_episodes_are_numbered_one_to_n_within_each_season(plots):

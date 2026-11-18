@@ -11,6 +11,7 @@ import pytest
 from src.processing.build_characters import (
     ALIASES_PATH, CHARACTERS_PATH, LINKS_PATH, MULTIVERSE, PERFORMANCES_PATH,
 )
+from src.processing.curated_roles import UNKNOWN_REALITY, load_curated_roles, unmatched_rows
 from src.processing.realities import MCU, marvel_db_page_of, reality_of_marvel_db_earth
 from src.source_data_collection.build_title_registry import REGISTRY_PATH
 from src.source_data_collection.cast_matching import normalize_name
@@ -90,8 +91,8 @@ def test_title_reality_agrees_with_clear_marvel_database_majority(titles):
     for qid, t in titles.items():
         votes = Counter(reality[r["character_qid"]] for r in cast if r["title_qid"] == qid
                         and reality.get(r["character_qid"]))
-        if not votes or t["needs_review"] == "True":
-            continue
+        if not votes or t["needs_review"] == "True" or t["reality"] == MULTIVERSE:
+            continue  # an anthology's characters are variants of characters from elsewhere
         top, n = votes.most_common(1)[0]
         clear = n >= MIN_VOTES_FOR_REALITY_CHECK and n / sum(votes.values()) >= MIN_VOTE_SHARE_FOR_REALITY_CHECK
         if clear and top != t["reality"]:
@@ -100,8 +101,10 @@ def test_title_reality_agrees_with_clear_marvel_database_majority(titles):
 
 
 def _missing_marvel_db_pages(realities):
+    """'Unknown' is the expert's answer for a role from another, unnumbered universe."""
     client = FandomClient()
-    return [r for r in sorted(realities) if client.lead("marvel", marvel_db_page_of(r)) is None]
+    return [r for r in sorted(realities - {UNKNOWN_REALITY})
+            if client.lead("marvel", marvel_db_page_of(r)) is None]
 
 
 def test_every_title_reality_is_a_marvel_database_page(titles):
@@ -122,7 +125,8 @@ def test_main_mcu_is_earth_616(titles):
 def test_every_wikidata_cast_role_has_a_character(performances):
     roles = {(r["title_qid"], r["actor_qid"], r["character_qid"]) for r in read_csv(WIKIDATA_CAST_PATH)
              if r["character_qid"] and r["character_qid"] != SELF_QID and not r["via"]}
-    resolved = {(p["title_qid"], p["actor_qid"], p["base_qid"]) for p in performances if p["character_id"]}
+    resolved = {(p["title_qid"], p["actor_qid"], p["data_base_qid"]) for p in performances
+                if p["character_id"]}  # data_base_qid: the role's character before curation
     assert sorted(roles - resolved)[:20] == []
 
 
@@ -146,7 +150,7 @@ def test_every_character_has_its_label_as_an_alias(characters, aliases):
 
 def test_every_alias_names_its_source(aliases):
     sources = {r["source"] for rows in aliases.values() for r in rows}
-    assert sources == {"wikidata", "marvel_database", "tmdb", "mcu_wiki"}
+    assert sources == {"wikidata", "marvel_database", "tmdb", "mcu_wiki", "curated"}
 
 
 # --- Acceptance criteria: identity and variants --------------------------------------
@@ -223,6 +227,81 @@ def test_mcu_wiki_identity_is_only_used_without_a_wikidata_character(characters)
                  for c in read_csv(COLLECTED_CHARACTERS_PATH) if c["mcu_wiki_page"]}
     assert sorted(c["mcu_wiki_page"] for c in characters.values()
                   if c["identity_source"] == "mcu_wiki" and c["mcu_wiki_page"] in collected) == []
+
+
+# --- Curated roles (MCU expert) --------------------------------------------------------------
+
+@pytest.fixture(scope="module")
+def curated():
+    return load_curated_roles()
+
+
+@pytest.fixture(scope="module")
+def title_qids(titles):
+    return {t["title"]: q for q, t in titles.items()}
+
+
+def test_every_curated_role_matches_a_performance(performances, curated, title_qids):
+    assert [(r["title"], r["actor"]) for r in unmatched_rows(performances, curated, title_qids)] == []
+
+
+def test_every_matching_performance_has_its_curated_identity_and_reality(performances, curated, title_qids):
+    wrong = []
+    for r in curated:
+        for p in performances:
+            if p["character_id"] and (r["title"] == "*" or title_qids[r["title"]] == p["title_qid"]) \
+                    and normalize_name(r["actor"]) == normalize_name(p["actor_name"]):
+                identity, reality = p["character_id"].rsplit("@", 1)
+                if (r["identity"] and identity != r["identity"]) or (r["reality"] and reality != r["reality"]):
+                    wrong.append((r["title"], r["actor"], p["character_id"]))
+    assert wrong == []
+
+
+def ids(performances, title_qid, actor):
+    found = role(performances, title_qid, actor)
+    assert len(found) == 1, (title_qid, actor, found)
+    return next(iter(found))
+
+
+def test_no_way_home_villains_keep_their_home_realities(performances, characters):
+    assert characters[ids(performances, "Q68934496", "Alfred Molina")]["reality"] == "Earth-96283"
+    assert characters[ids(performances, "Q68934496", "Jamie Foxx")]["reality"] == "Earth-120703"
+    assert characters[ids(performances, "Q68934496", "Rhys Ifans")]["reality"] == "Earth-120703"
+
+
+def test_doomsday_crossovers_are_the_same_characters_as_in_their_home_films(performances):
+    assert ids(performances, "Q113244839", "Pedro Pascal") == ids(performances, "Q105105219", "Pedro Pascal")
+    assert ids(performances, "Q113244839", "Patrick Stewart") == ids(performances, "Q106182", "Patrick Stewart")
+    assert ids(performances, "Q89474225", "Kelsey Grammer") == ids(performances, "Q221168", "Kelsey Grammer")
+
+
+def test_deadpool_and_wolverine_wolverines_are_separate_variants_of_fox_logan(performances, links):
+    fox = ids(performances, "Q106182", "Hugh Jackman")
+    dw = ids(performances, "Q102180106", "Hugh Jackman")
+    cavill = ids(performances, "Q102180106", "Henry Cavill")
+    assert len({fox, dw, cavill}) == 3
+    variants = {frozenset((l["from_id"], l["to_id"])) for l in links if l["relation"] == "variant"}
+    assert frozenset((fox, dw)) in variants and frozenset((fox, cavill)) in variants
+
+
+def test_captain_carter_is_a_separate_character_from_peggy_carter(performances, characters, links):
+    carter = ids(performances, "Q64211112", "Hayley Atwell")         # Multiverse of Madness
+    peggy = ids(performances, "Q275120", "Hayley Atwell")            # The First Avenger
+    assert carter != peggy
+    assert (characters[carter]["label"], characters[carter]["reality"]) == ("Captain Carter", "Earth-838")
+    assert characters[peggy]["reality"] == "Earth-616"
+
+
+def test_friday_is_linked_to_its_own_character(performances, characters):
+    assert characters[ids(performances, "Q23010088", "Kerry Condon")]["label"] == "F.R.I.D.A.Y."
+
+
+def test_damion_poitier_played_thanos(performances, characters):
+    assert characters[ids(performances, "Q182218", "Damion Poitier")]["label"] == "Thanos"
+
+
+def test_video_game_realities_are_not_used(characters):
+    assert [c for c, r in characters.items() if r["reality"] == "Earth-30847"] == []
 
 
 def test_no_comics_data_in_the_table(characters, links):

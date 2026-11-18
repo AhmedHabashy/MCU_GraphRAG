@@ -30,6 +30,7 @@ Run:    .venv\\Scripts\\python.exe -m src.processing.build_characters
 from dataclasses import dataclass
 from itertools import combinations
 
+from src.processing.curated_roles import apply_curated_roles, load_curated_roles, unmatched_rows
 from src.processing.realities import reality_of_marvel_db_earth
 from src.source_data_collection.build_title_registry import REGISTRY_PATH
 from src.source_data_collection.cast_matching import character_matches, name_parts, normalize_name
@@ -65,6 +66,7 @@ class Sources:
     universe_pages: dict   # universe QID -> Marvel Database Earth page name
     mcu_credits: dict      # (title QID, TMDB person, TMDB character) -> verified MCU wiki page
     mcu_characters: dict   # MCU wiki page -> parsed infobox row
+    screen_realities: frozenset = None  # realities of films and series (None: no filter)
 
     def qid_of_mcu_page(self, page):
         wanted = page.replace("_", " ")
@@ -95,13 +97,15 @@ def resolve_actor(tmdb_person_id, qids_by_person, tmdb_pointer):
     return pick if pick in qids else None
 
 
-def own_realities(character, universe_pages, marvel_db_earth):
-    """Specific realities of a character item: its Marvel Database Earth and the Earths of its
-    Wikidata universes (both Marvel Database page names), except the franchise-wide MCU.
-    Comics are mapped away by reality_of_marvel_db_earth."""
+def own_realities(character, universe_pages, marvel_db_earth, known_realities=None):
+    """Specific realities of a character item: the Earths of its Wikidata universes and its
+    Marvel Database Earth (both Marvel Database page names), except the franchise-wide MCU.
+    Comics are mapped away by reality_of_marvel_db_earth. If `known_realities` is given, only
+    those count: a universe or page can be a video-game reality (e.g. Jubilee's Earth-30847)."""
     earths = {universe_pages.get(q, "") for q in _split(character["universe_qids"])
               if q != MCU_FRANCHISE_UNIVERSE} | {marvel_db_earth}
-    return {r for r in map(reality_of_marvel_db_earth, earths) if r}
+    own = {r for r in map(reality_of_marvel_db_earth, earths) if r}
+    return own if known_realities is None else own & known_realities
 
 
 def performance_reality(title_reality, own):
@@ -120,7 +124,8 @@ def _role_id(title_qid, identity, src):
     """character_id of an identity's role in a title."""
     title_reality = src.titles[title_qid]["reality"]
     item = src.characters.get(identity)
-    own = own_realities(item, src.universe_pages, _marvel_db_earth(identity, src.marvel_db)) if item else set()
+    own = own_realities(item, src.universe_pages, _marvel_db_earth(identity, src.marvel_db),
+                        src.screen_realities) if item else set()
     return character_id(identity, performance_reality(title_reality, own))
 
 
@@ -267,25 +272,33 @@ def character_rows(performances, src):
         if cid not in nodes:
             node, names = _node(cid, identity, src)
             nodes[cid] = {"character_id": cid, "base_qid": identity,
-                          "reality": cid.rsplit("@", 1)[1], **node, "titles": set()}
+                          "reality": cid.rsplit("@", 1)[1], **node, "titles": set(),
+                          "variant_of": set()}
             for name, source in names:
                 add_alias(cid, name, source)
+        if p.get("curated_label"):
+            nodes[cid]["label"] = p["curated_label"]
+            add_alias(cid, p["curated_label"], "curated")
+        if p.get("curated_variant_of"):
+            nodes[cid]["variant_of"].add(p["curated_variant_of"])
         nodes[cid]["titles"].add(p["title_qid"])
         for name in name_parts(p["tmdb_character"]):
             add_alias(cid, name, "tmdb")
 
     links = _variant_links(nodes, src) + _identity_links(nodes, src)
-    rows = [{**n, "titles": len(n["titles"]), "source": "derived"} for n in nodes.values()]
+    rows = [{**{k: v for k, v in n.items() if k != "variant_of"}, "titles": len(n["titles"]),
+             "source": "derived"} for n in nodes.values()]
     return rows, list(aliases.values()), links
 
 
 def _variant_links(nodes, src):
-    """Link characters in different realities that share an identity or a based-on item."""
+    """Link characters in different realities that share an identity, a based-on item, or a
+    curated 'variant of' character."""
     groups = {}
     for cid, node in nodes.items():
         identity = node["base_qid"]
         item = src.characters.get(identity, {"based_on_qids": ""})
-        for key in [identity, *_split(item["based_on_qids"])]:
+        for key in [identity, *_split(item["based_on_qids"]), *node["variant_of"]]:
             groups.setdefault(key, set()).add(cid)
     pairs = {}
     for key, ids in groups.items():
@@ -310,22 +323,33 @@ def _identity_links(nodes, src):
     return links
 
 
-def load_sources():
+def screen_realities(titles, curated):
+    """Realities a role may have: the titles' and the curated roles' realities. A role only
+    leaves its title's reality for one of these (see own_realities)."""
+    realities = {t["reality"] for t in titles.values()} | {r["reality"] for r in curated}
+    return frozenset(r for r in realities if r)
+
+
+def load_sources(curated):
     related = read_json(CHARACTER_ENTITIES_PATH)["related"]
+    titles = {t["wikidata_qid"]: t for t in read_csv(REGISTRY_PATH)}
+    universe_pages = universe_pages_from(related)
     return Sources(
-        titles={t["wikidata_qid"]: t for t in read_csv(REGISTRY_PATH)},
+        titles=titles,
         characters={r["character_qid"]: r for r in read_csv(COLLECTED_CHARACTERS_PATH)},
         marvel_db={r["character_qid"]: r for r in read_csv(MARVEL_DB_PATH)},
         related=related,
-        universe_pages=universe_pages_from(related),
+        universe_pages=universe_pages,
         mcu_credits={(r["title_qid"], r["tmdb_person_id"], r["tmdb_character"]): r["page"]
                      for r in read_csv(MCU_WIKI_CREDITS_PATH) if r["page"]},
         mcu_characters={r["page"]: r for r in read_csv(MCU_WIKI_CHARACTERS_PATH)},
+        screen_realities=screen_realities(titles, curated),
     )
 
 
 def main():
-    src = load_sources()
+    curated = load_curated_roles()
+    src = load_sources(curated)
     qids_by_person = {}
     for r in read_csv(PERSON_QIDS_PATH):
         qids_by_person.setdefault(r["tmdb_person_id"], set()).add(r["actor_qid"])
@@ -334,6 +358,13 @@ def main():
     roles = wikidata_roles(read_csv(WIKIDATA_CAST_PATH), src)
     tmdb = link_tmdb_credits(read_csv(TMDB_CAST_PATH), roles, qids_by_person, tmdb_pointer, src)
     performances = [r for r in roles if not r["via"]] + tmdb  # parent-series roles count via TMDB
+    title_qids = {t["title"]: q for q, t in src.titles.items()}
+    performances = apply_curated_roles(performances, curated, title_qids,
+                                       {q: t["reality"] for q, t in src.titles.items()})
+    unmatched = unmatched_rows(performances, curated, title_qids)
+    if unmatched:
+        print(f"WARNING: {len(unmatched)} curated roles match no performance: "
+              f"{[(r['title'], r['actor']) for r in unmatched]}")
     rows, aliases, links = character_rows(performances, src)
 
     write_csv(PERFORMANCES_PATH, performances)

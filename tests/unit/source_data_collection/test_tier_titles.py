@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.source_data_collection.tier_titles import TIERS_DOC_PATH, load_tier_titles
+from src.source_data_collection.tier_titles import TIERS_DOC_PATH, load_tier_titles, read_table
 
 PLAN = """\
 # Plan
@@ -45,7 +45,7 @@ def test_reads_a_later_tier(plan_path):
 def test_row_fields(plan_path):
     assert load_tier_titles(plan_path, tier=1)[0] == {
         "title": "Iron Man", "type": "Film", "year": 2008, "universe": "MCU",
-        "needs_review": False}
+        "seasons": "", "needs_review": False}
 
 
 def test_year_is_first_year_of_a_range_or_annotated_value(plan_path):
@@ -71,7 +71,7 @@ def test_optional_reality_column_is_read_by_header_name(tmp_path):
                     encoding="utf-8")
     assert load_tier_titles(path, tier=1) == [{"title": "Logan", "type": "Film", "year": 2017,
                                                "universe": "Fox X-Men", "reality": "Earth-17315",
-                                               "needs_review": False}]
+                                               "seasons": "", "needs_review": False}]
 
 
 def test_review_marker_is_stripped_and_flagged(tmp_path):
@@ -83,6 +83,26 @@ def test_review_marker_is_stripped_and_flagged(tmp_path):
     deadpool, logan = load_tier_titles(path, tier=1)
     assert deadpool["reality"] == "Earth-10005" and deadpool["needs_review"] is True
     assert logan["needs_review"] is False
+
+
+def test_season_range_in_the_title_limits_a_series_to_those_seasons(tmp_path):
+    path = tmp_path / "plan.md"
+    path.write_text("### Tier 1: x\n\n| Title | Type | Year | Universe |\n| --- | --- | --- | --- |\n"
+                    "| What If...? (added), seasons 1-2 | Animated series | 2021-2023 | MCU |\n"
+                    "| Loki, season 1 | Series | 2021 | MCU |\n", encoding="utf-8")
+    what_if, loki = load_tier_titles(path, tier=1)
+    assert (what_if["title"], what_if["type"], what_if["seasons"]) == ("What If...?", "Animated series", "1|2")
+    assert loki["seasons"] == ""
+
+
+def test_read_table_reads_any_markdown_table_under_a_heading(tmp_path):
+    path = tmp_path / "doc.md"
+    path.write_text("## Intro\n\n### Curated roles\n\nText.\n\n| Title | Actor | Reality |\n| --- | --- | --- |\n"
+                    "| Logan | Dafne Keen | Earth-17315 † |\n| * | Kerry Condon | |\n\n### Next\n",
+                    encoding="utf-8")
+    assert read_table(path, "### Curated roles") == [
+        {"title": "Logan", "actor": "Dafne Keen", "reality": "Earth-17315", "needs_review": True},
+        {"title": "*", "actor": "Kerry Condon", "reality": "", "needs_review": False}]
 
 
 def test_default_source_is_the_tracked_docs_file():

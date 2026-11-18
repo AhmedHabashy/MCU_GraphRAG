@@ -45,18 +45,21 @@ universe is **Earth-616**, as the films call it (confirmed by the MCU expert). T
 Database names that page "Earth-199999" and uses "Earth-616" for the comics. Comics are
 out of scope for now, so in this project Earth-616 always means the MCU.
 The column is curated, because Wikidata files the whole MCU under one universe
-and Marvel Database pages are per character, not per film. A character with its own
-screen version in another reality (e.g. the Raimi Green Goblin in No Way Home) keeps
-that reality; the title's reality is the default for everyone else.
-Rows marked † need review by the MCU expert:
+and Marvel Database pages are per character, not per film. A character whose own screen
+version is in another reality (e.g. the Raimi Green Goblin in No Way Home) keeps that
+reality, but only if it is a reality named in this tier list or in "Curated roles" below
+(sources also list video-game realities). The title's reality is the default for everyone
+else. Roles the data gets wrong are fixed in "Curated roles".
 
-- Deadpool, Deadpool 2: Deadpool & Wolverine names Deadpool's home Earth-10005, while
-  some Marvel Database pages place the Deadpool films in Earth-TRN414.
-- X-Men: Days of Future Past, X-Men: Apocalypse, Dark Phoenix, The New Mutants: the
-  revised Fox timeline after Days of Future Past. Wikidata calls it Earth-TRN414, but the
-  Marvel Database no longer has that page and files the Fox films under Earth-10005, so
-  Earth-10005 is used.
-- What If...?: an anthology across many realities, so "Multiverse".
+All realities below are confirmed by the MCU expert:
+
+- The Deadpool films are set in Earth-10005 (named in Deadpool & Wolverine; the X-Men
+  cameo in Deadpool 2).
+- The Fox films after X-Men: Days of Future Past stay in Earth-10005: time travel changed
+  the events, not the reality. The New Mutants is a standalone film, but belongs to the X-Men
+  universe, so it is Earth-10005 too.
+- What If...? has no single reality; it is a set of stories in different, unnumbered
+  realities, so "Multiverse". Only seasons 1-2 are in scope.
 
 | Title | Type | Year | Universe | Reality |
 | --- | --- | --- | --- | --- |
@@ -82,7 +85,7 @@ Rows marked † need review by the MCU expert:
 | Spider-Man: No Way Home | Film | 2021 | MCU | Earth-616 |
 | Loki, season 1 | Series | 2021 | MCU | Earth-616 |
 | The Falcon and the Winter Soldier | Series | 2021 | MCU | Earth-616 |
-| What If...? (added) | Animated series | 2021-2024 | MCU | Multiverse † |
+| What If...? (added), seasons 1-2 | Animated series | 2021-2023 | MCU | Multiverse |
 | Doctor Strange in the Multiverse of Madness | Film | 2022 | MCU | Earth-616 |
 | Thor: Love and Thunder (added) | Film | 2022 | MCU | Earth-616 |
 | Black Panther: Wakanda Forever | Film | 2022 | MCU | Earth-616 |
@@ -101,14 +104,56 @@ Rows marked † need review by the MCU expert:
 | X-Men Origins: Wolverine | Film | 2009 | Fox X-Men | Earth-10005 |
 | X-Men: First Class | Film | 2011 | Fox X-Men | Earth-10005 |
 | The Wolverine | Film | 2013 | Fox X-Men | Earth-10005 |
-| X-Men: Days of Future Past | Film | 2014 | Fox X-Men | Earth-10005 † |
-| Deadpool | Film | 2016 | Fox X-Men | Earth-10005 † |
-| X-Men: Apocalypse | Film | 2016 | Fox X-Men | Earth-10005 † |
+| X-Men: Days of Future Past | Film | 2014 | Fox X-Men | Earth-10005 |
+| Deadpool | Film | 2016 | Fox X-Men | Earth-10005 |
+| X-Men: Apocalypse | Film | 2016 | Fox X-Men | Earth-10005 |
 | Logan | Film | 2017 | Fox X-Men | Earth-17315 |
-| Deadpool 2 | Film | 2018 | Fox X-Men | Earth-10005 † |
-| Dark Phoenix | Film | 2019 | Fox X-Men | Earth-10005 † |
-| The New Mutants | Film | 2020 | Fox X-Men | Earth-10005 † |
+| Deadpool 2 | Film | 2018 | Fox X-Men | Earth-10005 |
+| Dark Phoenix | Film | 2019 | Fox X-Men | Earth-10005 |
+| The New Mutants | Film | 2020 | Fox X-Men | Earth-10005 |
 | X-Men '97 (added) | Animated series | 2024-2026 | MCU animation | Earth-92131 |
+
+### Curated roles
+
+Corrections from the MCU expert for single roles the data gets wrong: crossover characters
+who keep their home reality, variants that must stay separate, and wrong character links.
+A blank cell keeps what the data says. "Title" is a Tier 1 title, or `*` for every title.
+"Identity" is a Wikidata QID or `mcuwiki:<Page>`. "Reality" is an Earth designation, or
+`Unknown` when the expert confirmed the role comes from another universe that has no known
+number. "Variant of" links the role as a variant of that Wikidata character. Rows marked †
+are the expert's best guess or still open.
+
+| Title | Actor | Character | Identity | Reality | Variant of |
+| --- | --- | --- | --- | --- | --- |
+| Spider-Man: No Way Home | Alfred Molina | Doctor Octopus | | Earth-96283 | |
+| Spider-Man: No Way Home | Jamie Foxx | Electro | | Earth-120703 | |
+| Spider-Man: No Way Home | Rhys Ifans | The Lizard | | Earth-120703 | |
+| Avengers: Doomsday | Pedro Pascal | Reed Richards | | Earth-828 | |
+| Avengers: Doomsday | Vanessa Kirby | Sue Storm | | Earth-828 | |
+| Avengers: Doomsday | Joseph Quinn | Johnny Storm | | Earth-828 | |
+| Avengers: Doomsday | Ebon Moss-Bachrach | Ben Grimm | | Earth-828 | |
+| Avengers: Doomsday | Patrick Stewart | Charles Xavier | | Earth-10005 | |
+| Avengers: Doomsday | Ian McKellen | Magneto | | Earth-10005 | |
+| Avengers: Doomsday | James Marsden | Cyclops | | Earth-10005 | |
+| Avengers: Doomsday | Kelsey Grammer | Beast | | Earth-10005 | |
+| Avengers: Doomsday | Alan Cumming | Nightcrawler | | Earth-10005 | |
+| Avengers: Doomsday | Rebecca Romijn | Mystique | | Earth-10005 | |
+| Avengers: Doomsday | Channing Tatum | Gambit | | Earth-10005 † | |
+| Deadpool & Wolverine | Hugh Jackman | Wolverine | mcuwiki:Wolverine | Unknown † | Q97275436 |
+| Deadpool & Wolverine | Henry Cavill | Cavillrine | mcuwiki:Cavillrine | Unknown † | Q97275436 |
+| Deadpool & Wolverine | Dafne Keen | X-23 | | Earth-17315 † | |
+| Deadpool & Wolverine | Jennifer Garner | Elektra | | Unknown † | |
+| Deadpool & Wolverine | Wesley Snipes | Blade | | Unknown † | |
+| Deadpool & Wolverine | Channing Tatum | Gambit | | Unknown † | |
+| Deadpool & Wolverine | Chris Evans | Johnny Storm | | Unknown † | |
+| Doctor Strange in the Multiverse of Madness | Patrick Stewart | Professor X | | Earth-838 | |
+| Doctor Strange in the Multiverse of Madness | Hayley Atwell | Captain Carter | | Earth-838 | |
+| Doctor Strange in the Multiverse of Madness | Lashana Lynch | Captain Marvel | | Earth-838 | |
+| Doctor Strange in the Multiverse of Madness | Anson Mount | Black Bolt | | Earth-838 | |
+| Doctor Strange in the Multiverse of Madness | John Krasinski | Reed Richards | | Earth-838 | |
+| Doctor Strange in the Multiverse of Madness | Chiwetel Ejiofor | Baron Mordo | | Earth-838 † | |
+| The Marvels | Kelsey Grammer | Beast | | Earth-10005 | |
+| * | Kerry Condon | F.R.I.D.A.Y. | Q28173125 | | |
 
 ### Tier 2: remaining MCU films and Disney+ series (second pass)
 
@@ -141,22 +186,24 @@ Rows marked † need review by the MCU expert:
 | Marvel Zombies | Animated series | 2025 | MCU animation |
 | Wonder Man | Series | 2026 | MCU |
 | VisionQuest | Series | 2026 | MCU |
+| Daredevil, seasons 1-3 | Series | 2015-2018 | Netflix |
+| The Punisher, seasons 1-2 | Series | 2017-2019 | Netflix |
+
+Netflix's Daredevil and The Punisher were promoted from Tier 3 (MCU expert), because
+their characters reappear in the MCU.
 
 ### Tier 3: optional
 
-Add these only if the questions need them. Promote Netflix Daredevil and
-The Punisher to Tier 2 to cover their later MCU appearances.
+Add these only if the questions need them.
 
 | Title | Type | Year | Universe |
 | --- | --- | --- | --- |
 | Agents of S.H.I.E.L.D. (added), seasons 1-7 | Series | 2013-2020 | Marvel TV |
 | Agent Carter (added), seasons 1-2 | Series | 2015-2016 | Marvel TV |
-| Daredevil, seasons 1-3 | Series | 2015-2018 | Netflix |
 | Jessica Jones, seasons 1-2 | Series | 2015-2018 | Netflix |
 | Luke Cage, seasons 1-2 | Series | 2016-2018 | Netflix |
 | Iron Fist, seasons 1-2 | Series | 2017-2018 | Netflix |
 | The Defenders | Series | 2017 | Netflix |
-| The Punisher, seasons 1-2 | Series | 2017-2019 | Netflix |
 | Inhumans | Series | 2017 | ABC |
 | Fantastic Four (added) | Film | 2005 | Fox Fantastic Four |
 | Fantastic Four: Rise of the Silver Surfer (added) | Film | 2007 | Fox Fantastic Four |

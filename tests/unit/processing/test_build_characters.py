@@ -8,6 +8,7 @@ from src.processing.build_characters import (
     own_realities,
     performance_reality,
     resolve_actor,
+    screen_realities,
     wikidata_roles,
 )
 
@@ -89,6 +90,23 @@ def test_own_realities_use_specific_universes_and_the_marvel_database_earth():
 
 def test_marvel_database_mcu_page_counts_as_earth_616():
     assert own_realities(CHARACTERS["Q24046118"], UNIVERSE_PAGES, "Earth-199999") == {"Earth-616"}
+
+
+def test_own_realities_must_be_known_screen_realities():
+    """Jubilee's Wikidata universe and Marvel Database page are a video-game reality (Earth-30847)."""
+    pages = {**UNIVERSE_PAGES, "QCAPCOM": "Earth-30847"}
+    known = {"Earth-616", "Earth-10005"}
+    jubilee = character("Q1", "Jubilee", universes="QCAPCOM")
+    assert own_realities(jubilee, pages, "Earth-30847", known) == set()
+    assert own_realities(jubilee, pages, "Earth-10005", known) == {"Earth-10005"}
+    logan = CHARACTERS["Q97275436"]                       # Earth-10005 and Earth-17315 universes
+    assert own_realities(logan, UNIVERSE_PAGES, "", known) == {"Earth-10005"}
+
+
+def test_screen_realities_are_the_title_and_curated_realities():
+    titles = {"Q1": {"reality": "Earth-616"}, "Q2": {"reality": "Earth-17315"}}
+    curated = [{"reality": "Earth-96283"}, {"reality": ""}]
+    assert screen_realities(titles, curated) == {"Earth-616", "Earth-17315", "Earth-96283"}
 
 
 def test_franchise_mcu_and_comics_universes_are_not_own_realities():
@@ -267,6 +285,19 @@ def test_screen_variants_are_linked_directly_through_a_shared_item():
     variants = {(l["from_id"], l["to_id"], l["shared_qid"]) for l in links if l["relation"] == "variant"}
     assert variants == {("Q192837@Earth-10005", "Q192837@Earth-92131", "Q192837"),   # same item
                         ("Q186422@Earth-92131", "Q97275436@Earth-10005", "Q186422")}  # same original
+
+
+def test_curated_label_and_variant_link():
+    perfs = [perf("Q106182", "Q97275436", "Q97275436@Earth-10005"),
+             {**perf("Q102180106", "mcuwiki:Wolverine", "mcuwiki:Wolverine@Unknown"),
+              "curated_label": "Wolverine", "curated_variant_of": "Q97275436"}]
+    characters, aliases, links = character_rows(perfs, sources())
+    dw = next(c for c in characters if c["character_id"] == "mcuwiki:Wolverine@Unknown")
+    assert dw["label"] == "Wolverine"
+    assert ("mcuwiki:Wolverine@Unknown", "wolverine", "curated") in {
+        (a["character_id"], a["normalized"], a["source"]) for a in aliases}
+    assert ("Q97275436@Earth-10005", "mcuwiki:Wolverine@Unknown", "Q97275436") in {
+        (l["from_id"], l["to_id"], l["shared_qid"]) for l in links if l["relation"] == "variant"}
 
 
 def test_identity_links_keep_screen_targets_and_drop_comics_ones():

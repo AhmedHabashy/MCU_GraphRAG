@@ -95,6 +95,39 @@ def test_series_record_follows_transcluded_season_pages():
         "What If...? (TV series)", "What If...? season 1", "What If...? season 2"]
 
 
+def test_series_limited_to_seasons_only_follows_those_season_pages():
+    what_if = {"title": "What If...?", "type": "Animated series", "wikidata_qid": "Q65980671",
+               "enwiki_title": "What If...? (TV series)", "season_number": "", "seasons": "1"}
+    client = FakeClient({
+        ("What If...? (TV series)", "Episodes"): section(
+            "What If...? (TV series)", "Episodes",
+            "{{:What If...? season 1}}\n{{:What If...? season 2}}"),
+        ("What If...? season 1", "Episodes"): section(
+            "What If...? season 1", "Episodes", episode(1, "Captain Carter", "Peggy...", 1)),
+        ("What If...? season 2", "Episodes"): section(
+            "What If...? season 2", "Episodes", episode(10, "Nebula", "Nebula...", 1)),
+    })
+
+    record = plot_record(what_if, client, retrieved_at="t")
+
+    assert [e["season"] for e in record["episodes"]] == [1]
+    assert ("What If...? season 2", ("Episodes",)) not in client.requests
+
+
+def test_wikidata_episodes_of_a_series_limited_to_seasons():
+    def season(qid, number, episodes):
+        return {"id": qid, "claims": {
+            "P31": [item("Q3464665")],
+            "P179": [{**item("QSERIES"), "qualifiers": {"P1545": [
+                {"datavalue": {"type": "string", "value": str(number)}}]}}],
+            "P527": [item(e) for e in episodes]}}
+
+    series = {"claims": {"P527": [item("S1"), item("S3")]}}
+    client = FakeClient({}, {"S1": season("S1", 1, ["E1"]), "S3": season("S3", 3, ["E3"]),
+                             "E1": {"id": "E1", "claims": {}}, "E3": {"id": "E3", "claims": {}}})
+    assert [e["id"] for e in wikidata_episodes(series, client, seasons={1, 2})] == ["E1"]
+
+
 def test_inline_series_episodes_are_season_one():
     tfatws = {"title": "The Falcon and the Winter Soldier", "type": "Series",
               "wikidata_qid": "Q65979734", "enwiki_title": "The Falcon and the Winter Soldier",

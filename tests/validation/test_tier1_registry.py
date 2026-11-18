@@ -50,6 +50,23 @@ def seasons(rows):
     return [r for r in rows if r["type"] == SEASON]
 
 
+# Scope decisions from the MCU expert.
+
+def test_every_tier1_reality_is_confirmed():
+    assert [t["title"] for t in load_tier_titles(tier=1) if t["needs_review"]] == []
+
+
+def test_what_if_is_limited_to_seasons_one_and_two():
+    what_if = next(t for t in load_tier_titles(tier=1) if t["title"] == "What If...?")
+    assert what_if["seasons"] == "1|2"
+
+
+def test_netflix_daredevil_and_punisher_are_in_tier_2():
+    tier2 = {t["title"] for t in load_tier_titles(tier=2)}
+    tier3 = {t["title"] for t in load_tier_titles(tier=3)}
+    assert {"Daredevil", "The Punisher"} <= tier2 and not {"Daredevil", "The Punisher"} & tier3
+
+
 # Check 1: every tier title resolved, no blanks, no duplicates.
 
 def test_docs_list_every_tier1_title():

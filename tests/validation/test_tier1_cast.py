@@ -221,6 +221,11 @@ def test_cast_property_ids_have_expected_labels():
     assert {pid: label(entities[pid]) for pid in expected} == expected
 
 
+def test_what_if_credits_come_from_seasons_one_and_two_only(tmdb):
+    urls = {r["source_url"] for r in tmdb if r["title_qid"] == "Q65980671"}
+    assert {u.rsplit("/season/", 1)[1].split("/")[0] for u in urls} == {"1", "2"}
+
+
 def test_seasons_are_collected_per_season(tmdb, titles):
     """Season rows must come from season credits, not the whole series."""
     seasons = {t["wikidata_qid"] for t in titles if t["type"] == SEASON}

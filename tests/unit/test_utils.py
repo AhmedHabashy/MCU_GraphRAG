@@ -1,6 +1,7 @@
 """Unit tests for src/utils.py. No network: a fake HTTP session is injected."""
 
 import pytest
+import requests
 
 from src.utils import (
     FandomClient,
@@ -167,6 +168,22 @@ def test_fandom_search_returns_page_titles():
     assert params["srsearch"] == "Katy" and params["srlimit"] == 2
 
 
+def test_fandom_search_retries_temporary_api_errors():
+    """MediaWiki reports some failures as HTTP 200 with an 'error' object."""
+    session = FakeSession([FakeResponse(200, payload={"error": {"code": "search-backend-error"}}),
+                           FakeResponse(200, payload={"query": {"search": [{"title": "Katy Chen"}]}})])
+    client = FandomClient(session=session, sleep=lambda _s: None)
+    assert client.search("marvelcinematicuniverse", "Katy", limit=1) == ["Katy Chen"]
+    assert len(session.calls) == 2
+
+
+def test_fandom_search_fails_clearly_on_other_api_errors():
+    session = FakeSession([FakeResponse(200, payload={"error": {"code": "badvalue"}})])
+    client = FandomClient(session=session, sleep=lambda _s: None)
+    with pytest.raises(RuntimeError, match="badvalue"):
+        client.search("marvelcinematicuniverse", "Katy", limit=1)
+
+
 def test_fandom_lead_is_none_for_missing_pages():
     session = FakeSession([FakeResponse(200, payload={"error": {"code": "missingtitle"}})])
     assert FandomClient(session=session, sleep=lambda _s: None).lead("marvel", "Nope") is None
@@ -241,6 +258,45 @@ def test_client_gives_up_after_max_retries():
     client, _ = make_client([FakeResponse(503)] * 10)
     with pytest.raises(RuntimeError):
         client.get_json("https://example.org/api", {})
+
+
+class FlakySession(FakeSession):
+    """Raises the given exceptions first, then returns the queued responses."""
+
+    def __init__(self, errors, responses):
+        super().__init__(responses)
+        self.errors = list(errors)
+
+    def get(self, url, params=None, timeout=None):
+        self.calls.append((url, dict(params or {}), timeout))
+        if self.errors:
+            raise self.errors.pop(0)
+        return self.responses.pop(0)
+
+
+def test_client_retries_timeouts_and_connection_errors():
+    session = FlakySession([requests.exceptions.ReadTimeout("slow"),
+                            requests.exceptions.ConnectionError("dropped")],
+                           [FakeResponse(200, payload={"ok": True})])
+    client = JsonHttpClient(session=session, sleep=lambda _s: None)
+    assert client.get_json("https://example.org/api", {}) == {"ok": True}
+    assert len(session.calls) == 3
+
+
+def test_client_gives_up_on_repeated_timeouts_without_leaking_parameters():
+    leak = "https://api.example.org/3/movie/1?api_key=SECRET"
+    session = FlakySession([requests.exceptions.ConnectionError(f"Max retries with url: {leak}")] * 10, [])
+    client = JsonHttpClient(session=session, sleep=lambda _s: None)
+    with pytest.raises(RuntimeError) as error:
+        client.get_json("https://api.example.org/3/movie/1", {"api_key": "SECRET"})
+    assert "SECRET" not in str(error.value) and error.value.__cause__ is None
+    assert "ConnectionError" in str(error.value)
+
+
+def test_sparql_allows_the_query_services_full_minute():
+    session = FlakySession([], [FakeResponse(200, payload={"results": {"bindings": []}})])
+    WikimediaClient(session=session, sleep=lambda _s: None).sparql("SELECT ...")
+    assert session.calls[0][2] == 60
 
 
 def test_client_errors_never_include_request_parameters():

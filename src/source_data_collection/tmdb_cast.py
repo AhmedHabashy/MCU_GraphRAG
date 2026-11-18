@@ -52,14 +52,39 @@ def top_billed_person_ids(rows, limit=TOP_BILLED):
                               if int(r["billing_order"]) < limit))
 
 
+def title_credits(title, client):
+    """[(path, payload)]: one credits response, or one per season for a series limited to
+    some seasons (TMDB's series credits would include every season)."""
+    seasons = [s for s in title.get("seasons", "").split("|") if s]
+    if not seasons:
+        return [client.credits(title)]
+    return [client.credits({**title, "type": "Series season", "season_number": s}) for s in seasons]
+
+
+def merged_cast_rows(title, payloads, retrieved_at):
+    """Cast rows of every payload, one per (person, character), first season first."""
+    rows, seen = [], set()
+    for path, payload in payloads:
+        for row in cast_rows(title, path, payload, retrieved_at):
+            key = (row["tmdb_person_id"], row["character"])
+            if key not in seen:
+                seen.add(key)
+                rows.append(row)
+    return rows
+
+
 def collect(titles, client, retrieved_at):
     rows = []
     for title in titles:
-        path, payload = client.credits(title)
+        payloads = title_credits(title, client)
+        merged = {"cast": [p for _, payload in payloads for p in payload.get("cast", [])],
+                  "crew": [p for _, payload in payloads for p in payload.get("crew", [])]}
         write_json(CREDITS_DIR / f"{title['wikidata_qid']}.json",
-                   {"title": title["title"], "source_url": f"{TMDB_API}{path}",
-                    "retrieved_at": retrieved_at, "license": TMDB_LICENSE, "response": payload})
-        rows += cast_rows(title, path, payload, retrieved_at)
+                   {"title": title["title"],
+                    "source_url": "|".join(f"{TMDB_API}{path}" for path, _ in payloads),
+                    "retrieved_at": retrieved_at, "license": TMDB_LICENSE,
+                    "response": payloads[0][1] if len(payloads) == 1 else merged})
+        rows += merged_cast_rows(title, payloads, retrieved_at)
     write_csv(TMDB_CAST_PATH, rows)
     return rows
 

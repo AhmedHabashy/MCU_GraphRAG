@@ -13,13 +13,14 @@ Run:    .venv\\Scripts\\python.exe -m src.source_data_collection.collect_plots
 import re
 
 from src.source_data_collection.build_title_registry import (
-    ENTITIES_PATH, P_HAS_PARTS, P_INSTANCE_OF, REGISTRY_PATH, SEASON, WIKIDATA_LICENSE,
+    ENTITIES_PATH, P_HAS_PARTS, P_INSTANCE_OF, P_PART_OF_THE_SERIES, P_SERIES_ORDINAL, REGISTRY_PATH,
+    SEASON, WIKIDATA_LICENSE,
 )
 from src.source_data_collection.storage import read_csv, read_json, utc_now, write_json
 from src.source_data_collection.tier_titles import PROJECT_ROOT
 from src.source_data_collection.wikipedia_cast import WIKIPEDIA_LICENSE
 from src.source_data_collection.wikitext import episode_entries, plain_text, transcluded_pages
-from src.utils import WikimediaClient, claim_values, enwiki_url
+from src.utils import WikimediaClient, claim_values, enwiki_url, qualifier_value
 
 PLOTS_DIR = PROJECT_ROOT / "source_data" / "wikipedia" / "plots"
 EPISODE_ENTITIES_PATH = PROJECT_ROOT / "source_data" / "wikidata" / "tier1_episode_entities.json"
@@ -63,7 +64,10 @@ def plot_record(title, client, retrieved_at):
             kind = "episodes"
             season = int(title["season_number"]) if title["type"] == SEASON else 1
             sections, episodes = [section], _episodes(section, season)
+            wanted = selected_seasons(title)
             for page in transcluded_pages(section["wikitext"]):
+                if wanted and _season_from_page(page) not in wanted:
+                    continue
                 season_section = client.top_level_section(page, prefix=EPISODES_HEADING)
                 if season_section:
                     sections.append(season_section)
@@ -74,8 +78,14 @@ def plot_record(title, client, retrieved_at):
             "source": "wikipedia", "retrieved_at": retrieved_at, "license": WIKIPEDIA_LICENSE}
 
 
-def wikidata_episodes(entity, client):
-    """Episode items under a season, or under each season of a series (via P527)."""
+def selected_seasons(title):
+    """Season numbers a series is limited to in the tier list, or an empty set for all."""
+    return {int(s) for s in title.get("seasons", "").split("|") if s}
+
+
+def wikidata_episodes(entity, client, seasons=frozenset()):
+    """Episode items under a season, or under each season of a series (via P527); for a
+    series limited to some seasons, only seasons whose series ordinal is selected."""
     parts = claim_values(entity, P_HAS_PARTS)
     fetched = client.get_entities(parts, props="labels|claims")
     episodes, nested = [], []
@@ -85,7 +95,9 @@ def wikidata_episodes(entity, client):
             continue
         if Q_TV_EPISODE in claim_values(part, P_INSTANCE_OF):
             episodes.append(part)
-        else:
+            continue
+        _, ordinal = qualifier_value(part, P_PART_OF_THE_SERIES, P_SERIES_ORDINAL)
+        if not seasons or (ordinal or "").isdigit() and int(ordinal) in seasons:
             nested += claim_values(part, P_HAS_PARTS)
     if nested:
         deeper = client.get_entities(nested, props="labels|claims")
@@ -105,7 +117,7 @@ def main():
         write_json(plot_path(title["wikidata_qid"]), record)
         if title["type"] != "Film":
             episode_entities[title["wikidata_qid"]] = wikidata_episodes(
-                title_entities[title["wikidata_qid"]], client)
+                title_entities[title["wikidata_qid"]], client, selected_seasons(title))
         print(f"{title['title']}: {record['kind'] or 'MISSING'} "
               f"({len(record['episodes'])} episodes)", flush=True)
 

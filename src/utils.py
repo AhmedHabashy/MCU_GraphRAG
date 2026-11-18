@@ -13,6 +13,10 @@ USER_AGENT = "MCU-GraphRAG/0.1 (personal research project; python-requests)"
 BATCH_SIZE = 50          # MediaWiki limit for ids/titles per request
 MAX_ATTEMPTS = 5
 RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+DEFAULT_TIMEOUT = 30   # seconds
+SPARQL_TIMEOUT = 60    # the Wikidata query service's own query time limit
+# MediaWiki API error codes (in an HTTP 200 body) that are worth retrying
+TEMPORARY_API_ERRORS = ("search-backend-error", "internal_api_error", "ratelimited", "maxlag")
 
 # Wikidata property IDs used in this module (verified on wikidata.org 2026-11-17).
 P_PUBLICATION_DATE = "P577"
@@ -129,29 +133,44 @@ class JsonHttpClient:
         self.session.headers["User-Agent"] = USER_AGENT
         self.sleep = sleep
 
-    def get_json(self, url, params):
+    def get_json(self, url, params, timeout=DEFAULT_TIMEOUT):
+        """Retries rate limits, server errors, timeouts and dropped connections. Network errors
+        are re-raised without their message, which can contain the full URL with parameters."""
+        last = ""
         for attempt in range(1, MAX_ATTEMPTS + 1):
-            response = self.session.get(url, params=params, timeout=30)
-            if response.status_code < 400:
-                return response.json()
-            if response.status_code not in RETRYABLE_STATUS:
-                raise RuntimeError(f"{url} returned HTTP {response.status_code}")
-            if attempt == MAX_ATTEMPTS:
-                break
-            self.sleep(float(response.headers.get("Retry-After", 2 ** attempt)))
-        raise RuntimeError(f"{url} still failing after {MAX_ATTEMPTS} attempts "
-                           f"(last status {response.status_code})")
+            try:
+                response = self.session.get(url, params=params, timeout=timeout)
+            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as error:
+                last, wait = type(error).__name__, 2 ** attempt
+            else:
+                if response.status_code < 400:
+                    return response.json()
+                if response.status_code not in RETRYABLE_STATUS:
+                    raise RuntimeError(f"{url} returned HTTP {response.status_code}")
+                last = f"status {response.status_code}"
+                wait = float(response.headers.get("Retry-After", 2 ** attempt))
+            if attempt < MAX_ATTEMPTS:
+                self.sleep(wait)
+        raise RuntimeError(f"{url} still failing after {MAX_ATTEMPTS} attempts (last: {last})")
 
 
 class FandomClient(JsonHttpClient):
     """Client for Fandom wikis (MediaWiki API at https://<wiki>.fandom.com/api.php)."""
 
     def search(self, wiki, query, limit):
-        """Titles of the top full-text search hits."""
-        found = self.get_json(f"https://{wiki}.fandom.com/api.php", {
-            "action": "query", "list": "search", "srsearch": query, "srlimit": limit,
-            "format": "json"})
-        return [hit["title"] for hit in found["query"]["search"]]
+        """Titles of the top full-text search hits. MediaWiki reports some temporary failures
+        as HTTP 200 with an 'error' object; those are retried, others raise."""
+        for attempt in range(1, MAX_ATTEMPTS + 1):
+            found = self.get_json(f"https://{wiki}.fandom.com/api.php", {
+                "action": "query", "list": "search", "srsearch": query, "srlimit": limit,
+                "format": "json"})
+            if "query" in found:
+                return [hit["title"] for hit in found["query"]["search"]]
+            code = found.get("error", {}).get("code", "no 'query' in response")
+            if not code.startswith(TEMPORARY_API_ERRORS) or attempt == MAX_ATTEMPTS:
+                break
+            self.sleep(2 ** attempt)
+        raise RuntimeError(f"{wiki} search failed: {code}")
 
     def lead(self, wiki, page):
         """Wikitext of the page's first section (where infoboxes live), or None if missing."""
@@ -170,7 +189,8 @@ class WikimediaClient(JsonHttpClient):
 
     def sparql(self, query):
         """Run a SPARQL SELECT; entity URIs are shortened to their ID."""
-        bindings = self.get_json(WIKIDATA_SPARQL, {"format": "json", "query": query})
+        bindings = self.get_json(WIKIDATA_SPARQL, {"format": "json", "query": query},
+                                 timeout=SPARQL_TIMEOUT)
         return [{name: cell["value"].removeprefix(ENTITY_URI_PREFIX)
                  for name, cell in row.items()}
                 for row in bindings["results"]["bindings"]]
