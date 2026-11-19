@@ -1,15 +1,17 @@
 """Apply the MCU expert's curated roles (docs/data_sources_and_tiers.md, "Curated roles").
 
-A row matches the performances of one actor in one title (or every title, '*'). It can set
-the role's identity, reality, display name and the character it is a variant of; blank
-cells keep what the data says.
+A row matches the performances of one actor in one title. '*' as the title means every
+title; '*' as the actor means every role in the title (a title set entirely in its own
+universe). A row for one actor in one title wins over a '*' row. A row can set the role's
+identity, reality, display name and the character it is a variant of; blank cells keep what
+the data says.
 """
 
 from src.source_data_collection.cast_matching import normalize_name
 from src.source_data_collection.tier_titles import TIERS_DOC_PATH, read_table
 
 CURATED_HEADING = "### Curated roles"
-ALL_TITLES = "*"
+ALL = "*"
 UNKNOWN_REALITY = "Unknown"
 
 
@@ -18,8 +20,18 @@ def load_curated_roles(path=TIERS_DOC_PATH):
 
 
 def _matches(row, performance, title_qids):
-    in_title = row["title"] == ALL_TITLES or title_qids.get(row["title"]) == performance["title_qid"]
-    return in_title and normalize_name(row["actor"]) == normalize_name(performance["actor_name"])
+    in_title = row["title"] == ALL or title_qids.get(row["title"]) == performance["title_qid"]
+    by_actor = row["actor"] == ALL or normalize_name(row["actor"]) == normalize_name(performance["actor_name"])
+    return in_title and by_actor
+
+
+def _specificity(row):
+    return row["actor"] != ALL, row["title"] != ALL
+
+
+def curated_row(performance, rows, title_qids):
+    """The most specific curated row for a performance, or None."""
+    return max((r for r in rows if _matches(r, performance, title_qids)), key=_specificity, default=None)
 
 
 def apply_curated_roles(performances, rows, title_qids, title_realities):
@@ -27,7 +39,7 @@ def apply_curated_roles(performances, rows, title_qids, title_realities):
     curated_variant_of. `title_qids` maps tier-list titles to QIDs."""
     result = []
     for p in performances:
-        row = next((r for r in rows if _matches(r, p, title_qids)), None)
+        row = curated_row(p, rows, title_qids)
         p = {**p, "curated": False, "curated_label": "", "curated_variant_of": "",
              # the character the data linked, before any merge or curation
              "data_base_qid": p.get("data_base_qid") or p["base_qid"]}

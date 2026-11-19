@@ -11,7 +11,9 @@ import pytest
 from src.processing.build_characters import (
     ALIASES_PATH, CHARACTERS_PATH, LINKS_PATH, MULTIVERSE, PERFORMANCES_PATH,
 )
-from src.processing.curated_roles import UNKNOWN_REALITY, load_curated_roles, unmatched_rows
+from src.processing.curated_roles import (
+    UNKNOWN_REALITY, curated_row, load_curated_roles, unmatched_rows,
+)
 from src.processing.realities import MCU, marvel_db_page_of, reality_of_marvel_db_earth
 from src.source_data_collection.build_title_registry import REGISTRY_PATH
 from src.source_data_collection.cast_matching import normalize_name
@@ -247,14 +249,29 @@ def test_every_curated_role_matches_a_performance(performances, curated, title_q
 
 def test_every_matching_performance_has_its_curated_identity_and_reality(performances, curated, title_qids):
     wrong = []
-    for r in curated:
-        for p in performances:
-            if p["character_id"] and (r["title"] == "*" or title_qids[r["title"]] == p["title_qid"]) \
-                    and normalize_name(r["actor"]) == normalize_name(p["actor_name"]):
-                identity, reality = p["character_id"].rsplit("@", 1)
-                if (r["identity"] and identity != r["identity"]) or (r["reality"] and reality != r["reality"]):
-                    wrong.append((r["title"], r["actor"], p["character_id"]))
+    for p in performances:
+        r = curated_row(p, curated, title_qids)
+        if p["character_id"] and r:
+            identity, reality = p["character_id"].rsplit("@", 1)
+            if (r["identity"] and identity != r["identity"]) or (r["reality"] and reality != r["reality"]):
+                wrong.append((r["title"], r["actor"], p["character_id"]))
     assert wrong == []
+
+
+@pytest.mark.parametrize("title_qid, reality", [
+    ("Q111382701", "Earth-89521"),         # Marvel Zombies
+    ("Q113005299", "Earth-86445"),         # Your Friendly Neighborhood Spider-Man
+])
+def test_titles_set_in_their_own_universe_keep_every_role_there(performances, title_qid, reality):
+    """MCU expert, round 2: these characters are local variants, not MCU visitors."""
+    assert {p["character_id"].rsplit("@", 1)[1] for p in performances
+            if p["title_qid"] == title_qid and p["character_id"]} == {reality}
+
+
+def test_mcu_visitors_in_deadpool_and_wolverine_stay_in_the_mcu(performances, characters):
+    """Deadpool visits the main MCU: its Thor and Happy Hogan are the Earth-616 characters."""
+    for actor in ("Chris Hemsworth", "Jon Favreau"):
+        assert characters[ids(performances, "Q102180106", actor)]["reality"] == MCU
 
 
 def ids(performances, title_qid, actor):
@@ -267,6 +284,39 @@ def test_no_way_home_villains_keep_their_home_realities(performances, characters
     assert characters[ids(performances, "Q68934496", "Alfred Molina")]["reality"] == "Earth-96283"
     assert characters[ids(performances, "Q68934496", "Jamie Foxx")]["reality"] == "Earth-120703"
     assert characters[ids(performances, "Q68934496", "Rhys Ifans")]["reality"] == "Earth-120703"
+    assert characters[ids(performances, "Q68934496", "Thomas Haden Church")]["reality"] == "Earth-96283"
+
+
+def test_no_way_home_spider_men_each_keep_their_own_universe(performances, characters):
+    """MCU expert, round 2: each Spider-Man is from his own Earth."""
+    realities = [characters[ids(performances, "Q68934496", a)]["reality"]
+                 for a in ("Tom Holland", "Tobey Maguire", "Andrew Garfield")]
+    assert realities == [MCU, "Earth-96283", "Earth-120703"]
+
+
+def test_gambit_is_one_character_in_deadpool_and_wolverine_and_doomsday(performances, characters):
+    """MCU expert, round 2: the Doomsday Gambit is the one who escaped the Void."""
+    gambit = ids(performances, "Q102180106", "Channing Tatum")
+    assert gambit == ids(performances, "Q113244839", "Channing Tatum")
+    assert characters[gambit]["reality"] == UNKNOWN_REALITY
+
+
+@pytest.mark.parametrize("actor, reality", [
+    ("Jennifer Garner", "Earth-701306"),   # Elektra (2005)
+    ("Wesley Snipes", "Earth-26320"),      # Blade trilogy
+    ("Chris Evans", "Earth-121698"),       # Fantastic Four (2005)
+    ("Hugh Jackman", UNKNOWN_REALITY),
+    ("Henry Cavill", UNKNOWN_REALITY),
+])
+def test_deadpool_and_wolverine_void_cameos_come_from_their_own_universes(performances, characters,
+                                                                           actor, reality):
+    assert characters[ids(performances, "Q102180106", actor)]["reality"] == reality
+
+
+def test_may_parker_is_known_by_both_names(performances, aliases):
+    """MCU expert, round 2: May is short for Maybelle, so both names are right."""
+    may = ids(performances, "Q68934496", "Marisa Tomei")
+    assert {"may parker", "maybelle parker"} <= names_of(aliases, may)
 
 
 def test_doomsday_crossovers_are_the_same_characters_as_in_their_home_films(performances):

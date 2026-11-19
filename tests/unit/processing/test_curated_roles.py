@@ -69,6 +69,28 @@ def test_actor_names_match_ignoring_case_and_accents():
     assert p["character_id"] == "Q578094@Earth-96283"
 
 
+def test_star_actor_sets_the_reality_of_every_role_in_the_title():
+    """A title set entirely in its own universe: MCU-linked characters are local variants."""
+    rows = apply([perf("Q102180106", "Elizabeth Olsen", "Q24022542", "Q24022542@Earth-616"),
+                  perf("Q102180106", "Paul Rudd", "Q24026703", "Q24026703@Earth-616")],
+                 [curated("Deadpool & Wolverine", "*", reality="Earth-89521")])
+    assert {p["character_id"] for p in rows} == {"Q24022542@Earth-89521", "Q24026703@Earth-89521"}
+    assert {p["curated_label"] for p in rows} == {""}
+
+
+def test_a_row_for_one_actor_wins_over_a_star_actor_row():
+    rows = [curated("Deadpool & Wolverine", "*", reality="Earth-89521"),
+            curated("Deadpool & Wolverine", "Wesley Snipes", "Blade", reality="Earth-26320")]
+    [p] = apply([perf("Q102180106", "Wesley Snipes", "Q881024", "Q881024@Earth-10005")], rows)
+    assert (p["character_id"], p["curated_label"]) == ("Q881024@Earth-26320", "Blade")
+
+
+def test_star_actor_leaves_other_titles_untouched():
+    [p] = apply([perf("Q68934496", "Tom Holland", "Q1", "Q1@Earth-616")],
+                [curated("Deadpool & Wolverine", "*", reality="Earth-89521")])
+    assert p["character_id"] == "Q1@Earth-616" and p["curated"] is False
+
+
 def test_unmatched_rows_are_reported():
     rows = [curated("Spider-Man: No Way Home", "Alfred Molina", reality="Earth-96283"),
             curated("Spider-Man: No Way Home", "Alfred Molino", reality="Earth-96283")]   # typo

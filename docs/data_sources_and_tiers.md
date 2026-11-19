@@ -117,11 +117,17 @@ All realities below are confirmed by the MCU expert:
 
 Corrections from the MCU expert for single roles the data gets wrong: crossover characters
 who keep their home reality, variants that must stay separate, and wrong character links.
-A blank cell keeps what the data says. "Title" is a Tier 1 title, or `*` for every title.
+A blank cell keeps what the data says. "Title" is a tier-list title, or `*` for every title.
+"Actor" is an actor, or `*` for every role in a title set entirely in its own universe, whose
+MCU-linked characters are local variants rather than visitors; a row for one actor wins.
 "Identity" is a Wikidata QID or `mcuwiki:<Page>`. "Reality" is an Earth designation, or
 `Unknown` when the expert confirmed the role comes from another universe that has no known
 number. "Variant of" links the role as a variant of that Wikidata character. Rows marked †
-are the expert's best guess or still open.
+are the expert's best guess (X-23 is probably from Logan's universe, though it was never
+officially numbered). Channing Tatum's Gambit is one character in Deadpool & Wolverine and
+Avengers: Doomsday (he escapes the Void in a deleted credits scene), from an unnumbered
+universe. The No Way Home Spider-Men and villains need no rows: the data already gives each
+one his own universe (Raimi Earth-96283, Webb Earth-120703), which the expert confirmed.
 
 | Title | Actor | Character | Identity | Reality | Variant of |
 | --- | --- | --- | --- | --- | --- |
@@ -138,22 +144,24 @@ are the expert's best guess or still open.
 | Avengers: Doomsday | Kelsey Grammer | Beast | | Earth-10005 | |
 | Avengers: Doomsday | Alan Cumming | Nightcrawler | | Earth-10005 | |
 | Avengers: Doomsday | Rebecca Romijn | Mystique | | Earth-10005 | |
-| Avengers: Doomsday | Channing Tatum | Gambit | | Earth-10005 † | |
-| Deadpool & Wolverine | Hugh Jackman | Wolverine | mcuwiki:Wolverine | Unknown † | Q97275436 |
-| Deadpool & Wolverine | Henry Cavill | Cavillrine | mcuwiki:Cavillrine | Unknown † | Q97275436 |
+| Avengers: Doomsday | Channing Tatum | Gambit | | Unknown | |
+| Deadpool & Wolverine | Hugh Jackman | Wolverine | mcuwiki:Wolverine | Unknown | Q97275436 |
+| Deadpool & Wolverine | Henry Cavill | Cavillrine | mcuwiki:Cavillrine | Unknown | Q97275436 |
 | Deadpool & Wolverine | Dafne Keen | X-23 | | Earth-17315 † | |
-| Deadpool & Wolverine | Jennifer Garner | Elektra | | Unknown † | |
-| Deadpool & Wolverine | Wesley Snipes | Blade | | Unknown † | |
-| Deadpool & Wolverine | Channing Tatum | Gambit | | Unknown † | |
-| Deadpool & Wolverine | Chris Evans | Johnny Storm | | Unknown † | |
+| Deadpool & Wolverine | Jennifer Garner | Elektra | | Earth-701306 | |
+| Deadpool & Wolverine | Wesley Snipes | Blade | | Earth-26320 | |
+| Deadpool & Wolverine | Channing Tatum | Gambit | | Unknown | |
+| Deadpool & Wolverine | Chris Evans | Johnny Storm | | Earth-121698 | |
 | Doctor Strange in the Multiverse of Madness | Patrick Stewart | Professor X | | Earth-838 | |
 | Doctor Strange in the Multiverse of Madness | Hayley Atwell | Captain Carter | | Earth-838 | |
 | Doctor Strange in the Multiverse of Madness | Lashana Lynch | Captain Marvel | | Earth-838 | |
 | Doctor Strange in the Multiverse of Madness | Anson Mount | Black Bolt | | Earth-838 | |
 | Doctor Strange in the Multiverse of Madness | John Krasinski | Reed Richards | | Earth-838 | |
-| Doctor Strange in the Multiverse of Madness | Chiwetel Ejiofor | Baron Mordo | | Earth-838 † | |
+| Doctor Strange in the Multiverse of Madness | Chiwetel Ejiofor | Baron Mordo | | Earth-838 | |
 | The Marvels | Kelsey Grammer | Beast | | Earth-10005 | |
 | * | Kerry Condon | F.R.I.D.A.Y. | Q28173125 | | |
+| Marvel Zombies | * | | | Earth-89521 | |
+| Your Friendly Neighborhood Spider-Man | * | | | Earth-86445 | |
 
 ### Phases and sagas
 
@@ -176,8 +184,9 @@ The teams that matter most for Avengers: Doomsday (MCU expert), one row per team
 reality. Members come from each team's MCU wiki and Marvel Database pages. Per the expert,
 the New Avengers and the Thunderbolts are one team, and the Illuminati exist only in Doctor
 Strange in the Multiverse of Madness. Team Doom is added once Avengers: Doomsday is released.
-Rows marked † are not on the expert's list; they are collected because their films are in
-Tier 2. (The Eternals are a species on both wikis, not a team, so they are not listed.) The Wikipedia page is kept as text for later extraction of who joins or leaves when.
+The Guardians of the Galaxy were confirmed by the expert (round 2): the team splits up at
+the end of Guardians of the Galaxy Vol. 3, possibly not for good. There are no other teams
+for now. (The Eternals are a species on both wikis, not a team, so they are not listed.) The Wikipedia page is kept as text for later extraction of who joins or leaves when.
 
 | Team | Reality | MCU wiki page | Marvel Database page | Wikipedia page | Also called |
 | --- | --- | --- | --- | --- | --- |
@@ -187,13 +196,13 @@ Tier 2. (The Eternals are a species on both wikis, not a team, so they are not l
 | X-Men | Earth-10005 | | X-Men (Earth-10005) | X-Men in film | |
 | X-Men | Earth-92131 | | X-Men (Earth-92131) | | |
 | Illuminati | Earth-838 | Illuminati | Illuminati (Earth-838) | List of Marvel Cinematic Universe teams and organizations | |
-| Guardians of the Galaxy † | Earth-616 | Guardians of the Galaxy | Guardians of the Galaxy (Earth-199999) | List of Marvel Cinematic Universe teams and organizations | |
+| Guardians of the Galaxy | Earth-616 | Guardians of the Galaxy | Guardians of the Galaxy (Earth-199999) | List of Marvel Cinematic Universe teams and organizations | |
 
 ### Tier 2: remaining MCU films and Disney+ series (second pass)
 
-"Reality" works as in Tier 1. Rows marked † are not yet confirmed by the MCU expert:
-the Netflix series (Daredevil: Born Again continues Daredevil, so Earth-616 is assumed), and
-the animated series set in their own universes, whose Earth numbers are not known yet.
+"Reality" works as in Tier 1; all realities are confirmed by the MCU expert (round 2). The
+Netflix series and Eyes of Wakanda are the main MCU. Marvel Zombies is the sequel to the
+zombie episode of What If...?, set on Earth-89521.
 I Am Groot has no separate season items on Wikidata, so its two seasons are one title.
 
 | Title | Type | Year | Universe | Reality |
@@ -219,13 +228,13 @@ I Am Groot has no separate season items on Wikidata, so its two seasons are one 
 | Agatha All Along | Series | 2024 | MCU | Earth-616 |
 | Daredevil: Born Again | Series | 2025 | MCU | Earth-616 |
 | Ironheart | Series | 2025 | MCU | Earth-616 |
-| Your Friendly Neighborhood Spider-Man | Animated series | 2025 | MCU animation | Unknown † |
-| Eyes of Wakanda | Animated series | 2025 | MCU animation | Earth-616 † |
-| Marvel Zombies | Animated series | 2025 | MCU animation | Unknown † |
+| Your Friendly Neighborhood Spider-Man | Animated series | 2025 | MCU animation | Earth-86445 |
+| Eyes of Wakanda | Animated series | 2025 | MCU animation | Earth-616 |
+| Marvel Zombies | Animated series | 2025 | MCU animation | Earth-89521 |
 | Wonder Man | Series | 2026 | MCU | Earth-616 |
 | VisionQuest | Series | 2026 | MCU | Earth-616 |
-| Daredevil, seasons 1-3 | Series | 2015-2018 | Netflix | Earth-616 † |
-| The Punisher, seasons 1-2 | Series | 2017-2019 | Netflix | Earth-616 † |
+| Daredevil, seasons 1-3 | Series | 2015-2018 | Netflix | Earth-616 |
+| The Punisher, seasons 1-2 | Series | 2017-2019 | Netflix | Earth-616 |
 
 Netflix's Daredevil and The Punisher were promoted from Tier 3 (MCU expert), because
 their characters reappear in the MCU.
