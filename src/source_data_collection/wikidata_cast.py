@@ -11,7 +11,7 @@ Output: source_data/wikidata/cast.csv          (cast member / voice actor + char
 from src.source_data_collection.build_title_registry import ENTITIES_PATH, SEASON, WIKIDATA_LICENSE
 from src.source_data_collection.storage import read_json, write_csv, write_json
 from src.source_data_collection.tier_titles import PROJECT_ROOT
-from src.utils import claims_with_qualifiers, label
+from src.utils import claims_with_qualifier_map, label
 
 OUTPUT_DIR = PROJECT_ROOT / "source_data" / "wikidata"
 WIKIDATA_CAST_PATH = OUTPUT_DIR / "cast.csv"
@@ -22,6 +22,8 @@ PERSON_QIDS_PATH = OUTPUT_DIR / "tmdb_person_qids.csv"
 P_CAST_MEMBER = "P161"
 P_VOICE_ACTOR = "P725"
 P_CHARACTER_ROLE = "P453"
+P_LANGUAGE_OF_WORK = "P407"
+Q_ENGLISH = "Q1860"
 P_TMDB_PERSON_ID = "P4985"
 
 SPARQL_BATCH = 200
@@ -34,11 +36,15 @@ def _provenance(qid, retrieved_at):
 
 
 def cast_pairs(title, entity, via=""):
-    """One row per (actor, character) from cast member and voice actor claims."""
+    """One row per (actor, character) from cast member and voice actor claims. Claims in a
+    language other than English are dubs (the Russian voices of Spider-Man 2) and are skipped."""
     pairs = []
     for pid in (P_CAST_MEMBER, P_VOICE_ACTOR):
-        for actor, characters in claims_with_qualifiers(entity, pid, P_CHARACTER_ROLE):
-            for character in characters or [""]:
+        for actor, qualifiers in claims_with_qualifier_map(entity, pid, (P_CHARACTER_ROLE, P_LANGUAGE_OF_WORK)):
+            languages = qualifiers[P_LANGUAGE_OF_WORK]
+            if languages and Q_ENGLISH not in languages:
+                continue
+            for character in qualifiers[P_CHARACTER_ROLE] or [""]:
                 pairs.append({"title": title["title"], "title_qid": title["wikidata_qid"],
                               "actor_qid": actor, "character_qid": character, "property": pid,
                               "via": via})

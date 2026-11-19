@@ -68,6 +68,22 @@ def _season_from_page(page):
     return int(match.group(1)) if match else None
 
 
+def _season_pages(section, client, sections):
+    """Season pages an Episodes section transcludes. A transcluded page with no season number
+    is an episode list ('List of Agents of S.H.I.E.L.D. episodes'): its own season pages are
+    used, and its section is appended to `sections` for provenance."""
+    pages = []
+    for page in transcluded_pages(section["wikitext"]):
+        if _season_from_page(page) is not None:
+            pages.append(page)
+            continue
+        listing = client.top_level_section(page, prefix=EPISODES_HEADING)
+        if listing:
+            sections.append(listing)
+            pages += [p for p in transcluded_pages(listing["wikitext"]) if _season_from_page(p) is not None]
+    return pages
+
+
 def plot_record(title, client, retrieved_at):
     """Plot text (films) or episode summaries (series and seasons) for one title."""
     sections, text, episodes, kind = [], "", [], ""
@@ -84,7 +100,7 @@ def plot_record(title, client, retrieved_at):
             season = int(title["season_number"]) if title["type"] == SEASON else 1
             wanted = selected_seasons(title)
             sections, episodes = [section], _episodes(section, season, retrieved_at, wanted)
-            for page in transcluded_pages(section["wikitext"]):
+            for page in _season_pages(section, client, sections):
                 if wanted and _season_from_page(page) not in wanted:
                     continue
                 season_section = client.top_level_section(page, prefix=EPISODES_HEADING)

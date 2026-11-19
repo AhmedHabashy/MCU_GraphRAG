@@ -111,7 +111,7 @@ def test_read_table_reads_any_markdown_table_under_a_heading(tmp_path):
         {"title": "*", "actor": "Kerry Condon", "reality": "", "needs_review": False}]
 
 
-def test_scope_titles_are_tiers_one_and_two_with_their_tier(tmp_path):
+def test_scope_titles_are_every_tier_with_its_tier(tmp_path):
     path = tmp_path / "plan.md"
     path.write_text("### Tier 1: a\n\n| Title | Type | Year | Universe |\n| --- | --- | --- | --- |\n"
                     "| Iron Man | Film | 2008 | MCU |\n\n"
@@ -119,8 +119,8 @@ def test_scope_titles_are_tiers_one_and_two_with_their_tier(tmp_path):
                     "| Ant-Man | Film | 2015 | MCU |\n\n"
                     "### Tier 3: c\n\n| Title | Type | Year | Universe |\n| --- | --- | --- | --- |\n"
                     "| Venom | Film | 2018 | Sony |\n", encoding="utf-8")
-    assert SCOPE_TIERS == (1, 2)
-    assert [(t["title"], t["tier"]) for t in load_scope_titles(path)] == [("Iron Man", 1), ("Ant-Man", 2)]
+    assert SCOPE_TIERS == (1, 2, 3)
+    assert [(t["title"], t["tier"]) for t in load_scope_titles(path)] ==         [("Iron Man", 1), ("Ant-Man", 2), ("Venom", 3)]
 
 
 def test_default_source_is_the_tracked_docs_file():

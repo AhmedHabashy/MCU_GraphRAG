@@ -19,6 +19,7 @@ pytestmark = pytest.mark.validation
 
 EXPECTED_TIER1_COUNT = 49
 EXPECTED_TIER2_COUNT = 28   # I Am Groot's two seasons are one title
+EXPECTED_TIER3_COUNT = 21
 
 TMDB_FIELD_BY_TYPE = {"Film": "tmdb_movie_id", "Special": "tmdb_movie_id", "Series": "tmdb_tv_id",
                       "Animated series": "tmdb_tv_id", "Animated shorts": "tmdb_tv_id",
@@ -74,6 +75,7 @@ def test_netflix_daredevil_and_punisher_are_in_tier_2():
 def test_docs_list_every_title_in_scope():
     assert len(load_tier_titles(tier=1)) == EXPECTED_TIER1_COUNT
     assert len(load_tier_titles(tier=2)) == EXPECTED_TIER2_COUNT
+    assert len(load_tier_titles(tier=3)) == EXPECTED_TIER3_COUNT
 
 
 def test_registry_has_one_row_per_tier_title(rows):

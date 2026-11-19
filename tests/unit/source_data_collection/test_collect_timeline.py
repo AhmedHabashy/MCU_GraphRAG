@@ -3,6 +3,7 @@
 from src.source_data_collection.collect_timeline import (
     mcu_wiki_rows,
     match_viewing_row,
+    placement_qid,
     wikipedia_year_rows,
     years_of,
 )
@@ -79,3 +80,27 @@ def test_viewing_rows_match_films_by_title_and_episodes_by_show_and_season():
     assert match_viewing_row({"display": "Loki: 2.01: Ouroboros"}, TITLES) == ""
     assert match_viewing_row({"display": "What If...?: 3.01: What If... The Hulk"}, TITLES) == ""   # out of scope
     assert match_viewing_row({"display": "Agent Carter: 1.01: Now is Not the End"}, TITLES) == ""
+
+
+def season_entity(series_qid, number):
+    return {"claims": {"P179": [{
+        "mainsnak": {"datavalue": {"type": "wikibase-entityid", "value": {"id": series_qid}}},
+        "qualifiers": {"P1545": [{"datavalue": {"type": "string", "value": str(number)}}]}}]}}
+
+
+def test_placements_on_a_title_page_keep_its_qid():
+    assert placement_qid("QCA", {}, TITLES) == "QCA"
+
+
+def test_placements_on_a_season_page_count_for_the_series_in_scope():
+    """Wikipedia places Netflix shows by season ('Daredevil season 1'); the tier list has the series."""
+    entities = {"QWI3": season_entity("QWI", 2), "QWI9": season_entity("QWI", 9),
+                "QX1": season_entity("QOTHER", 1)}
+    assert placement_qid("QWI3", entities, TITLES) == "QWI"     # season 2 of What If...? (seasons 1|2)
+    assert placement_qid("QWI9", entities, TITLES) == ""        # a season outside the tier list
+    assert placement_qid("QX1", entities, TITLES) == ""         # a series not in scope
+
+
+def test_a_season_page_of_a_series_with_no_season_list_counts_for_the_series():
+    titles = [{"title": "Jessica Jones", "type": "Series", "wikidata_qid": "QJJ", "seasons": ""}]
+    assert placement_qid("QJJ2", {"QJJ2": season_entity("QJJ", 2)}, titles) == "QJJ"

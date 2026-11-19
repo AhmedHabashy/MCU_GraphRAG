@@ -122,6 +122,31 @@ def test_series_limited_to_seasons_only_follows_those_season_pages():
     assert ("What If...? season 2", ("Episodes",)) not in client.requests
 
 
+def test_series_record_follows_an_episode_list_page_to_its_season_pages():
+    """Agents of S.H.I.E.L.D. transcludes 'List of ... episodes', which transcludes each season."""
+    shield = {"title": "Agents of S.H.I.E.L.D.", "type": "Series", "wikidata_qid": "Q537911",
+              "enwiki_title": "Agents of S.H.I.E.L.D.", "season_number": "", "seasons": "1|2"}
+    client = FakeClient({
+        ("Agents of S.H.I.E.L.D.", "Episodes"): section(
+            "Agents of S.H.I.E.L.D.", "Episodes", "{{:List of Agents of S.H.I.E.L.D. episodes}}"),
+        ("List of Agents of S.H.I.E.L.D. episodes", "Episodes"): section(
+            "List of Agents of S.H.I.E.L.D. episodes", "Episodes",
+            "=== Season 1 ===\n{{:Agents of S.H.I.E.L.D. season 1}}\n"
+            "=== Season 3 ===\n{{:Agents of S.H.I.E.L.D. season 3}}"),
+        ("Agents of S.H.I.E.L.D. season 1", "Episodes"): section(
+            "Agents of S.H.I.E.L.D. season 1", "Episodes", episode(1, "Pilot", "Coulson...", 1)),
+        ("Agents of S.H.I.E.L.D. season 3", "Episodes"): section(
+            "Agents of S.H.I.E.L.D. season 3", "Episodes", episode(45, "Laws of Nature", "Daisy...", 1)),
+    })
+
+    record = plot_record(shield, client, retrieved_at="t")
+
+    assert [(e["season"], e["title"]) for e in record["episodes"]] == [(1, "Pilot")]
+    assert [s["page"] for s in record["sections"]] == [
+        "Agents of S.H.I.E.L.D.", "List of Agents of S.H.I.E.L.D. episodes", "Agents of S.H.I.E.L.D. season 1"]
+    assert ("Agents of S.H.I.E.L.D. season 3", ("Episodes",)) not in client.requests
+
+
 def test_wikidata_episodes_of_a_series_limited_to_seasons():
     def season(qid, number, episodes):
         return {"id": qid, "claims": {

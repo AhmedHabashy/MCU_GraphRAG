@@ -220,6 +220,15 @@ def test_verified_mcu_wiki_page_without_a_wikidata_item_becomes_the_identity():
     assert row["base_qid"] == "mcuwiki:Katy_Chen"
 
 
+def test_mcu_wiki_page_picks_between_two_roles_a_credit_names():
+    """Sean Gunn's 'Kraglin / On-Set Rocket' names both his Wikidata roles; the verified page
+    ('Kraglin Obfonteri') says which character it is, so no separate MCU wiki identity is made."""
+    credits = {**MCU_CREDITS, ("Q2000", "30", "Wolverine / Loki"): "James Howlett"}
+    [row] = link_tmdb_credits([tmdb("Q2000", "30", "Two Roles", "Wolverine / Loki")], ROLES, QIDS, {},
+                              sources(mcu_credits=credits, mcu_characters={}))
+    assert row["character_id"] == "Q97275436@Earth-10005" and row["link_method"] == "mcu_wiki_qid"
+
+
 def test_unmatched_tmdb_credit_stays_unlinked():
     row = link(tmdb("Q107185252", "40", "New Actor", "Hunter X"))
     assert row["character_id"] == "" and row["link_method"] == ""
@@ -246,6 +255,26 @@ def test_comics_item_role_in_another_reality_stays_separate():
     perfs = [{"title_qid": "QBW", "base_qid": "QYELENA", "character_id": "QYELENA@Earth-616"},
              {"title_qid": "QWI", "base_qid": "Q4009216", "character_id": "Q4009216@Multiverse"}]
     assert merge_comics_roles(perfs, src)[1]["character_id"] == "Q4009216@Multiverse"
+
+
+def test_merge_follows_a_curated_reality():
+    """No Way Home's Doc Ock points at the comics item; the expert puts him in Earth-96283,
+    where Spider-Man 2's Otto Octavius (based on that item) lives: one character."""
+    doc_ock = character("Q578094", "Doctor Octopus", universes="Q2246088")
+    otto = character("QOTTO", "Otto Octavius", universes="Q642878", based_on="Q578094")
+    src = sources(characters={**CHARACTERS, "Q578094": doc_ock, "QOTTO": otto})
+    perfs = [{"title_qid": "QSM2", "base_qid": "QOTTO", "character_id": "QOTTO@Earth-96283"},
+             {"title_qid": "QNWH", "base_qid": "Q578094", "character_id": "Q578094@Earth-96283",
+              "curated": True, "curated_identity": ""}]
+    assert merge_comics_roles(perfs, src)[1]["character_id"] == "QOTTO@Earth-96283"
+
+
+def test_a_curated_identity_is_never_merged_away():
+    src = sources(characters={**CHARACTERS, "Q4009216": YELENA_COMICS, "QYELENA": YELENA_MCU})
+    perfs = [{"title_qid": "QBW", "base_qid": "QYELENA", "character_id": "QYELENA@Earth-616"},
+             {"title_qid": "QTB", "base_qid": "Q4009216", "character_id": "Q4009216@Earth-616",
+              "curated": True, "curated_identity": "Q4009216"}]
+    assert merge_comics_roles(perfs, src)[1]["character_id"] == "Q4009216@Earth-616"
 
 
 def test_ambiguous_merge_is_not_made():

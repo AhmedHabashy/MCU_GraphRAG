@@ -243,6 +243,12 @@ def title_qids(titles):
     return {t["title"]: q for q, t in titles.items()}
 
 
+def test_every_curated_title_names_exactly_one_title(curated, titles):
+    """Titles are matched by name, and some names repeat (Fantastic Four, 2005 and 2015)."""
+    names = Counter(t["title"] for t in titles.values())
+    assert [r["title"] for r in curated if r["title"] != "*" and names[r["title"]] != 1] == []
+
+
 def test_every_curated_role_matches_a_performance(performances, curated, title_qids):
     assert [(r["title"], r["actor"]) for r in unmatched_rows(performances, curated, title_qids)] == []
 
@@ -285,6 +291,18 @@ def test_no_way_home_villains_keep_their_home_realities(performances, characters
     assert characters[ids(performances, "Q68934496", "Jamie Foxx")]["reality"] == "Earth-120703"
     assert characters[ids(performances, "Q68934496", "Rhys Ifans")]["reality"] == "Earth-120703"
     assert characters[ids(performances, "Q68934496", "Thomas Haden Church")]["reality"] == "Earth-96283"
+
+
+@pytest.mark.parametrize("crossover, home, actor", [
+    ("Q68934496", "Q190145", "Alfred Molina"),       # No Way Home / Spider-Man 2: Doc Ock
+    ("Q68934496", "Q484442", "Willem Dafoe"),        # No Way Home / Spider-Man: Green Goblin
+    ("Q68934496", "Q4254026", "Jamie Foxx"),         # No Way Home / The Amazing Spider-Man 2: Electro
+    ("Q68934496", "Q484442", "Tobey Maguire"),       # No Way Home / Spider-Man: Peter Parker
+    ("Q102180106", "Q224130", "Chris Evans"),        # Deadpool & Wolverine / Fantastic Four (2005)
+])
+def test_crossover_roles_are_the_characters_of_their_home_films(performances, crossover, home, actor):
+    """MCU expert, round 2: the visitors are the same characters as in their own films."""
+    assert ids(performances, crossover, actor) == ids(performances, home, actor)
 
 
 def test_no_way_home_spider_men_each_keep_their_own_universe(performances, characters):

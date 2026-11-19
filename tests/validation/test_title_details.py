@@ -10,7 +10,9 @@ from datetime import date
 import pytest
 
 from src.processing.build_titles import RELEASE_ORDER_PATH
+from src.source_data_collection.build_title_registry import REGISTRY_PATH
 from src.source_data_collection.cast_matching import normalize_name
+from src.source_data_collection.collect_mcu_wiki import MCU_UNIVERSES
 from src.source_data_collection.collect_title_details import (
     ACTOR_BIRTHS_PATH, P_BIRTH_DATE, P_DIRECTOR, P_FOLLOWED_BY, P_FOLLOWS, P_NARRATIVE_LOCATION,
     P_PUBLICATION_DATE, P_SCREENWRITER, TITLE_DETAILS_PATH, TMDB_BIRTHDAYS_PATH, TMDB_CREW_PATH,
@@ -117,7 +119,6 @@ def test_wikidata_and_tmdb_dates_fall_in_the_same_release_window(details):
 
 def test_first_release_year_matches_the_tier_list_year(order_rows):
     """The tier list's year is the first release year, so the two must agree."""
-    from src.source_data_collection.build_title_registry import REGISTRY_PATH
     years = {t["wikidata_qid"]: t["year"] for t in read_csv(REGISTRY_PATH)}
     assert [(r["title"], r["first_release_date"], years[r["title_qid"]]) for r in order_rows
             if r["first_release_date"][:4] != years[r["title_qid"]]] == []
@@ -140,10 +141,8 @@ def test_every_title_has_a_release_order(details, order):
     assert sorted(order.values()) == list(range(1, len(order) + 1))
 
 
-def test_release_order_spot_checks(order, details):
-    mcu = {q for q, d in details.items() if q not in {
-        "Q106182", "Q219776", "Q221168", "Q217552", "Q223596", "Q197491", "Q4985891",
-        "Q19347291", "Q17042878", "Q24053263", "Q25431158", "Q31188935", "Q28912376"}}
+def test_release_order_spot_checks(order):
+    mcu = {t["wikidata_qid"] for t in read_csv(REGISTRY_PATH) if t["universe"] in MCU_UNIVERSES}
     assert order["Q106182"] == 1                                          # X-Men (2000) first overall
     assert min(mcu, key=order.get) == "Q192724"                           # Iron Man first in the MCU
     assert max(order, key=order.get) == "Q113244839"                      # Avengers: Doomsday last

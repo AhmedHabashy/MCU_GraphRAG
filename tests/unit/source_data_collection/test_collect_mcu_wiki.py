@@ -42,8 +42,10 @@ def test_actor_matches_ignores_case_accents_and_notes():
 
 # --- candidate_credits ---------------------------------------------------------------------
 
-TITLES = {"Q65768589": {"wikidata_qid": "Q65768589", "universe": "MCU"},
-          "Q106182": {"wikidata_qid": "Q106182", "universe": "Fox X-Men"}}
+TITLES = {"Q65768589": {"wikidata_qid": "Q65768589", "universe": "MCU", "type": "Film"},
+          "Q106182": {"wikidata_qid": "Q106182", "universe": "Fox X-Men", "type": "Film"},
+          "Q107185252": {"wikidata_qid": "Q107185252", "universe": "MCU", "type": "Series season"},
+          "Q27089570": {"wikidata_qid": "Q27089570", "universe": "Netflix", "type": "Series"}}
 
 
 def credit(title_qid, person, actor, character, order):
@@ -58,6 +60,17 @@ def test_candidates_are_named_top_billed_credits_in_mcu_titles():
             credit("Q65768589", "3", "Late", "Bus Driver", 40),              # billed too low
             credit("Q106182", "4", "Hugh Jackman", "Logan", 0)]             # not an MCU title
     assert [c["character"] for c in candidate_credits(rows, TITLES, max_billing=20)] == ["Katy"]
+
+
+def test_series_credits_are_candidates_whatever_their_billing():
+    """TMDB's series order is no measure of importance: He Who Remains is billed 550."""
+    rows = [credit("Q107185252", "5", "Jonathan Majors", "He Who Remains", 550)]
+    assert [c["character"] for c in candidate_credits(rows, TITLES, max_billing=20)] == ["He Who Remains"]
+
+
+def test_netflix_series_are_covered():
+    rows = [credit("Q27089570", "6", "Amber Rose Revah", "Dinah Madani", 4)]
+    assert [c["character"] for c in candidate_credits(rows, TITLES, max_billing=20)] == ["Dinah Madani"]
 
 
 # --- match_credit --------------------------------------------------------------------------

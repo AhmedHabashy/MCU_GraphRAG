@@ -16,7 +16,7 @@ from src.source_data_collection.storage import read_csv
 
 pytestmark = pytest.mark.validation
 
-NO_PHASE_UNIVERSES = {"Fox X-Men", "Netflix"}
+PHASED_UNIVERSES = {"MCU", "MCU animation"}   # Marvel Studios; Marvel TV, Netflix, Fox and Sony have no phases
 X_MEN_97 = "Q109558622"
 MAX_PHASE_DISAGREEMENT = 0.05
 
@@ -43,14 +43,16 @@ def split(value):
 
 # --- Coverage -------------------------------------------------------------------------
 
-def test_every_mcu_title_has_a_phase(titles, phases):
-    mcu = [q for q, t in titles.items() if t["universe"] not in NO_PHASE_UNIVERSES and q != X_MEN_97]
-    assert [titles[q]["title"] for q in mcu if not phases[q]["phases"]] == []
+def _phased(qid, title):
+    return title["universe"] in PHASED_UNIVERSES and qid != X_MEN_97
 
 
-def test_fox_films_and_x_men_97_have_no_phase(titles, phases):
-    outside = [q for q, t in titles.items() if t["universe"] in NO_PHASE_UNIVERSES or q == X_MEN_97]
-    assert [titles[q]["title"] for q in outside if phases[q]["phases"]] == []
+def test_every_marvel_studios_title_has_a_phase(titles, phases):
+    assert [t["title"] for q, t in titles.items() if _phased(q, t) and not phases[q]["phases"]] == []
+
+
+def test_other_studios_titles_and_x_men_97_have_no_phase(titles, phases):
+    assert [t["title"] for q, t in titles.items() if not _phased(q, t) and phases[q]["phases"]] == []
 
 
 # --- Wikipedia vs Wikidata vs docs ------------------------------------------------------

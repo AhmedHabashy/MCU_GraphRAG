@@ -124,6 +124,20 @@ def test_build_rows_skips_candidate_with_wrong_year():
     assert rows[0]["wikidata_qid"] == "Q192724"
 
 
+def test_titles_with_the_same_name_resolve_by_their_own_year():
+    """Fantastic Four (2005) and Fantastic Four (2015) share a name in the tier list."""
+    ff = [{"title": "Fantastic Four", "type": "Film", "year": y, "universe": "Fox"} for y in (2005, 2015)]
+    client = FakeClient(
+        pages={"Fantastic Four (2005 film)": page("Q2005", "Fantastic Four (2005 film)"),
+               "Fantastic Four (2015 film)": page("Q2015", "Fantastic Four (2015 film)")},
+        entities={"Q2005": entity("Q2005", "Fantastic Four", ["Q11424"], 2005),
+                  "Q2015": entity("Q2015", "Fantastic Four", ["Q11424"], 2015)})
+
+    rows, _ = build_rows(ff, client, retrieved_at="t")
+
+    assert [r["wikidata_qid"] for r in rows] == ["Q2005", "Q2015"]
+
+
 def test_build_rows_skips_disambiguation_pages():
     client = FakeClient(
         pages={"Iron Man (film)": page("Q1", "Iron Man (film)", disambiguation=True),

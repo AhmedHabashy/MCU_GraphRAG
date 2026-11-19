@@ -14,7 +14,8 @@ TMDB credits are linked to characters in this order:
   parent_series                 a TV season's role from its parent series' cast
   other_title_name              a role the actor plays in another title, matched by name
   performer                     a Wikidata character performed by the actor, matched by name
-  mcu_wiki_qid / mcu_wiki       the verified MCU wiki page (its Wikidata item if it has one)
+  mcu_wiki_qid / mcu_wiki       the verified MCU wiki page (its Wikidata item if it has one, or
+                                the one character it names among several the credit matched)
 
 Screen characters are linked as variants when they share an item (e.g. Magneto in the Fox
 films and in X-Men '97) or the item they are based on (Fox Logan and the X-Men '97 Wolverine).
@@ -193,11 +194,13 @@ def link_tmdb_credits(tmdb_rows, roles, qids_by_person, tmdb_pointer, src):
         if len({r["character_id"] for r in same_title}) == 1:
             role = same_title[0]
             return role["base_qid"], role["character_id"], "parent_series" if role["via"] else "same_title"
+        ambiguous = []  # the credit names several of the actor's characters ('Kraglin / On-Set Rocket')
         if same_title:
             hits = by_name({r["base_qid"] for r in same_title}, credit)
             if len(hits) == 1:
                 return hits[0], next(r["character_id"] for r in same_title if r["base_qid"] == hits[0]), \
                     "same_title_name"
+            ambiguous += hits
         if title not in src.titles:
             return "", "", ""
         for method, candidates in (("other_title_name", by_actor.get(actor, set())),
@@ -205,11 +208,14 @@ def link_tmdb_credits(tmdb_rows, roles, qids_by_person, tmdb_pointer, src):
             hits = by_name(candidates, credit)
             if len(hits) == 1:
                 return hits[0], _role_id(title, hits[0], src), method
+            ambiguous += hits
         page = src.mcu_credits.get((title, credit["tmdb_person_id"], credit["character"]))
         if page:
-            qid = src.qid_of_mcu_page(page)
+            named = {i for i in ambiguous if character_matches(page.replace("_", " "), _names(i, src))}
+            qid = src.qid_of_mcu_page(page) or (next(iter(named)) if len(named) == 1 else None)
             identity = qid or mcu_wiki_identity(page)
-            return identity, _role_id(title, identity, src), "mcu_wiki_qid" if qid else "mcu_wiki"
+            cid = next((r["character_id"] for r in same_title if r["base_qid"] == identity), None)
+            return identity, cid or _role_id(title, identity, src), "mcu_wiki_qid" if qid else "mcu_wiki"
         return "", "", ""
 
     rows = []
@@ -226,7 +232,9 @@ def link_tmdb_credits(tmdb_rows, roles, qids_by_person, tmdb_pointer, src):
 def merge_comics_roles(performances, src):
     """Within one reality, a role pointing at a comics item becomes the screen character that is
     based on it, when exactly one such character has a role in that reality (e.g. Thunderbolts*
-    points at the comics Yelena Belova, Black Widow at the MCU one). Other realities stay variants."""
+    points at the comics Yelena Belova, Black Widow at the MCU one). Other realities stay variants.
+    Runs after curation, so curated realities count (No Way Home's Doc Ock is Spider-Man 2's),
+    and an identity the expert set is never merged away."""
     def is_screen(qid):
         item = src.characters.get(qid)
         return bool(item) and any(is_screen_universe(u, src.universe_pages)
@@ -242,7 +250,7 @@ def merge_comics_roles(performances, src):
     merged = []
     for p in performances:
         p = {**p, "merged_from": "", "data_base_qid": p.get("data_base_qid") or p["base_qid"]}
-        if p["character_id"] and p["base_qid"] in src.characters and not is_screen(p["base_qid"]):
+        if p["character_id"] and p["base_qid"] in src.characters and not is_screen(p["base_qid"])                 and not p.get("curated_identity"):
             reality = p["character_id"].rsplit("@", 1)[1]
             screen = based_on_in_reality.get((reality, p["base_qid"]), set())
             if len(screen) == 1:
@@ -388,10 +396,10 @@ def main():
     roles = wikidata_roles(read_csv(WIKIDATA_CAST_PATH), src)
     tmdb = link_tmdb_credits(read_csv(TMDB_CAST_PATH), roles, qids_by_person, tmdb_pointer, src)
     performances = [r for r in roles if not r["via"]] + tmdb  # parent-series roles count via TMDB
-    performances = merge_comics_roles(performances, src)
     title_qids = {t["title"]: q for q, t in src.titles.items()}
     performances = apply_curated_roles(performances, curated, title_qids,
                                        {q: t["reality"] for q, t in src.titles.items()})
+    performances = merge_comics_roles(performances, src)
     unmatched = unmatched_rows(performances, curated, title_qids)
     if unmatched:
         print(f"WARNING: {len(unmatched)} curated roles match no performance: "

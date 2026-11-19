@@ -78,16 +78,23 @@ def quantities(entity, pid):
     return found
 
 
-def claims_with_qualifiers(entity, pid, qualifier_pid):
-    """[(value, [qualifier values])] for every best-rank `pid` claim that has a value."""
+def claims_with_qualifier_map(entity, pid, qualifier_pids):
+    """[(value, {qualifier pid: [values]})] for every best-rank `pid` claim that has a value."""
     pairs = []
     for claim in _best_claims(entity, pid):
         value = _snak_value(claim["mainsnak"])
         if value is None:
             continue
-        snaks = claim.get("qualifiers", {}).get(qualifier_pid, [])
-        pairs.append((value, [q for q in map(_snak_value, snaks) if q is not None]))
+        qualifiers = claim.get("qualifiers", {})
+        pairs.append((value, {q: [v for v in map(_snak_value, qualifiers.get(q, [])) if v is not None]
+                              for q in qualifier_pids}))
     return pairs
+
+
+def claims_with_qualifiers(entity, pid, qualifier_pid):
+    """[(value, [qualifier values])] for every best-rank `pid` claim that has a value."""
+    return [(value, by_pid[qualifier_pid])
+            for value, by_pid in claims_with_qualifier_map(entity, pid, (qualifier_pid,))]
 
 
 def qualifier_value(entity, pid, qualifier_pid):

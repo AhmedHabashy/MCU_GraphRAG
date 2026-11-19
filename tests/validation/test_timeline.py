@@ -11,12 +11,13 @@ import pytest
 
 from src.processing.build_titles import TIMELINE_PATH
 from src.source_data_collection.build_title_registry import REGISTRY_PATH
+from src.source_data_collection.collect_mcu_wiki import MCU_UNIVERSES
 from src.source_data_collection.collect_timeline import VIEWING_TIMELINE_PATH, WIKIPEDIA_TIMELINE_PATH
 from src.source_data_collection.storage import read_csv
 
 pytestmark = pytest.mark.validation
 
-OUTSIDE_MCU_TIMELINE = {"Fox X-Men", "MCU animation"}   # X-Men '97 and other universes' animation
+OTHER_UNIVERSE_ANIMATION = "MCU animation"   # X-Men '97, Marvel Zombies...: only Earth-616 ones count
 MIN_IN_MCU_WIKI_ORDER = 0.90
 MIN_WITH_WIKIPEDIA_YEAR = 0.80
 MIN_START_YEAR_AGREEMENT = 0.85
@@ -41,9 +42,9 @@ def timeline(titles):
 
 @pytest.fixture(scope="module")
 def mcu(titles):
-    """Titles on the main MCU timeline (Fox films and other-universe animation are not)."""
-    return [q for q, t in titles.items() if t["universe"] not in OUTSIDE_MCU_TIMELINE
-            or t["reality"] == "Earth-616"]
+    """Titles on the main MCU timeline (Fox and Sony films and other-universe animation are not)."""
+    return [q for q, t in titles.items() if t["universe"] in MCU_UNIVERSES
+            and (t["universe"] != OTHER_UNIVERSE_ANIMATION or t["reality"] == "Earth-616")]
 
 
 def share(passed, total):
@@ -95,8 +96,8 @@ def test_endgame_comes_before_far_from_home(timeline):
     assert number(timeline["Q23781155"]["chronological_order"]) < number(timeline["Q27985819"]["chronological_order"])
 
 
-def test_fox_films_are_not_on_the_mcu_timeline(timeline, titles):
-    assert [t["title"] for q, t in titles.items() if t["universe"] == "Fox X-Men"
+def test_fox_and_sony_films_are_not_on_the_mcu_timeline(timeline, titles):
+    assert [t["title"] for q, t in titles.items() if t["universe"] not in MCU_UNIVERSES
             and timeline[q]["chronological_order"] != ""] == []
 
 

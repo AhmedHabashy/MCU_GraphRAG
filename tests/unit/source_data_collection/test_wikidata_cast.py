@@ -28,6 +28,20 @@ def test_cast_pairs_reads_cast_and_voice_cast_with_each_character():
     assert pairs[0]["title_qid"] == "Q65980671"
 
 
+def in_language(claim, language_qid):
+    claim["qualifiers"]["P407"] = [{"datavalue": {"type": "wikibase-entityid", "value": {"id": language_qid}}}]
+    return claim
+
+
+def test_cast_pairs_skip_voice_actors_of_a_dub():
+    """Wikidata lists the Russian dub of Spider-Man 2 as voice actors with language of work Russian."""
+    entity = {"claims": {"P725": [in_language(qualified("QRU", "Q20"), "Q7737"),
+                                  in_language(qualified("QEN", "Q21"), "Q1860"),
+                                  qualified("QANY", "Q22")]}}
+
+    assert [p["actor_qid"] for p in cast_pairs(TITLE, entity)] == ["QEN", "QANY"]
+
+
 def test_cast_pairs_mark_their_origin():
     entity = {"claims": {"P161": [qualified("Q1", "Q10")]}}
     assert cast_pairs(TITLE, entity)[0]["via"] == ""

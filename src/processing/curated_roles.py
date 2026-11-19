@@ -35,12 +35,12 @@ def curated_row(performance, rows, title_qids):
 
 
 def apply_curated_roles(performances, rows, title_qids, title_realities):
-    """Performances with curated rows applied; each gains curated / curated_label /
-    curated_variant_of. `title_qids` maps tier-list titles to QIDs."""
+    """Performances with curated rows applied; each gains curated / curated_identity /
+    curated_label / curated_variant_of. `title_qids` maps tier-list titles to QIDs."""
     result = []
     for p in performances:
         row = curated_row(p, rows, title_qids)
-        p = {**p, "curated": False, "curated_label": "", "curated_variant_of": "",
+        p = {**p, "curated": False, "curated_identity": "", "curated_label": "", "curated_variant_of": "",
              # the character the data linked, before any merge or curation
              "data_base_qid": p.get("data_base_qid") or p["base_qid"]}
         if row and (p["character_id"] or row["identity"]):
@@ -48,7 +48,7 @@ def apply_curated_roles(performances, rows, title_qids, title_realities):
             current = p["character_id"].rsplit("@", 1)[1] if p["character_id"] else \
                 title_realities[p["title_qid"]]
             p.update(base_qid=identity, character_id=f"{identity}@{row['reality'] or current}",
-                     curated=True, curated_label=row["character"],
+                     curated=True, curated_identity=row["identity"], curated_label=row["character"],
                      curated_variant_of=row["variant of"])
         result.append(p)
     return result

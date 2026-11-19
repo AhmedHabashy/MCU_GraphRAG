@@ -13,8 +13,9 @@ MARVEL_DB_TEAM = """{{Marvel Database:Team Template
 MCU_WIKI_TEAM = """{{Organization
 | founder = [[Nick Fury]]
 | leader = [[Sam Wilson]]
+| formerleaders = [[Steve Rogers]]<br>[[Tony Stark]] †
 | members = [[Thor Odinson]]<ref>x</ref><br>[[Bruce Banner]]
-| former members = [[Tony Stark]]<br>[[Steve Rogers]]
+| formermembers = [[Clint Barton]]<br>[[Pietro Maximoff]] †
 | status = Active
 }}"""
 
@@ -36,10 +37,12 @@ def test_marvel_database_organization_template_is_read_the_same_way():
 
 
 def test_mcu_wiki_organization_members_and_roles():
+    """Field names as the MCU wiki writes them (Avengers page): formerleaders, formermembers."""
     assert rows(team_members(MCU_WIKI_TEAM)) == [
         ("founder", "Nick Fury", False), ("leader", "Sam Wilson", False),
+        ("leader", "Steve Rogers", True), ("leader", "Tony Stark", True),
         ("member", "Thor Odinson", False), ("member", "Bruce Banner", False),
-        ("member", "Tony Stark", True), ("member", "Steve Rogers", True)]
+        ("member", "Clint Barton", True), ("member", "Pietro Maximoff", True)]
 
 
 def test_pages_without_a_team_infobox_have_no_members():

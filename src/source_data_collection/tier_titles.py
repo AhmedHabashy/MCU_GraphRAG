@@ -66,7 +66,7 @@ def _title_row(row):
             "needs_review": needs_review}
 
 
-SCOPE_TIERS = (1, 2)  # tiers collected (Tier 3 is optional)
+SCOPE_TIERS = (1, 2, 3)  # tiers collected
 
 
 def load_tier_titles(path=TIERS_DOC_PATH, tier=1):

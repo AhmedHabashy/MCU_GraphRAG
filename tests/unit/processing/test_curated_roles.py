@@ -43,6 +43,14 @@ def test_a_curated_identity_keeps_the_character_the_data_linked():
     assert (p["base_qid"], p["data_base_qid"]) == ("Q28173125", "Q107088537")
 
 
+def test_the_curated_identity_is_recorded_only_when_the_row_sets_one():
+    rows = [curated("Spider-Man: No Way Home", "Alfred Molina", reality="Earth-96283"),
+            curated("*", "Kerry Condon", "F.R.I.D.A.Y.", "Q28173125")]
+    molina, condon = apply([perf("Q68934496", "Alfred Molina", "Q578094", "Q578094@Earth-616"),
+                            perf("Q23010088", "Kerry Condon", "Q107088537", "Q107088537@Earth-616")], rows)
+    assert (molina["curated_identity"], condon["curated_identity"]) == ("", "Q28173125")
+
+
 def test_star_title_applies_to_every_title():
     rows = apply([perf("Q23010088", "Kerry Condon", "Q107088537", "Q107088537@Earth-616"),
                   perf("Q23781155", "Kerry Condon", "Q107088537", "Q107088537@Earth-616")],
@@ -59,7 +67,7 @@ def test_curated_identity_links_an_unlinked_credit_in_the_title_reality():
 def test_other_roles_are_untouched():
     before = perf("Q68934496", "Tom Holland", "Q1", "Q1@Earth-616")
     [p] = apply([dict(before)], [curated("Spider-Man: No Way Home", "Alfred Molina", reality="Earth-96283")])
-    assert p == {**before, "curated": False, "curated_label": "", "curated_variant_of": "",
+    assert p == {**before, "curated": False, "curated_identity": "", "curated_label": "", "curated_variant_of": "",
                  "data_base_qid": "Q1"}
 
 

@@ -1,4 +1,6 @@
-"""Find MCU wiki (Fandom) pages for top-billed TMDB credits in MCU titles.
+"""Find MCU wiki (Fandom) pages for TMDB credits in MCU titles: top-billed film credits and
+every named series credit (TMDB's series order says nothing about importance: guest stars,
+e.g. He Who Remains in Loki, are billed after the extras).
 
 Many supporting MCU characters (e.g. Katy, B-15, Dar-Benn) have no Wikidata item. The MCU wiki
 has a page for them whose character infobox names the actor. A page is accepted for a credit
@@ -21,14 +23,15 @@ from src.source_data_collection.collect_characters import FANDOM_DIR, FANDOM_LIC
 from src.source_data_collection.storage import read_csv, utc_now, write_csv, write_json
 from src.source_data_collection.tmdb_cast import TMDB_CAST_PATH
 from src.source_data_collection.wikitext import infobox_params, name_list
+from src.title_types import is_movie
 from src.utils import FandomClient
 
 MCU_WIKI_RAW_DIR = FANDOM_DIR / "mcu_wiki"
 MCU_WIKI_CREDITS_PATH = FANDOM_DIR / "mcu_wiki_credits.csv"
 MCU_WIKI_CHARACTERS_PATH = FANDOM_DIR / "mcu_wiki_characters.csv"
 
-MCU_UNIVERSES = {"MCU", "MCU animation"}  # tier-list universes the MCU wiki covers
-MAX_BILLING = 20
+MCU_UNIVERSES = {"MCU", "MCU animation", "Netflix", "Marvel TV", "ABC"}  # tier-list universes the MCU wiki covers
+MAX_BILLING = 20  # films only
 SEARCH_HITS = 3
 INFOBOX = "Character"
 
@@ -62,13 +65,14 @@ def actor_matches(actor_name, infobox_actors):
 
 
 def candidate_credits(tmdb_rows, titles, max_billing=MAX_BILLING):
-    """Named, top-billed credits in MCU titles, without duplicates."""
+    """Named credits in MCU titles, top-billed for films, without duplicates."""
     seen, found = set(), []
     for r in tmdb_rows:
         key = (r["title_qid"], r["tmdb_person_id"], r["character"])
         title = titles.get(r["title_qid"])
         if (key in seen or not title or title["universe"] not in MCU_UNIVERSES
-                or int(r["billing_order"]) >= max_billing or not distinctive_tokens(r["character"])):
+                or (is_movie(title) and int(r["billing_order"]) >= max_billing)
+                or not distinctive_tokens(r["character"])):
             continue
         seen.add(key)
         found.append(r)

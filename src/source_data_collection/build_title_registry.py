@@ -114,15 +114,14 @@ def _related_qids(title, entity):
 
 def build_rows(titles, client, retrieved_at):
     """One row per title, using the first candidate article whose entity matches."""
-    candidates = {t["title"]: enwiki_candidates(t) for t in titles}
-    pages = client.resolve_enwiki_titles(
-        list(dict.fromkeys(c for cs in candidates.values() for c in cs)))
+    candidates = [enwiki_candidates(t) for t in titles]  # by position: names can repeat (Fantastic Four)
+    pages = client.resolve_enwiki_titles(list(dict.fromkeys(c for cs in candidates for c in cs)))
     entities = client.get_entities(
         list(dict.fromkeys(p["qid"] for p in pages.values() if p["qid"])))
 
     selected = []  # (title, matching page or None, its entity or {})
-    for title in titles:
-        page = next((pages[c] for c in candidates[title["title"]]
+    for title, title_candidates in zip(titles, candidates):
+        page = next((pages[c] for c in title_candidates
                      if _matches(title, pages[c], entities.get(pages[c]["qid"]))), None)
         selected.append((title, page, entities[page["qid"]] if page else {}))
 

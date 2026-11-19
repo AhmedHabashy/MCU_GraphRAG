@@ -19,7 +19,11 @@ import re
 import mwparserfromhell
 from mwparserfromhell.nodes import Wikilink
 
-from src.source_data_collection.build_title_registry import REGISTRY_PATH
+from src.source_data_collection.build_title_registry import (
+    P_PART_OF_THE_SERIES,
+    P_SERIES_ORDINAL,
+    REGISTRY_PATH,
+)
 from src.source_data_collection.cast_matching import normalize_name
 from src.source_data_collection.collect_characters import FANDOM_DIR, FANDOM_LICENSE, MCU_WIKI
 from src.source_data_collection.collect_phases import WIKIPEDIA_DIR, title_scope
@@ -27,7 +31,7 @@ from src.source_data_collection.storage import read_csv, utc_now, write_csv, wri
 from src.source_data_collection.wikipedia_cast import WIKIPEDIA_LICENSE
 from src.source_data_collection.wikitext import member_links, plain_text
 from src.title_types import is_movie
-from src.utils import FandomClient, WikimediaClient, enwiki_url
+from src.utils import FandomClient, WikimediaClient, enwiki_url, qualifier_value
 
 TIMELINE_ARTICLE = "Marvel Cinematic Universe timeline"
 TIMELINE_ROW_TEMPLATE = "marvel cinematic universe timeline/row"
@@ -103,6 +107,20 @@ def match_viewing_row(row, titles):
     return ""
 
 
+def placement_qid(page_qid, entities, titles):
+    """QID of the title in scope a Wikipedia placement is about: the page's own item, or the
+    series in scope when the page is one of its seasons ('Daredevil season 1')."""
+    in_scope = {t["wikidata_qid"]: t for t in titles}
+    if page_qid in in_scope:
+        return page_qid
+    series_qid, number = qualifier_value(entities.get(page_qid) or {}, P_PART_OF_THE_SERIES, P_SERIES_ORDINAL)
+    series = in_scope.get(series_qid)
+    if not series or not number or not number.isdigit():
+        return ""
+    _, seasons = title_scope(series)
+    return series_qid if seasons is None or int(number) in seasons else ""
+
+
 def main():
     retrieved_at = utc_now()
     titles = read_csv(REGISTRY_PATH)
@@ -124,8 +142,10 @@ def main():
     year_rows = wikipedia_year_rows(section["wikitext"])
     pages = wikimedia.resolve_enwiki_titles(list(dict.fromkeys(r["page"] for r in year_rows)))
     in_scope = {t["wikidata_qid"] for t in titles}
+    other_qids = sorted({p["qid"] for p in pages.values() if p["qid"] and p["qid"] not in in_scope})
+    entities = wikimedia.get_entities(other_qids, props="claims")
     write_csv(WIKIPEDIA_TIMELINE_PATH, [
-        {**r, "title_qid": pages[r["page"]]["qid"] if pages[r["page"]]["qid"] in in_scope else "",
+        {**r, "title_qid": placement_qid(pages[r["page"]]["qid"], entities, titles),
          "source": "wikipedia", "source_url": url, "revid": section["revid"],
          "retrieved_at": retrieved_at, "license": WIKIPEDIA_LICENSE} for r in year_rows])
     print(f"MCU wiki: {len(viewing_rows)} rows, {sum(bool(r['title_qid']) for r in viewing_rows)} in scope; "

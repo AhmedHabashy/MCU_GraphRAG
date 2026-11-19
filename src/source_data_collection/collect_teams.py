@@ -32,11 +32,12 @@ WIKIPEDIA_TEAMS_DIR = PROJECT_ROOT / "source_data" / "wikipedia" / "teams"
 
 # Infobox templates and their member fields: field -> (role, former)
 TEAM_TEMPLATES = ("Marvel Database:Team Template", "Marvel Database:Organization Template", "Organization")
+# (Marvel Database fields first, then the MCU wiki's, as each wiki writes them)
 MEMBER_FIELDS = {
     "Founders": ("founder", False), "founder": ("founder", False),
-    "Leaders": ("leader", False), "leader": ("leader", False), "leaders": ("leader", False),
+    "Leaders": ("leader", False), "leader": ("leader", False), "formerleaders": ("leader", True),
     "CurrentMembers": ("member", False), "members": ("member", False),
-    "FormerMembers": ("member", True), "former members": ("member", True),
+    "FormerMembers": ("member", True), "formermembers": ("member", True),
 }
 
 

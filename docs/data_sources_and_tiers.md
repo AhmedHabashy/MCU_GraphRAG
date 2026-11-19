@@ -26,7 +26,7 @@ and the ID crosswalk (`wikidata_qid`, `tmdb_id`, `imdb_id`).
 
 ## Title tiers
 
-The graph is built in three tiers: Tier 1 first, then Tier 2, then Tier 3 only if needed.
+The graph is built in three tiers: Tier 1 first, then Tier 2, then Tier 3. All three are collected.
 
 Notes on the list:
 
@@ -239,30 +239,34 @@ I Am Groot has no separate season items on Wikidata, so its two seasons are one 
 Netflix's Daredevil and The Punisher were promoted from Tier 3 (MCU expert), because
 their characters reappear in the MCU.
 
-### Tier 3: optional
+### Tier 3: other Marvel TV series and non-MCU Marvel films
 
-Add these only if the questions need them.
+Collected for completeness. "Reality" works as in Tier 1. The Raimi and Webb films and the
+2005 and 2007 Fantastic Four films use the Earths the MCU expert gave for their characters
+(round 2). Rows marked † follow the Marvel Database and are not yet confirmed by the expert:
+it files the Marvel Television series in its MCU reality, the 2015 Fantastic Four in
+Earth-15866 and Sony's Spider-Man Universe in Earth-688B.
 
-| Title | Type | Year | Universe |
-| --- | --- | --- | --- |
-| Agents of S.H.I.E.L.D. (added), seasons 1-7 | Series | 2013-2020 | Marvel TV |
-| Agent Carter (added), seasons 1-2 | Series | 2015-2016 | Marvel TV |
-| Jessica Jones, seasons 1-2 | Series | 2015-2018 | Netflix |
-| Luke Cage, seasons 1-2 | Series | 2016-2018 | Netflix |
-| Iron Fist, seasons 1-2 | Series | 2017-2018 | Netflix |
-| The Defenders | Series | 2017 | Netflix |
-| Inhumans | Series | 2017 | ABC |
-| Fantastic Four (added) | Film | 2005 | Fox Fantastic Four |
-| Fantastic Four: Rise of the Silver Surfer (added) | Film | 2007 | Fox Fantastic Four |
-| Fantastic Four (added) | Film | 2015 | Fox Fantastic Four |
-| Spider-Man | Film | 2002 | Raimi Spider-Man |
-| Spider-Man 2 | Film | 2004 | Raimi Spider-Man |
-| Spider-Man 3 | Film | 2007 | Raimi Spider-Man |
-| The Amazing Spider-Man | Film | 2012 | Webb Spider-Man |
-| The Amazing Spider-Man 2 | Film | 2014 | Webb Spider-Man |
-| Venom | Film | 2018 | Sony Spider-Man Universe |
-| Venom: Let There Be Carnage | Film | 2021 | Sony Spider-Man Universe |
-| Morbius | Film | 2022 | Sony Spider-Man Universe |
-| Madame Web | Film | 2024 | Sony Spider-Man Universe |
-| Kraven the Hunter | Film | 2024 | Sony Spider-Man Universe |
-| Venom: The Last Dance | Film | 2024 | Sony Spider-Man Universe |
+| Title | Type | Year | Universe | Reality |
+| --- | --- | --- | --- | --- |
+| Agents of S.H.I.E.L.D. (added), seasons 1-7 | Series | 2013-2020 | Marvel TV | Earth-616 † |
+| Agent Carter (added), seasons 1-2 | Series | 2015-2016 | Marvel TV | Earth-616 † |
+| Jessica Jones, seasons 1-2 | Series | 2015-2018 | Netflix | Earth-616 † |
+| Luke Cage, seasons 1-2 | Series | 2016-2018 | Netflix | Earth-616 † |
+| Iron Fist, seasons 1-2 | Series | 2017-2018 | Netflix | Earth-616 † |
+| The Defenders | Series | 2017 | Netflix | Earth-616 † |
+| Inhumans | Series | 2017 | ABC | Earth-616 † |
+| Fantastic Four (added) | Film | 2005 | Fox Fantastic Four | Earth-121698 |
+| Fantastic Four: Rise of the Silver Surfer (added) | Film | 2007 | Fox Fantastic Four | Earth-121698 |
+| Fantastic Four (added) | Film | 2015 | Fox Fantastic Four | Earth-15866 † |
+| Spider-Man | Film | 2002 | Raimi Spider-Man | Earth-96283 |
+| Spider-Man 2 | Film | 2004 | Raimi Spider-Man | Earth-96283 |
+| Spider-Man 3 | Film | 2007 | Raimi Spider-Man | Earth-96283 |
+| The Amazing Spider-Man | Film | 2012 | Webb Spider-Man | Earth-120703 |
+| The Amazing Spider-Man 2 | Film | 2014 | Webb Spider-Man | Earth-120703 |
+| Venom | Film | 2018 | Sony Spider-Man Universe | Earth-688B † |
+| Venom: Let There Be Carnage | Film | 2021 | Sony Spider-Man Universe | Earth-688B † |
+| Morbius | Film | 2022 | Sony Spider-Man Universe | Earth-688B † |
+| Madame Web | Film | 2024 | Sony Spider-Man Universe | Earth-688B † |
+| Kraven the Hunter | Film | 2024 | Sony Spider-Man Universe | Earth-688B † |
+| Venom: The Last Dance | Film | 2024 | Sony Spider-Man Universe | Earth-688B † |

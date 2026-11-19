@@ -9,6 +9,7 @@ from src.utils import (
     WikimediaClient,
     claim_values,
     claims_with_qualifiers,
+    claims_with_qualifier_map,
     day_dates,
     quantities,
     earliest_year,
@@ -138,6 +139,14 @@ def test_claims_with_qualifiers_lists_every_claim_and_qualifier():
     entity = {"claims": {"P161": [qualified("Q1", "Q10", "Q11"), item_snak("Q2")]}}
     assert claims_with_qualifiers(entity, "P161", "P453") == [
         ("Q1", ["Q10", "Q11"]), ("Q2", [])]
+
+
+def test_claims_with_qualifier_map_reads_several_qualifiers_of_each_claim():
+    claim = qualified("Q1", "Q10")
+    claim["qualifiers"]["P407"] = [{"datavalue": {"type": "wikibase-entityid", "value": {"id": "Q7737"}}}]
+    entity = {"claims": {"P725": [claim, item_snak("Q2")]}}
+    assert claims_with_qualifier_map(entity, "P725", ("P453", "P407")) == [
+        ("Q1", {"P453": ["Q10"], "P407": ["Q7737"]}), ("Q2", {"P453": [], "P407": []})]
 
 
 def test_article_returns_the_whole_page_with_its_revision():
