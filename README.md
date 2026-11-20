@@ -80,6 +80,7 @@ Each run rebuilds the graph from the tables (about 15 seconds); the schema is de
 ```powershell
 .venv\Scripts\python.exe -m src.graph.load_neo4j   # Title, Character, Actor, Team, Thing nodes; plot facts as edges
 .venv\Scripts\python.exe -m pytest -m neo4j        # check the loaded graph
+.venv\Scripts\python.exe -m src.graph.evaluate     # run the 50 evaluation questions (docs/evaluation_questions.md)
 ```
 
 ## Tests
