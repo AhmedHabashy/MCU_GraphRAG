@@ -18,6 +18,7 @@ from src.source_data_collection.build_title_registry import (
     ENTITIES_PATH, REGISTRY_PATH, WIKIDATA_LICENSE,
 )
 from src.source_data_collection.collect_plots import EPISODE_ENTITIES_PATH
+from src.source_data_collection.incremental import TitleScopes, in_title_order, stored_rows
 from src.source_data_collection.storage import read_csv, read_json, utc_now, write_csv, write_json
 from src.source_data_collection.tier_titles import PROJECT_ROOT
 from src.source_data_collection.tmdb_cast import (
@@ -143,13 +144,18 @@ def main():
                          labels, retrieved_at) for t in titles])
     print(f"Wikidata: details for {len(titles)} titles, {len(people)} linked items", flush=True)
 
-    releases = []
-    for t in titles:
+    # First releases: only new or changed titles are looked up again.
+    scopes = TitleScopes("tmdb_first_releases")
+    todo = scopes.to_collect(titles)
+    releases = stored_rows(TMDB_FIRST_RELEASES_PATH,
+                           {t["wikidata_qid"] for t in titles} - {t["wikidata_qid"] for t in todo})
+    for t in todo:
         path, date = tmdb.first_release(t)
         releases.append({"title_qid": t["wikidata_qid"], "first_release_date": date,
                          "source": "tmdb", "source_url": f"{TMDB_API}{path}",
                          "retrieved_at": retrieved_at, "license": TMDB_LICENSE})
-    write_csv(TMDB_FIRST_RELEASES_PATH, releases)
+    write_csv(TMDB_FIRST_RELEASES_PATH, in_title_order(releases, titles))
+    scopes.save(titles)
     write_csv(TMDB_CREW_PATH, [r for t in titles for r in tmdb_crew_rows(
         t["wikidata_qid"], read_json(CREDITS_DIR / f"{t['wikidata_qid']}.json"))])
     print("TMDB: first releases and crew", flush=True)
@@ -161,10 +167,13 @@ def main():
          "birth_dates": "|".join(day_dates(actor_entities.get(q, {}), P_BIRTH_DATE)),
          "source": "wikidata", "source_url": f"https://www.wikidata.org/wiki/{q}",
          "retrieved_at": retrieved_at, "license": WIKIDATA_LICENSE} for p, q in actors])
+    # Birthdays: people looked up before are kept.
+    known = {r["tmdb_person_id"]: r for r in stored_rows(TMDB_BIRTHDAYS_PATH, {p for p, _ in actors},
+                                                         key="tmdb_person_id")}
     write_csv(TMDB_BIRTHDAYS_PATH, [
-        {"tmdb_person_id": p, "birthday": tmdb.person(p).get("birthday") or "",
-         "source": "tmdb", "source_url": f"{TMDB_API}/person/{p}",
-         "retrieved_at": retrieved_at, "license": TMDB_LICENSE} for p, _ in actors])
+        known.get(p) or {"tmdb_person_id": p, "birthday": tmdb.person(p).get("birthday") or "",
+                         "source": "tmdb", "source_url": f"{TMDB_API}/person/{p}",
+                         "retrieved_at": retrieved_at, "license": TMDB_LICENSE} for p, _ in actors])
     print(f"Birth dates for {len(actors)} actors", flush=True)
 
 

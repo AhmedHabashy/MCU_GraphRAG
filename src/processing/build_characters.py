@@ -14,7 +14,8 @@ TMDB credits are linked to characters in this order:
   parent_series                 a TV season's role from its parent series' cast
   other_title_name              a role the actor plays in another title, matched by name
   performer                     a Wikidata character performed by the actor, matched by name
-  mcu_wiki_qid / mcu_wiki       the verified MCU wiki page (its Wikidata item if it has one, or
+  mcu_wiki_qid / mcu_wiki       the verified MCU wiki page (its Wikidata item if it has one, the
+                                character the lead actor's credits show the page belongs to, or
                                 the one character it names among several the credit matched)
 
 Screen characters are linked as variants when they share an item (e.g. Magneto in the Fox
@@ -28,10 +29,12 @@ Output: processed_data/characters/characters.csv        (character_id, identity,
 Run:    .venv\\Scripts\\python.exe -m src.processing.build_characters
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from itertools import combinations
 
-from src.processing.curated_roles import apply_curated_roles, load_curated_roles, unmatched_rows
+from src.processing.curated_roles import (
+    apply_curated_roles, drop_roles, load_curated_roles, load_dropped_roles, unmatched_rows,
+)
 from src.processing.realities import reality_of_marvel_db_earth
 from src.source_data_collection.build_title_registry import REGISTRY_PATH
 from src.source_data_collection.cast_matching import character_matches, name_parts, normalize_name
@@ -68,11 +71,18 @@ class Sources:
     mcu_credits: dict      # (title QID, TMDB person, TMDB character) -> verified MCU wiki page
     mcu_characters: dict   # MCU wiki page -> parsed infobox row
     screen_realities: frozenset = None  # realities of films and series (None: no filter)
+    mcu_pages: dict = None  # MCU wiki page -> character QID, inferred from credits (inferred_mcu_pages)
 
     def qid_of_mcu_page(self, page):
+        """The character whose MCU wiki page this is: given by Wikidata, else inferred."""
         wanted = page.replace("_", " ")
         return next((q for q, c in self.characters.items()
-                     if c["mcu_wiki_page"].replace("_", " ") == wanted), None)
+                     if c["mcu_wiki_page"].replace("_", " ") == wanted), None) or (self.mcu_pages or {}).get(wanted)
+
+    def mcu_page_of(self, qid):
+        """A character's MCU wiki page: given by Wikidata, else inferred."""
+        declared = self.characters[qid]["mcu_wiki_page"].replace("_", " ")
+        return declared or next((p for p, q in (self.mcu_pages or {}).items() if q == qid), "")
 
 
 def _split(value):
@@ -229,6 +239,26 @@ def link_tmdb_credits(tmdb_rows, roles, qids_by_person, tmdb_pointer, src):
     return rows
 
 
+def inferred_mcu_pages(roles, mcu_credits, qids_by_person, characters):
+    """MCU wiki page -> character QID, for characters Wikidata gives no page. When an actor's
+    credit in a title matched page P and the actor has exactly one Wikidata role in that title,
+    P is that role's character (Mike Colter's credits match 'Luke Cage', and his role is the
+    comics Luke Cage item). Kept only when every such credit agrees on the character."""
+    roles_of = {}
+    for r in roles:
+        if not r["via"]:
+            roles_of.setdefault((r["title_qid"], r["actor_qid"]), set()).add(r["base_qid"])
+    votes = {}
+    for (title_qid, person, _), page in mcu_credits.items():
+        for actor in qids_by_person.get(person, ()):
+            found = roles_of.get((title_qid, actor), set())
+            if len(found) == 1:
+                votes.setdefault(page.replace("_", " "), set()).update(found)
+    return {page: next(iter(qids)) for page, qids in votes.items()
+            if len(qids) == 1 and next(iter(qids)) in characters
+            and not characters[next(iter(qids))]["mcu_wiki_page"]}
+
+
 def merge_comics_roles(performances, src):
     """Within one reality, a role pointing at a comics item becomes the screen character that is
     based on it, when exactly one such character has a role in that reality (e.g. Thunderbolts*
@@ -282,7 +312,7 @@ def _node(cid, identity, src):
     item = src.characters[identity]
     mdb = src.marvel_db.get(identity)
     mdb_matches = bool(mdb) and reality_of_marvel_db_earth(_marvel_db_earth(identity, src.marvel_db)) == reality
-    mcu_page = item["mcu_wiki_page"].replace("_", " ")
+    mcu_page = src.mcu_page_of(identity)
     names = [(n, "wikidata") for n in [item["label"], *_split(item["aliases"]),
                                        *_split(item["pseudonyms"]), *_split(item["birth_names"])]]
     if mdb_matches:
@@ -394,9 +424,16 @@ def main():
     tmdb_pointer = {r["tmdb_person_id"]: r["wikidata_id"] for r in read_csv(TMDB_PERSON_WIKIDATA_PATH)}
 
     roles = wikidata_roles(read_csv(WIKIDATA_CAST_PATH), src)
+    src = replace(src, mcu_pages=inferred_mcu_pages(roles, src.mcu_credits, qids_by_person, src.characters))
     tmdb = link_tmdb_credits(read_csv(TMDB_CAST_PATH), roles, qids_by_person, tmdb_pointer, src)
     performances = [r for r in roles if not r["via"]] + tmdb  # parent-series roles count via TMDB
     title_qids = {t["title"]: q for q, t in src.titles.items()}
+    dropped = load_dropped_roles()
+    unmatched = unmatched_rows(performances, dropped, title_qids)
+    if unmatched:
+        print(f"WARNING: {len(unmatched)} dropped roles match no performance: "
+              f"{[(r['title'], r['actor']) for r in unmatched]}")
+    performances = drop_roles(performances, dropped, title_qids)
     performances = apply_curated_roles(performances, curated, title_qids,
                                        {q: t["reality"] for q, t in src.titles.items()})
     performances = merge_comics_roles(performances, src)

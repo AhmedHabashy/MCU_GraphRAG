@@ -1,6 +1,6 @@
 """Unit tests for src/processing/curated_roles.py."""
 
-from src.processing.curated_roles import apply_curated_roles, unmatched_rows
+from src.processing.curated_roles import apply_curated_roles, drop_roles, unmatched_rows
 
 TITLE_QIDS = {"Spider-Man: No Way Home": "Q68934496", "Deadpool & Wolverine": "Q102180106",
               "Spider-Man: Homecoming": "Q23010088", "Avengers: Endgame": "Q23781155"}
@@ -104,3 +104,17 @@ def test_unmatched_rows_are_reported():
             curated("Spider-Man: No Way Home", "Alfred Molino", reality="Earth-96283")]   # typo
     performances = [perf("Q68934496", "Alfred Molina", "Q578094", "Q578094@Earth-616")]
     assert [r["actor"] for r in unmatched_rows(performances, rows, TITLE_QIDS)] == ["Alfred Molino"]
+
+
+def dropped(title, actor):
+    return {"title": title, "actor": actor, "reason": "", "needs_review": False}
+
+
+def test_dropped_roles_remove_every_role_of_that_actor_in_that_title():
+    drop = [dropped("Spider-Man: No Way Home", "Alfred Molina")]
+    kept = drop_roles([perf("Q68934496", "Alfred Molina", "Q578094", "Q578094@Earth-616", source="wikidata"),
+                       perf("Q68934496", "Alfred Molina", "Q578094", "Q578094@Earth-616"),
+                       perf("Q68934496", "Tom Holland", "Q1", "Q1@Earth-616"),
+                       perf("Q23781155", "Alfred Molina", "Q578094", "Q578094@Earth-616")], drop, TITLE_QIDS)
+    assert [(p["title_qid"], p["actor_name"]) for p in kept] == [
+        ("Q68934496", "Tom Holland"), ("Q23781155", "Alfred Molina")]

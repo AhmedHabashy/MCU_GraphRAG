@@ -5,6 +5,7 @@ from src.processing.build_characters import (
     Sources,
     character_rows,
     link_tmdb_credits,
+    inferred_mcu_pages,
     merge_comics_roles,
     own_realities,
     performance_reality,
@@ -232,6 +233,40 @@ def test_mcu_wiki_page_picks_between_two_roles_a_credit_names():
 def test_unmatched_tmdb_credit_stays_unlinked():
     row = link(tmdb("Q107185252", "40", "New Actor", "Hunter X"))
     assert row["character_id"] == "" and row["link_method"] == ""
+
+
+# --- inferred_mcu_pages ---------------------------------------------------------------------
+
+def test_an_mcu_wiki_page_belongs_to_the_character_whose_actor_credit_matches_it():
+    """Luke Cage: Mike Colter's credit matches the page 'Luke Cage' and his only Wikidata role in
+    that title is the (comics) Luke Cage item, which names no MCU wiki page itself."""
+    credits = {("Q106182", "10", "Logan"): "Logan (Earth-10005)"}
+    assert inferred_mcu_pages(ROLES, credits, QIDS, CHARACTERS) == {"Logan (Earth-10005)": "Q97275436"}
+
+
+def test_a_page_wikidata_gives_is_not_overridden():
+    credits = {("Q1000", "20", "Loki"): "Loki Laufeyson"}            # Wikidata gives Loki the page "Loki"
+    assert inferred_mcu_pages(ROLES, credits, QIDS, CHARACTERS) == {}
+
+
+def test_no_page_is_inferred_from_an_actor_with_two_roles_in_the_title():
+    credits = {("Q2000", "30", "Wolverine / Loki"): "James Howlett"}
+    assert inferred_mcu_pages(ROLES, credits, QIDS, CHARACTERS) == {}
+
+
+def test_no_page_is_inferred_when_credits_disagree():
+    credits = {("Q106182", "10", "Logan"): "Shared Page", ("Q1000", "20", "Loki"): "Shared Page"}
+    characters = {**CHARACTERS, "Q24046118": {**CHARACTERS["Q24046118"], "mcu_wiki_page": ""}}
+    assert inferred_mcu_pages(ROLES, credits, QIDS, characters) == {}
+
+
+def test_another_actors_credit_on_an_inferred_page_joins_that_character():
+    """Young Carl Lucas (another actor) matches the page 'Luke Cage': he is Luke Cage."""
+    credits = {**MCU_CREDITS, ("Q106182", "40", "Young Logan"): "Logan (Earth-10005)"}
+    src = sources(mcu_credits=credits, mcu_characters={}, mcu_pages={"Logan (Earth-10005)": "Q97275436"})
+    [row] = link_tmdb_credits([tmdb("Q106182", "40", "New Actor", "Young Logan")], ROLES, QIDS, {}, src)
+    assert row["character_id"] == "Q97275436@Earth-10005" and row["link_method"] == "mcu_wiki_qid"
+    assert src.mcu_page_of("Q97275436") == "Logan (Earth-10005)"
 
 
 # --- merge_comics_roles --------------------------------------------------------------------

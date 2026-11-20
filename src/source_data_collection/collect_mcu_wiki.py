@@ -20,7 +20,7 @@ import mwparserfromhell
 from src.source_data_collection.build_title_registry import REGISTRY_PATH
 from src.source_data_collection.cast_matching import distinctive_tokens, name_parts, normalize_name
 from src.source_data_collection.collect_characters import FANDOM_DIR, FANDOM_LICENSE, MCU_WIKI
-from src.source_data_collection.storage import read_csv, utc_now, write_csv, write_json
+from src.source_data_collection.storage import read_csv, read_json, utc_now, write_csv, write_json
 from src.source_data_collection.tmdb_cast import TMDB_CAST_PATH
 from src.source_data_collection.wikitext import infobox_params, name_list
 from src.title_types import is_movie
@@ -94,6 +94,11 @@ def match_credit(credit, client, cache):
     return None, ""
 
 
+def credit_key(row):
+    """A stored credit row's key: (title, TMDB person, TMDB character)."""
+    return row["title_qid"], row["tmdb_person_id"], row["tmdb_character"]
+
+
 def _file_name(page):
     return re.sub(r"[^A-Za-z0-9._-]+", "_", page) + ".json"
 
@@ -104,32 +109,42 @@ def main():
     credits = candidate_credits(read_csv(TMDB_CAST_PATH), titles)
     client, cache = FandomClient(), {}
 
-    credit_rows, pages = [], {}
-    for i, c in enumerate(credits, 1):
+    # Credits searched before keep their stored row and page; only new credits are searched.
+    stored = {credit_key(r): r for r in read_csv(MCU_WIKI_CREDITS_PATH)} if MCU_WIKI_CREDITS_PATH.exists() else {}
+    credit_rows, pages, searched = [], {}, 0
+    for c in credits:
+        row = stored.get((c["title_qid"], c["tmdb_person_id"], c["character"]))
+        if row:
+            if row["page"] and row["page"] not in pages:
+                pages[row["page"]] = read_json(MCU_WIKI_RAW_DIR / _file_name(row["page"]))
+            credit_rows.append(row)
+            continue
         page, term = match_credit(c, client, cache)
         if page:
-            pages[page["page"]] = page
+            pages[page["page"]] = {**page, "source": "mcu_wiki", "retrieved_at": retrieved_at,
+                                   "license": FANDOM_LICENSE}
+            write_json(MCU_WIKI_RAW_DIR / _file_name(page["page"]), pages[page["page"]])
         credit_rows.append({"title_qid": c["title_qid"], "tmdb_person_id": c["tmdb_person_id"],
                             "actor_name": c["actor_name"], "tmdb_character": c["character"],
                             "page": page["page"] if page else "", "search_term": term,
                             "source": "mcu_wiki", "source_url": page["url"] if page else "",
                             "retrieved_at": retrieved_at, "license": FANDOM_LICENSE})
-        if i % 100 == 0:
-            print(f"{i}/{len(credits)} credits searched", flush=True)
+        searched += 1
+        if searched % 100 == 0:
+            print(f"{searched} new credits searched", flush=True)
 
     character_rows = []
     for name, page in pages.items():
-        write_json(MCU_WIKI_RAW_DIR / _file_name(name),
-                   {**page, "source": "mcu_wiki", "retrieved_at": retrieved_at, "license": FANDOM_LICENSE})
         box = mcu_wiki_infobox(page["wikitext"])
         character_rows.append({"page": name, "revid": page["revid"],
                                **{k: "|".join(v) for k, v in box.items()},
                                "source": "mcu_wiki", "source_url": page["url"],
-                               "retrieved_at": retrieved_at, "license": FANDOM_LICENSE})
+                               "retrieved_at": page["retrieved_at"], "license": FANDOM_LICENSE})
     write_csv(MCU_WIKI_CREDITS_PATH, credit_rows)
     write_csv(MCU_WIKI_CHARACTERS_PATH, character_rows)
     matched = sum(bool(r["page"]) for r in credit_rows)
-    print(f"MCU wiki: {matched}/{len(credit_rows)} credits matched to {len(pages)} pages")
+    print(f"MCU wiki: {matched}/{len(credit_rows)} credits matched to {len(pages)} pages "
+          f"({searched} credits searched now)")
 
 
 if __name__ == "__main__":

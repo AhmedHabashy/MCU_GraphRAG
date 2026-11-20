@@ -207,20 +207,28 @@ def main():
     print(f"Wikidata: {len(rows)} characters ({len(rows) - len(roles)} via performer), "
           f"{len(related)} linked items", flush=True)
 
-    marvel_rows = []
+    # A page already fetched for the same character is kept; only new links are fetched.
+    stored = {(r["character_qid"], r["requested_page"]): r
+              for r in read_csv(MARVEL_DB_PATH)} if MARVEL_DB_PATH.exists() else {}
+    marvel_rows, fetched_now = [], 0
     for row in rows:
         if not wants_marvel_db_page(row["marvel_db_page"]):
+            continue
+        kept = stored.get((row["character_qid"], row["marvel_db_page"]))
+        if kept:
+            marvel_rows.append(kept)
             continue
         lead = fandom.lead(MARVEL_DB_WIKI, row["marvel_db_page"])
         if lead:
             write_json(MARVEL_DB_RAW_DIR / f"{row['character_qid']}.json",
                        {**lead, "character_qid": row["character_qid"], "source": "marvel_database",
                         "retrieved_at": retrieved_at, "license": FANDOM_LICENSE})
-        marvel_rows.append(marvel_db_row(row["character_qid"], lead, retrieved_at,
-                                         page=row["marvel_db_page"]))
+        marvel_rows.append({**marvel_db_row(row["character_qid"], lead, retrieved_at, page=row["marvel_db_page"]),
+                            "requested_page": row["marvel_db_page"]})
+        fetched_now += 1
     write_csv(MARVEL_DB_PATH, marvel_rows)
-    print(f"Marvel Database: {sum(r['fetched'] for r in marvel_rows)}/{len(marvel_rows)} "
-          f"pages fetched", flush=True)
+    print(f"Marvel Database: {sum(str(r['fetched']) == 'True' for r in marvel_rows)}/{len(marvel_rows)} "
+          f"pages found ({fetched_now} looked up now)", flush=True)
 
 
 if __name__ == "__main__":

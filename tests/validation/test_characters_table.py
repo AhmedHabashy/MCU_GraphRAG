@@ -12,7 +12,7 @@ from src.processing.build_characters import (
     ALIASES_PATH, CHARACTERS_PATH, LINKS_PATH, MULTIVERSE, PERFORMANCES_PATH,
 )
 from src.processing.curated_roles import (
-    UNKNOWN_REALITY, curated_row, load_curated_roles, unmatched_rows,
+    UNKNOWN_REALITY, curated_row, load_curated_roles, load_dropped_roles, unmatched_rows,
 )
 from src.processing.realities import MCU, marvel_db_page_of, reality_of_marvel_db_earth
 from src.source_data_collection.build_title_registry import REGISTRY_PATH
@@ -124,9 +124,13 @@ def test_main_mcu_is_earth_616(titles):
 
 # --- Coverage: every role resolves to a character --------------------------------------
 
-def test_every_wikidata_cast_role_has_a_character(performances):
+def test_every_wikidata_cast_role_has_a_character(performances, titles):
+    """Except the roles the expert dropped (docs, "Dropped roles")."""
+    qid_of = {t["title"]: q for q, t in titles.items()}
+    dropped = {(qid_of[r["title"]], normalize_name(r["actor"])) for r in load_dropped_roles()}
     roles = {(r["title_qid"], r["actor_qid"], r["character_qid"]) for r in read_csv(WIKIDATA_CAST_PATH)
-             if r["character_qid"] and r["character_qid"] != SELF_QID and not r["via"]}
+             if r["character_qid"] and r["character_qid"] != SELF_QID and not r["via"]
+             and (r["title_qid"], normalize_name(r["actor_label"])) not in dropped}
     resolved = {(p["title_qid"], p["actor_qid"], p["data_base_qid"]) for p in performances
                 if p["character_id"]}  # data_base_qid: the role's character before curation
     assert sorted(roles - resolved)[:20] == []
@@ -249,6 +253,22 @@ def test_every_curated_title_names_exactly_one_title(curated, titles):
     assert [r["title"] for r in curated if r["title"] != "*" and names[r["title"]] != 1] == []
 
 
+@pytest.fixture(scope="module")
+def dropped():
+    return load_dropped_roles()
+
+
+def test_every_dropped_title_names_exactly_one_title(dropped, titles):
+    names = Counter(t["title"] for t in titles.values())
+    assert [r["title"] for r in dropped if names[r["title"]] != 1] == []
+
+
+def test_dropped_roles_are_gone(performances, dropped, title_qids):
+    """MCU expert, round 3: Saldaña is not Drax in the Holiday Special, W'Kabi is not in
+    Wakanda Forever, Jimmy Woo is not in The Marvels."""
+    assert [(r["title"], r["actor"]) for r in dropped if role(performances, title_qids[r["title"]], r["actor"])] == []
+
+
 def test_every_curated_role_matches_a_performance(performances, curated, title_qids):
     assert [(r["title"], r["actor"]) for r in unmatched_rows(performances, curated, title_qids)] == []
 
@@ -303,6 +323,26 @@ def test_no_way_home_villains_keep_their_home_realities(performances, characters
 def test_crossover_roles_are_the_characters_of_their_home_films(performances, crossover, home, actor):
     """MCU expert, round 2: the visitors are the same characters as in their own films."""
     assert ids(performances, crossover, actor) == ids(performances, home, actor)
+
+
+def test_the_i_am_groot_watcher_is_the_what_if_watcher(performances):
+    """MCU expert, round 3."""
+    assert ids(performances, "Q108170999", "Jeffrey Wright") == ids(performances, "Q65980671", "Jeffrey Wright")
+
+
+def test_the_morbius_vulture_is_the_mcu_vulture(performances):
+    """MCU expert, round 3: Morbius's Vulture is Spider-Man: Homecoming's, sent to Sony's universe."""
+    assert ids(performances, "Q55405369", "Michael Keaton") == ids(performances, "Q23010088", "Michael Keaton")
+
+
+def test_he_who_remains_and_victor_timely_are_kang_variants(performances, links):
+    """MCU expert, round 3: each is a variant of Kang the Conqueror (Quantumania)."""
+    kang = ids(performances, "Q105359456", "Jonathan Majors")
+    variants = {(l["from_id"], l["to_id"]) for l in links if l["relation"] == "variant"}
+    for title_qid, identity in (("Q107185252", "mcuwiki:He_Who_Remains"), ("Q112610403", "mcuwiki:Victor_Timely")):
+        cid = ids(performances, title_qid, "Jonathan Majors")
+        assert cid.startswith(identity + "@")
+        assert (kang, cid) in variants or (cid, kang) in variants
 
 
 def test_no_way_home_spider_men_each_keep_their_own_universe(performances, characters):

@@ -11,6 +11,7 @@ Needs TMDB_API_KEY in .env.
 from dotenv import dotenv_values
 
 from src.source_data_collection.cast_matching import character_flags
+from src.source_data_collection.incremental import TitleScopes, in_title_order, stored_rows
 from src.source_data_collection.storage import write_csv, write_json
 from src.source_data_collection.tier_titles import PROJECT_ROOT
 from src.tmdb_client import TMDB_API, TmdbClient
@@ -74,8 +75,11 @@ def merged_cast_rows(title, payloads, retrieved_at):
 
 
 def collect(titles, client, retrieved_at):
-    rows = []
-    for title in titles:
+    """Credits of new or changed titles; the stored rows of the others are kept."""
+    scopes = TitleScopes("tmdb_cast")
+    todo = scopes.to_collect(titles)
+    rows = stored_rows(TMDB_CAST_PATH, {t["wikidata_qid"] for t in titles} - {t["wikidata_qid"] for t in todo})
+    for title in todo:
         payloads = title_credits(title, client)
         merged = {"cast": [p for _, payload in payloads for p in payload.get("cast", [])],
                   "crew": [p for _, payload in payloads for p in payload.get("crew", [])]}
@@ -85,7 +89,10 @@ def collect(titles, client, retrieved_at):
                     "retrieved_at": retrieved_at, "license": TMDB_LICENSE,
                     "response": payloads[0][1] if len(payloads) == 1 else merged})
         rows += merged_cast_rows(title, payloads, retrieved_at)
+    rows = in_title_order(rows, titles)
     write_csv(TMDB_CAST_PATH, rows)
+    scopes.save(titles)
+    print(f"TMDB credits fetched for {len(todo)}/{len(titles)} titles", flush=True)
     return rows
 
 
@@ -102,7 +109,12 @@ def external_id_rows(person_ids, client, retrieved_at):
 
 
 def collect_external_ids(person_ids, client, retrieved_at):
-    rows = external_id_rows(person_ids, client, retrieved_at)
+    """External IDs of the people not looked up yet; stored rows are kept."""
+    stored = {r["tmdb_person_id"]: r for r in stored_rows(TMDB_PERSON_WIKIDATA_PATH, set(person_ids),
+                                                          key="tmdb_person_id")}
+    fetched = {r["tmdb_person_id"]: r for r in external_id_rows(
+        [p for p in person_ids if p not in stored], client, retrieved_at)}
+    rows = [stored.get(p) or fetched[p] for p in person_ids]
     write_csv(TMDB_PERSON_WIKIDATA_PATH, rows)
     return rows
 

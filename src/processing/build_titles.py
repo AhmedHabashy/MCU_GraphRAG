@@ -3,6 +3,7 @@ MCU phases and sagas.
 
 The first release is the earliest release of any kind (premieres included) known to either
 source: TMDB records premieres that Wikidata often lacks, and occasionally the other way round.
+A date verified by hand (docs, "Verified first releases") replaces both.
 A title's phases are those named by Wikipedia's phase articles or Wikidata (validation checks
 that they agree); its sagas follow from the curated phase -> saga table in the docs.
 
@@ -30,6 +31,7 @@ RELEASE_ORDER_PATH = TITLES_DIR / "release_order.csv"
 TITLE_PHASES_PATH = TITLES_DIR / "title_phases.csv"
 TIMELINE_PATH = TITLES_DIR / "timeline.csv"
 PHASES_HEADING = "### Phases and sagas"
+VERIFIED_RELEASES_HEADING = "### Verified first releases"
 
 
 def load_phase_sagas(path=TIERS_DOC_PATH):
@@ -37,10 +39,20 @@ def load_phase_sagas(path=TIERS_DOC_PATH):
     return {r["phase"]: r["saga"] for r in read_table(path, PHASES_HEADING)}
 
 
-def first_releases(wikidata_details, tmdb_dates):
-    """Earliest first release per title from Wikidata and TMDB, naming the source(s)."""
+def load_verified_releases(title_qids, path=TIERS_DOC_PATH):
+    """Title QID -> first release date verified by hand. `title_qids` maps tier-list titles to QIDs."""
+    return {title_qids[r["title"]]: r["first release"] for r in read_table(path, VERIFIED_RELEASES_HEADING)}
+
+
+def first_releases(wikidata_details, tmdb_dates, verified=None):
+    """Earliest first release per title from Wikidata and TMDB, naming the source(s); a
+    verified date replaces them."""
     rows = []
     for d in wikidata_details:
+        if d["title_qid"] in (verified or {}):
+            rows.append({"title_qid": d["title_qid"], "title": d["title"],
+                         "first_release_date": verified[d["title_qid"]], "first_release_source": "verified"})
+            continue
         dates = {"wikidata": d["first_release_date"], "tmdb": tmdb_dates.get(d["title_qid"], "")}
         earliest = min((v for v in dates.values() if v), default="")
         rows.append({"title_qid": d["title_qid"], "title": d["title"],
@@ -104,7 +116,9 @@ def timeline_rows(titles, viewing_rows, wikipedia_rows):
 
 def main():
     tmdb = {r["title_qid"]: r["first_release_date"] for r in read_csv(TMDB_FIRST_RELEASES_PATH)}
-    order = release_order_rows(first_releases(read_csv(TITLE_DETAILS_PATH), tmdb))
+    title_qids = {t["title"]: t["wikidata_qid"] for t in read_csv(REGISTRY_PATH)}
+    order = release_order_rows(first_releases(read_csv(TITLE_DETAILS_PATH), tmdb,
+                                              load_verified_releases(title_qids)))
     write_csv(RELEASE_ORDER_PATH, order)
 
     wikidata = {r["title_qid"]: r["phases"] for r in read_csv(WIKIDATA_PHASES_PATH)}

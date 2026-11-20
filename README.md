@@ -23,6 +23,11 @@ TMDB_API_KEY=your_key_here
 
 Collected data is written to `source_data/`, which is not committed (see [Data licensing](#data-licensing)).
 
+Collection is incremental: a rerun fetches only titles that are new or whose scope changed
+(for example a series gaining a season), and only new credits, people and wiki pages; what
+was collected before is kept with its original `retrieved_at`. Each title-based collector
+records what it collected in `source_data/collection_scopes/`.
+
 ```powershell
 .venv\Scripts\python.exe -m src.source_data_collection.build_title_registry   # titles, QIDs, crosswalk IDs
 .venv\Scripts\python.exe -m src.source_data_collection.collect_cast           # cast from TMDB, Wikidata, Wikipedia

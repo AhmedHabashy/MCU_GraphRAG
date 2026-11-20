@@ -69,11 +69,14 @@ def test_most_members_link_to_a_character(memberships):
 
 # --- MCU wiki vs Marvel Database ---------------------------------------------------------
 
-def test_the_wikis_agree_on_members(memberships):
-    """Of the members the MCU wiki lists, most are also listed by the Marvel Database."""
+def test_the_wikis_agree_on_team_members(teams, memberships):
+    """Of the members the MCU wiki lists, most are also listed by the Marvel Database. Teams
+    only: for an organization (S.H.I.E.L.D., HYDRA) each wiki lists its own selection of
+    hundreds of members (the Marvel Database's S.H.I.E.L.D. has no Maria Hill, the MCU wiki's
+    lists minor Agents of S.H.I.E.L.D. agents), so the lists are not expected to agree."""
     by_source = {}
     for m in memberships:
-        if m["character_id"]:
+        if m["character_id"] and teams[m["team_id"]]["kind"] == "team":
             by_source.setdefault((m["team_id"], m["source"]), set()).add(m["character_id"])
     low = []
     for (team, source), members in by_source.items():
@@ -114,6 +117,28 @@ def test_fox_x_men(memberships, performances):
 def test_illuminati_include_captain_carter(memberships, performances):
     carter = role_of(performances, "Q64211112", "Hayley Atwell")
     assert member(memberships, "Illuminati@Earth-838", carter, status="former")
+
+
+def test_every_row_is_a_team_or_an_organization(teams):
+    assert {t["kind"] for t in teams.values()} == {"team", "organization"}
+
+
+def test_round_3_organizations(teams):
+    """MCU expert, round 3: S.H.I.E.L.D. is an organization, as are HYDRA and the Hand."""
+    assert [t for t in ("S.H.I.E.L.D.@Earth-616", "HYDRA@Earth-616", "The Hand@Earth-616")
+            if teams[t]["kind"] != "organization"] == []
+    assert teams["Defenders@Earth-616"]["kind"] == "team"
+
+
+def test_defenders(memberships, performances):
+    team = "Defenders@Earth-616"
+    assert member(memberships, team, role_of(performances, "Q16977365", "Charlie Cox"))
+    assert member(memberships, team, role_of(performances, "Q18605540", "Krysten Ritter"))
+
+
+def test_hydra_was_led_by_the_red_skull(memberships, performances):
+    red_skull = role_of(performances, "Q275120", "Hugo Weaving")
+    assert any(m["team_id"] == "HYDRA@Earth-616" and m["character_id"] == red_skull for m in memberships)
 
 
 def test_rows_have_provenance(memberships):

@@ -3,6 +3,7 @@
 Output: source_data/wikipedia/cast_sections/<title QID>.json (section wikitext, as collected)
 """
 
+from src.source_data_collection.incremental import TitleScopes
 from src.source_data_collection.storage import write_json
 from src.source_data_collection.tier_titles import PROJECT_ROOT
 from src.utils import enwiki_url
@@ -17,14 +18,16 @@ def cast_section_path(title_qid):
 
 
 def collect(titles, client, retrieved_at):
-    missing = []
-    for title in titles:
+    """Cast sections of new or changed titles; returns the titles that have none."""
+    scopes = TitleScopes("wikipedia_cast")
+    for title in scopes.to_collect(titles):
+        path = cast_section_path(title["wikidata_qid"])
         section = client.top_level_section(title["enwiki_title"], prefix=CAST_HEADING_PREFIX)
         if section is None:
-            missing.append(title["title"])
+            path.unlink(missing_ok=True)   # an older section no longer applies
             continue
-        write_json(cast_section_path(title["wikidata_qid"]),
-                   {**section, "title": title["title"], "source": "wikipedia",
-                    "source_url": enwiki_url(section["page"]),
-                    "retrieved_at": retrieved_at, "license": WIKIPEDIA_LICENSE})
-    return missing
+        write_json(path, {**section, "title": title["title"], "source": "wikipedia",
+                          "source_url": enwiki_url(section["page"]),
+                          "retrieved_at": retrieved_at, "license": WIKIPEDIA_LICENSE})
+    scopes.save(titles)
+    return [t["title"] for t in titles if not cast_section_path(t["wikidata_qid"]).exists()]

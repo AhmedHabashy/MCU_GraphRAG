@@ -33,6 +33,14 @@ def test_a_date_known_to_one_source_only_is_used():
     assert (rows[0]["first_release_date"], rows[0]["first_release_source"]) == ("2020-01-01", "tmdb")
 
 
+def test_a_verified_first_release_replaces_the_sources_dates():
+    """Wikidata dates Jessica Jones 20 October 2015 without a source; it premiered in New York
+    on 17 November (Netflix release 20 November)."""
+    verified = {"Q1": "2015-11-17"}
+    rows = first_releases([detail("Q1", "Jessica Jones", "2015-10-20")], {"Q1": "2015-11-20"}, verified)
+    assert (rows[0]["first_release_date"], rows[0]["first_release_source"]) == ("2015-11-17", "verified")
+
+
 # --- title_phase_rows -----------------------------------------------------------------
 
 SAGAS = {"Phase Four": "The Multiverse Saga", "Phase Five": "The Multiverse Saga",

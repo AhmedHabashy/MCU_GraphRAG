@@ -44,6 +44,37 @@ def test_members_resolve_by_name_within_the_team_reality_only():
         ("Q105350971@Earth-838", "name")
 
 
+NETFLIX = [{"character_id": "QIF@Earth-616", "reality": "Earth-616", "label": "Iron Fist",
+            "marvel_db_page": "", "mcu_wiki_page": ""},
+           {"character_id": "mcuwiki:Davos@Earth-616", "reality": "Earth-616", "label": "Davos",
+            "marvel_db_page": "", "mcu_wiki_page": "Davos"},
+           {"character_id": "QJJ@Earth-616", "reality": "Earth-616", "label": "Jessica Jones",
+            "marvel_db_page": "", "mcu_wiki_page": ""},
+           {"character_id": "QPW@Earth-616", "reality": "Earth-616", "label": "Patsy Walker",
+            "marvel_db_page": "", "mcu_wiki_page": ""}]
+NETFLIX_ALIASES = {"QIF@Earth-616": {"iron fist", "daniel rand", "danny rand"},
+                   "mcuwiki:Davos@Earth-616": {"davos", "iron fist"},
+                   "QJJ@Earth-616": {"jessica jones"},
+                   "QPW@Earth-616": {"patsy walker", "trish walker", "jessica jones"}}
+
+
+def test_the_page_name_is_tried_before_a_shared_codename():
+    """'Iron Fist' is also Davos; 'Daniel Rand' (the page) is only Danny."""
+    assert resolve_member(member("Daniel Rand (Earth-199999)", "Iron Fist"), "Earth-616", NETFLIX,
+                          NETFLIX_ALIASES) == ("QIF@Earth-616", "name")
+
+
+def test_a_name_several_characters_share_goes_to_the_one_it_labels():
+    assert resolve_member(member("Jessica Jones (Earth-199999)", "Jessica Jones"), "Earth-616", NETFLIX,
+                          NETFLIX_ALIASES) == ("QJJ@Earth-616", "name")
+
+
+def test_a_name_shared_with_no_label_match_stays_unresolved():
+    aliases = {**NETFLIX_ALIASES, "QJJ@Earth-616": {"jessica jones", "trish walker"}}
+    assert resolve_member(member("Trish Walker", "Trish Walker", "marvelcinematicuniverse"), "Earth-616",
+                          NETFLIX, aliases) == ("", "")
+
+
 def test_a_member_from_another_reality_resolves_by_page():
     assert resolve(member("Lucas Bishop (Earth-31393)", "Bishop"), "Earth-92131") == \
         ("QB@Earth-31393", "marvel_db_page")
@@ -54,11 +85,17 @@ def test_unknown_members_stay_unresolved():
 
 
 def test_team_ids_and_rows_include_curated_and_wiki_aliases():
-    teams = [{"team": "New Avengers", "reality": "Earth-616", "also called": "Thunderbolts"}]
+    teams = [{"team": "New Avengers", "reality": "Earth-616", "kind": "team", "also called": "Thunderbolts"}]
     aliases = [{"team": "New Avengers", "reality": "Earth-616", "alias": "New AvengerZ", "source": "marvel"}]
     assert team_id("New Avengers", "Earth-616") == "New Avengers@Earth-616"
     [row] = team_rows(teams, aliases)
     assert (row["team_id"], row["aliases"]) == ("New Avengers@Earth-616", "Thunderbolts|New AvengerZ")
+
+
+def test_team_rows_keep_the_kind():
+    """S.H.I.E.L.D. is an organization, not a team (MCU expert, round 3)."""
+    teams = [{"team": "S.H.I.E.L.D.", "reality": "Earth-616", "kind": "organization", "also called": ""}]
+    assert team_rows(teams, [])[0]["kind"] == "organization"
 
 
 def test_membership_rows_record_status_role_and_resolution():

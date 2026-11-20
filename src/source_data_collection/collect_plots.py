@@ -16,6 +16,7 @@ from src.source_data_collection.build_title_registry import (
     ENTITIES_PATH, P_HAS_PARTS, P_INSTANCE_OF, P_PART_OF_THE_SERIES, P_SERIES_ORDINAL, REGISTRY_PATH,
     SEASON, WIKIDATA_LICENSE,
 )
+from src.source_data_collection.incremental import TitleScopes
 from src.source_data_collection.storage import read_csv, read_json, utc_now, write_json
 from src.source_data_collection.tier_titles import PROJECT_ROOT
 from src.source_data_collection.wikipedia_cast import WIKIPEDIA_LICENSE
@@ -146,18 +147,29 @@ def main():
     retrieved_at = utc_now()
     client = WikimediaClient()
 
-    episode_entities = {}
-    for title in titles:
+    # Only new or changed titles are collected; the others keep their stored records.
+    scopes = TitleScopes("plots")
+    stored = read_json(EPISODE_ENTITIES_PATH) if EPISODE_ENTITIES_PATH.exists() else {"by_title": {}}
+    stored_at = stored.get("retrieved_at_by_title") or dict.fromkeys(stored["by_title"], stored.get("retrieved_at"))
+    in_scope = {t["wikidata_qid"] for t in titles}
+    episode_entities = {q: e for q, e in stored["by_title"].items() if q in in_scope}
+    episodes_at = {q: stored_at[q] for q in episode_entities}
+    todo = scopes.to_collect(titles)
+    for title in todo:
         record = plot_record(title, client, retrieved_at)
         write_json(plot_path(title["wikidata_qid"]), record)
         if not is_movie(title):
             episode_entities[title["wikidata_qid"]] = wikidata_episodes(
                 title_entities[title["wikidata_qid"]], client, selected_seasons(title))
+            episodes_at[title["wikidata_qid"]] = retrieved_at
         print(f"{title['title']}: {record['kind'] or 'MISSING'} "
               f"({len(record['episodes'])} episodes)", flush=True)
 
-    write_json(EPISODE_ENTITIES_PATH, {"retrieved_at": retrieved_at, "source": "wikidata",
-                                       "license": WIKIDATA_LICENSE, "by_title": episode_entities})
+    write_json(EPISODE_ENTITIES_PATH, {"retrieved_at": retrieved_at, "retrieved_at_by_title": episodes_at,
+                                       "source": "wikidata", "license": WIKIDATA_LICENSE,
+                                       "by_title": episode_entities})
+    scopes.save(titles)
+    print(f"Plots collected for {len(todo)}/{len(titles)} titles")
 
 
 if __name__ == "__main__":

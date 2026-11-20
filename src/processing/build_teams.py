@@ -5,7 +5,7 @@ which also links members from other realities (e.g. Bishop in the X-Men '97 team
 by name, but only to a character in the team's reality that is the single match.
 
 Needs:  collect_teams, build_characters
-Output: processed_data/teams/teams.csv        (team_id, name, reality, aliases)
+Output: processed_data/teams/teams.csv        (team_id, name, reality, kind, aliases)
         processed_data/teams/memberships.csv  (team, character, role, current/former, source)
 Run:    .venv\\Scripts\\python.exe -m src.processing.build_teams
 """
@@ -41,10 +41,16 @@ def resolve_member(member, reality, characters, aliases):
     if by_page:
         in_reality = [c for c in by_page if c.endswith(f"@{reality}")]
         return (in_reality or by_page)[0], page_field
-    names = {normalize_name(_EARTH_SUFFIX.sub("", member["page"])), normalize_name(member["name"])}
-    by_name = [c["character_id"] for c in characters if c["reality"] == reality
-               and names & aliases.get(c["character_id"], set())]
-    return (by_name[0], "name") if len(by_name) == 1 else ("", "")
+    # The page name (often a real name) before the display name (often a shared codename, e.g.
+    # 'Iron Fist' is also Davos); among several characters with a name, the one it labels.
+    in_reality = [c for c in characters if c["reality"] == reality]
+    for name in dict.fromkeys(normalize_name(n) for n in (_EARTH_SUFFIX.sub("", member["page"]), member["name"])):
+        by_name = [c for c in in_reality if name in aliases.get(c["character_id"], set())]
+        labelled = [c for c in by_name if normalize_name(c["label"]) == name]
+        for found in (by_name, labelled):
+            if len(found) == 1:
+                return found[0]["character_id"], "name"
+    return "", ""
 
 
 def team_rows(teams, wiki_aliases):
@@ -53,7 +59,7 @@ def team_rows(teams, wiki_aliases):
         names = [t["also called"]] + [a["alias"] for a in wiki_aliases
                                       if a["team"] == t["team"] and a["reality"] == t["reality"]]
         rows.append({"team_id": team_id(t["team"], t["reality"]), "name": t["team"],
-                     "reality": t["reality"], "aliases": "|".join(dict.fromkeys(n for n in names if n)),
+                     "reality": t["reality"], "kind": t["kind"], "aliases": "|".join(dict.fromkeys(n for n in names if n)),
                      "source": "curated"})
     return rows
 

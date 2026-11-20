@@ -5,11 +5,12 @@ Collect with:          .venv\\Scripts\\python.exe -m src.source_data_collection.
                        .venv\\Scripts\\python.exe -m src.processing.build_titles
 """
 
+from collections import Counter
 from datetime import date
 
 import pytest
 
-from src.processing.build_titles import RELEASE_ORDER_PATH
+from src.processing.build_titles import RELEASE_ORDER_PATH, VERIFIED_RELEASES_HEADING, load_verified_releases
 from src.source_data_collection.build_title_registry import REGISTRY_PATH
 from src.source_data_collection.cast_matching import normalize_name
 from src.source_data_collection.collect_mcu_wiki import MCU_UNIVERSES
@@ -19,6 +20,7 @@ from src.source_data_collection.collect_title_details import (
     TMDB_FIRST_RELEASES_PATH,
 )
 from src.source_data_collection.storage import read_csv
+from src.source_data_collection.tier_titles import TIERS_DOC_PATH, read_table
 from src.source_data_collection.tmdb_cast import TMDB_CAST_PATH, top_billed_person_ids
 from src.title_types import MOVIE_TYPES
 from src.utils import WikimediaClient, label
@@ -108,13 +110,31 @@ def test_every_title_has_a_first_release_date(details):
 
 def test_wikidata_and_tmdb_dates_fall_in_the_same_release_window(details):
     """The sources record different events of one release (TMDB has most premieres, Wikidata
-    mostly theatrical dates), so they differ by days, never by more than the window."""
+    mostly theatrical dates), so they differ by days, never by more than the window, except
+    where the date was verified by hand (docs, "Verified first releases": Jessica Jones)."""
     tmdb = {r["title_qid"]: r["first_release_date"] for r in _load(TMDB_FIRST_RELEASES_PATH)}
-    gaps = [(d["title"], d["first_release_date"], tmdb[q],
-             abs((date.fromisoformat(d["first_release_date"]) - date.fromisoformat(tmdb[q])).days))
-            for q, d in details.items() if d["first_release_date"] and tmdb.get(q)]
+    gaps = {q: (d["title"], d["first_release_date"], tmdb[q],
+                abs((date.fromisoformat(d["first_release_date"]) - date.fromisoformat(tmdb[q])).days))
+            for q, d in details.items() if d["first_release_date"] and tmdb.get(q)}
     assert len(gaps) == len(details)
-    assert [g for g in gaps if g[3] > MAX_RELEASE_WINDOW_DAYS] == []
+    verified = load_verified_releases(_title_qids())
+    assert [g for q, g in gaps.items() if g[3] > MAX_RELEASE_WINDOW_DAYS and q not in verified] == []
+
+
+def _title_qids():
+    return {t["title"]: t["wikidata_qid"] for t in read_csv(REGISTRY_PATH)}
+
+
+def test_every_verified_release_names_exactly_one_title():
+    names = Counter(t["title"] for t in read_csv(REGISTRY_PATH))
+    assert [r["title"] for r in read_table(TIERS_DOC_PATH, VERIFIED_RELEASES_HEADING) if names[r["title"]] != 1] == []
+
+
+def test_release_order_uses_the_verified_first_releases(order_rows):
+    verified = load_verified_releases(_title_qids())
+    rows = {r["title_qid"]: r for r in order_rows}
+    assert [(rows[q]["title"], rows[q]["first_release_date"]) for q, d in verified.items()
+            if (rows[q]["first_release_date"], rows[q]["first_release_source"]) != (d, "verified")] == []
 
 
 def test_first_release_year_matches_the_tier_list_year(order_rows):

@@ -128,6 +128,9 @@ officially numbered). Channing Tatum's Gambit is one character in Deadpool & Wol
 Avengers: Doomsday (he escapes the Void in a deleted credits scene), from an unnumbered
 universe. The No Way Home Spider-Men and villains need no rows: the data already gives each
 one his own universe (Raimi Earth-96283, Webb Earth-120703), which the expert confirmed.
+Round 3: the Watcher in I Am Groot is the What If...? Watcher; Morbius's Vulture is the MCU
+Vulture of Spider-Man: Homecoming (a crossover that was later dropped); and He Who Remains
+and Victor Timely are variants of Kang the Conqueror, like all of Quantumania's Kangs.
 
 | Title | Actor | Character | Identity | Reality | Variant of |
 | --- | --- | --- | --- | --- | --- |
@@ -162,6 +165,32 @@ one his own universe (Raimi Earth-96283, Webb Earth-120703), which the expert co
 | * | Kerry Condon | F.R.I.D.A.Y. | Q28173125 | | |
 | Marvel Zombies | * | | | Earth-89521 | |
 | Your Friendly Neighborhood Spider-Man | * | | | Earth-86445 | |
+| I Am Groot | Jeffrey Wright | The Watcher | | Multiverse | |
+| Morbius | Michael Keaton | Vulture | | Earth-616 | |
+| Loki, season 1 | Jonathan Majors | He Who Remains | mcuwiki:He_Who_Remains | | Q1982051 |
+| Loki, season 2 | Jonathan Majors | Victor Timely | mcuwiki:Victor_Timely | | Q1982051 |
+
+### Dropped roles
+
+Roles that Wikidata lists but that are not in the title (MCU expert, round 3). TMDB does not
+credit them either. Each row drops every role of that actor in that title.
+
+| Title | Actor | Reason |
+| --- | --- | --- |
+| The Guardians of the Galaxy Holiday Special | Zoe Saldaña | Wikidata has her as Drax; she is not in the special. |
+| Black Panther: Wakanda Forever | Daniel Kaluuya | W'Kabi does not appear. |
+| The Marvels | Randall Park | Jimmy Woo does not appear (last seen in WandaVision). |
+
+### Verified first releases
+
+Release dates checked by hand where the sources disagree by more than the premiere-to-release
+window. A title's first release is its earliest release of any kind, premieres included;
+these dates replace what the sources say.
+
+| Title | First release | Event | Source |
+| --- | --- | --- | --- |
+| Jessica Jones | 2015-11-17 | New York premiere of the first two episodes; Netflix release 2015-11-20. Wikidata's 2015-10-20 has no source and is wrong. | Wikipedia, "Jessica Jones season 1" |
+| Luke Cage | 2016-09-28 | Harlem premiere of the first two episodes; Netflix release 2016-09-30. Wikidata dates the first episode by this premiere. | Wikipedia, "Luke Cage season 1" |
 
 ### Phases and sagas
 
@@ -185,18 +214,25 @@ reality. Members come from each team's MCU wiki and Marvel Database pages. Per t
 the New Avengers and the Thunderbolts are one team, and the Illuminati exist only in Doctor
 Strange in the Multiverse of Madness. Team Doom is added once Avengers: Doomsday is released.
 The Guardians of the Galaxy were confirmed by the expert (round 2): the team splits up at
-the end of Guardians of the Galaxy Vol. 3, possibly not for good. There are no other teams
-for now. (The Eternals are a species on both wikis, not a team, so they are not listed.) The Wikipedia page is kept as text for later extraction of who joins or leaves when.
+the end of Guardians of the Galaxy Vol. 3, possibly not for good. Round 2 added no other teams
+(the Eternals are a species on both wikis, not a team, so they are not listed). The Wikipedia page is kept as text for later extraction of who joins or leaves when.
+Round 3 adds the Defenders and, as organizations, S.H.I.E.L.D., HYDRA and the Hand ("Kind"
+is `team` or `organization`). The Inhuman Royal Family and the Fox Fantastic Fours are not
+added (expert). The Sinister Six is not listed: it has no screen page on either wiki.
 
-| Team | Reality | MCU wiki page | Marvel Database page | Wikipedia page | Also called |
-| --- | --- | --- | --- | --- | --- |
-| Avengers | Earth-616 | Avengers | Avengers (Earth-199999) | Avengers (Marvel Cinematic Universe) | |
-| New Avengers | Earth-616 | New Avengers | New Avengers (Earth-199999) | Avengers (Marvel Cinematic Universe) | Thunderbolts |
-| Fantastic Four | Earth-828 | Fantastic Four | Fantastic Four (Earth-828) | List of Marvel Cinematic Universe teams and organizations | |
-| X-Men | Earth-10005 | | X-Men (Earth-10005) | X-Men in film | |
-| X-Men | Earth-92131 | | X-Men (Earth-92131) | | |
-| Illuminati | Earth-838 | Illuminati | Illuminati (Earth-838) | List of Marvel Cinematic Universe teams and organizations | |
-| Guardians of the Galaxy | Earth-616 | Guardians of the Galaxy | Guardians of the Galaxy (Earth-199999) | List of Marvel Cinematic Universe teams and organizations | |
+| Team | Reality | Kind | MCU wiki page | Marvel Database page | Wikipedia page | Also called |
+| --- | --- | --- | --- | --- | --- | --- |
+| Avengers | Earth-616 | team | Avengers | Avengers (Earth-199999) | Avengers (Marvel Cinematic Universe) | |
+| New Avengers | Earth-616 | team | New Avengers | New Avengers (Earth-199999) | Avengers (Marvel Cinematic Universe) | Thunderbolts |
+| Fantastic Four | Earth-828 | team | Fantastic Four | Fantastic Four (Earth-828) | List of Marvel Cinematic Universe teams and organizations | |
+| X-Men | Earth-10005 | team | | X-Men (Earth-10005) | X-Men in film | |
+| X-Men | Earth-92131 | team | | X-Men (Earth-92131) | | |
+| Illuminati | Earth-838 | team | Illuminati | Illuminati (Earth-838) | List of Marvel Cinematic Universe teams and organizations | |
+| Guardians of the Galaxy | Earth-616 | team | Guardians of the Galaxy | Guardians of the Galaxy (Earth-199999) | List of Marvel Cinematic Universe teams and organizations | |
+| Defenders | Earth-616 | team | Defenders | Defenders (Earth-199999) | List of Marvel Cinematic Universe teams and organizations | |
+| S.H.I.E.L.D. | Earth-616 | organization | S.H.I.E.L.D. | S.H.I.E.L.D. (Earth-199999) | List of Marvel Cinematic Universe teams and organizations | |
+| HYDRA | Earth-616 | organization | Hydra | Hydra (Earth-199999) | List of Marvel Cinematic Universe teams and organizations | |
+| The Hand | Earth-616 | organization | Hand | Hand (Earth-199999) | List of Marvel Cinematic Universe teams and organizations | |
 
 ### Tier 2: remaining MCU films and Disney+ series (second pass)
 
@@ -241,32 +277,32 @@ their characters reappear in the MCU.
 
 ### Tier 3: other Marvel TV series and non-MCU Marvel films
 
-Collected for completeness. "Reality" works as in Tier 1. The Raimi and Webb films and the
-2005 and 2007 Fantastic Four films use the Earths the MCU expert gave for their characters
-(round 2). Rows marked † follow the Marvel Database and are not yet confirmed by the expert:
-it files the Marvel Television series in its MCU reality, the 2015 Fantastic Four in
-Earth-15866 and Sony's Spider-Man Universe in Earth-688B.
+Collected for completeness. "Reality" works as in Tier 1; every reality here is confirmed
+by the MCU expert (round 3). Per the expert, the Raimi and Webb films matter for Spider-Man:
+No Way Home, and Jessica Jones, Luke Cage, Iron Fist and The Defenders for Daredevil: Born
+Again; the other Tier 3 titles do not connect to anything else. Agents of S.H.I.E.L.D. is
+the main MCU, although from season 5 on it ignores the films' events (such as the snap).
 
 | Title | Type | Year | Universe | Reality |
 | --- | --- | --- | --- | --- |
-| Agents of S.H.I.E.L.D. (added), seasons 1-7 | Series | 2013-2020 | Marvel TV | Earth-616 † |
-| Agent Carter (added), seasons 1-2 | Series | 2015-2016 | Marvel TV | Earth-616 † |
-| Jessica Jones, seasons 1-2 | Series | 2015-2018 | Netflix | Earth-616 † |
-| Luke Cage, seasons 1-2 | Series | 2016-2018 | Netflix | Earth-616 † |
-| Iron Fist, seasons 1-2 | Series | 2017-2018 | Netflix | Earth-616 † |
-| The Defenders | Series | 2017 | Netflix | Earth-616 † |
-| Inhumans | Series | 2017 | ABC | Earth-616 † |
+| Agents of S.H.I.E.L.D. (added), seasons 1-7 | Series | 2013-2020 | Marvel TV | Earth-616 |
+| Agent Carter (added), seasons 1-2 | Series | 2015-2016 | Marvel TV | Earth-616 |
+| Jessica Jones, seasons 1-3 | Series | 2015-2019 | Netflix | Earth-616 |
+| Luke Cage, seasons 1-2 | Series | 2016-2018 | Netflix | Earth-616 |
+| Iron Fist, seasons 1-2 | Series | 2017-2018 | Netflix | Earth-616 |
+| The Defenders | Series | 2017 | Netflix | Earth-616 |
+| Inhumans | Series | 2017 | ABC | Earth-616 |
 | Fantastic Four (added) | Film | 2005 | Fox Fantastic Four | Earth-121698 |
 | Fantastic Four: Rise of the Silver Surfer (added) | Film | 2007 | Fox Fantastic Four | Earth-121698 |
-| Fantastic Four (added) | Film | 2015 | Fox Fantastic Four | Earth-15866 † |
+| Fantastic Four (added) | Film | 2015 | Fox Fantastic Four | Earth-15866 |
 | Spider-Man | Film | 2002 | Raimi Spider-Man | Earth-96283 |
 | Spider-Man 2 | Film | 2004 | Raimi Spider-Man | Earth-96283 |
 | Spider-Man 3 | Film | 2007 | Raimi Spider-Man | Earth-96283 |
 | The Amazing Spider-Man | Film | 2012 | Webb Spider-Man | Earth-120703 |
 | The Amazing Spider-Man 2 | Film | 2014 | Webb Spider-Man | Earth-120703 |
-| Venom | Film | 2018 | Sony Spider-Man Universe | Earth-688B † |
-| Venom: Let There Be Carnage | Film | 2021 | Sony Spider-Man Universe | Earth-688B † |
-| Morbius | Film | 2022 | Sony Spider-Man Universe | Earth-688B † |
-| Madame Web | Film | 2024 | Sony Spider-Man Universe | Earth-688B † |
-| Kraven the Hunter | Film | 2024 | Sony Spider-Man Universe | Earth-688B † |
-| Venom: The Last Dance | Film | 2024 | Sony Spider-Man Universe | Earth-688B † |
+| Venom | Film | 2018 | Sony Spider-Man Universe | Earth-688B |
+| Venom: Let There Be Carnage | Film | 2021 | Sony Spider-Man Universe | Earth-688B |
+| Morbius | Film | 2022 | Sony Spider-Man Universe | Earth-688B |
+| Madame Web | Film | 2024 | Sony Spider-Man Universe | Earth-688B |
+| Kraven the Hunter | Film | 2024 | Sony Spider-Man Universe | Earth-688B |
+| Venom: The Last Dance | Film | 2024 | Sony Spider-Man Universe | Earth-688B |

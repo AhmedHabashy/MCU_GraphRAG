@@ -9,6 +9,7 @@ Run:    .venv\\Scripts\\python.exe -m src.source_data_collection.collect_product
 """
 
 from src.source_data_collection.build_title_registry import REGISTRY_PATH
+from src.source_data_collection.incremental import TitleScopes
 from src.source_data_collection.storage import read_csv, utc_now, write_json
 from src.source_data_collection.tier_titles import PROJECT_ROOT
 from src.source_data_collection.wikipedia_cast import WIKIPEDIA_LICENSE
@@ -39,12 +40,15 @@ def main():
     retrieved_at = utc_now()
     client = WikimediaClient()
     titles = read_csv(REGISTRY_PATH)
+    scopes = TitleScopes("production")   # only new or changed titles are collected again
+    todo = scopes.to_collect(titles)
     found = 0
-    for title in titles:
+    for title in todo:
         record = production_record(title, client, retrieved_at)
         write_json(production_path(title["wikidata_qid"]), record)
         found += bool(record["text"])
-    print(f"Production sections for {found}/{len(titles)} titles")
+    scopes.save(titles)
+    print(f"Production sections for {found}/{len(todo)} titles collected now ({len(titles)} in scope)")
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ import re
 
 import pytest
 
+from src.processing.build_titles import load_verified_releases
 from src.source_data_collection.build_title_registry import ENTITIES_PATH, REGISTRY_PATH
 from src.source_data_collection.cast_matching import distinctive_tokens, normalize_name
 from src.source_data_collection.collect_plots import EPISODE_ENTITIES_PATH, plot_path
@@ -142,8 +143,11 @@ def test_every_episode_has_title_air_date_and_summary(plots):
                     and words(e["summary_text"]) >= MIN_EPISODE_SUMMARY_WORDS)] == []
 
 
-def test_episode_titles_and_air_dates_agree_with_wikidata(plots, wikidata_episodes):
-    """Match Wikipedia episodes to Wikidata episode items by title, then compare air dates."""
+def test_episode_titles_and_air_dates_agree_with_wikidata(plots, wikidata_episodes, titles):
+    """Match Wikipedia episodes to Wikidata episode items by title, then compare air dates.
+    Wikidata may date a premiere episode by its verified premiere screening (Luke Cage, docs
+    "Verified first releases") where Wikipedia gives the streaming release."""
+    verified = load_verified_releases({t["title"]: t["wikidata_qid"] for t in titles})
     unmatched, wrong_date = [], []
     for title_qid, items in wikidata_episodes.items():
         by_title = {normalize_name(e["title"]): e for e in plots[title_qid]["episodes"]}
@@ -153,7 +157,7 @@ def test_episode_titles_and_air_dates_agree_with_wikidata(plots, wikidata_episod
                 unmatched.append((plots[title_qid]["title"], label(item)))
                 continue
             dates = {d["time"][1:11] for d in claim_values(item, P_PUBLICATION_DATE)}
-            if dates and episode["air_date"] not in dates:
+            if dates and episode["air_date"] not in dates and verified.get(title_qid) not in dates:
                 wrong_date.append((label(item), episode["air_date"], sorted(dates)))
     total = sum(len(v) for v in wikidata_episodes.values())
     assert total and 1 - len(unmatched) / total >= MIN_WIKIDATA_EPISODES_MATCHED, unmatched

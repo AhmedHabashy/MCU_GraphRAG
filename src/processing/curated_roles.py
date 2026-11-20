@@ -4,19 +4,29 @@ A row matches the performances of one actor in one title. '*' as the title means
 title; '*' as the actor means every role in the title (a title set entirely in its own
 universe). A row for one actor in one title wins over a '*' row. A row can set the role's
 identity, reality, display name and the character it is a variant of; blank cells keep what
-the data says.
+the data says. "Dropped roles" rows (title and actor) remove roles the source has wrong.
 """
 
 from src.source_data_collection.cast_matching import normalize_name
 from src.source_data_collection.tier_titles import TIERS_DOC_PATH, read_table
 
 CURATED_HEADING = "### Curated roles"
+DROPPED_HEADING = "### Dropped roles"
 ALL = "*"
 UNKNOWN_REALITY = "Unknown"
 
 
 def load_curated_roles(path=TIERS_DOC_PATH):
     return read_table(path, CURATED_HEADING)
+
+
+def load_dropped_roles(path=TIERS_DOC_PATH):
+    return read_table(path, DROPPED_HEADING)
+
+
+def drop_roles(performances, rows, title_qids):
+    """Performances that no dropped-roles row matches."""
+    return [p for p in performances if not any(_matches(r, p, title_qids) for r in rows)]
 
 
 def _matches(row, performance, title_qids):
