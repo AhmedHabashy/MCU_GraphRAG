@@ -55,6 +55,22 @@ Merged tables built from the collected data are written to `processed_data/` (no
 .venv\Scripts\python.exe -m src.processing.build_teams                        # teams and memberships linked to characters
 ```
 
+## Extracting facts from plots
+
+Facts (who fights, helps, kills or joins whom, with an exact quote as evidence) are extracted
+from the plot and episode summaries by Claude Code subagents (Sonnet), following
+[src/graph/extraction_prompt.md](src/graph/extraction_prompt.md). Output goes to
+`processed_data/extraction/plots/` (not committed).
+
+```powershell
+.venv\Scripts\python.exe -m src.graph.prepare_extraction   # chunk inputs; lists pending chunks per agent in batches.json
+.venv\Scripts\python.exe -m src.graph.check_extraction     # check every output: known IDs, exact evidence, episodes
+```
+
+Each agent gets one batch from `batches.json` (prompt and commands: [docs/extraction_agents.md](docs/extraction_agents.md)): for every chunk it reads `inputs/<chunk>.json`,
+writes `outputs/<chunk>.json` and runs the check on it. A chunk is pending only when its output
+is missing or older than its input, so a rerun extracts only new or changed text.
+
 ## Tests
 
 ```powershell

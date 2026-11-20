@@ -224,6 +224,10 @@ the expert left it to us, so no team is invented for them. Per round 4, Daisy Jo
 to S.H.I.E.L.D. (a member, and a former director) and to the Inhumans through her species: each
 character's species comes from its MCU wiki infobox (former, temporary and Framework species
 are left out).
+The Time Variance Authority (TVA) is added as an organization (user, after the extraction
+pilot). It stands outside time; it is placed in Earth-616 with Loki, whose seasons are set
+there. Its Marvel Database page covers the comics and the screen TVA together, so only the
+MCU wiki page is used (comics are out of scope).
 
 | Team | Reality | Kind | MCU wiki page | Marvel Database page | Wikipedia page | Also called |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -238,6 +242,7 @@ are left out).
 | S.H.I.E.L.D. | Earth-616 | organization | S.H.I.E.L.D. | S.H.I.E.L.D. (Earth-199999) | List of Marvel Cinematic Universe teams and organizations | |
 | HYDRA | Earth-616 | organization | Hydra | Hydra (Earth-199999) | List of Marvel Cinematic Universe teams and organizations | |
 | The Hand | Earth-616 | organization | Hand | Hand (Earth-199999) | List of Marvel Cinematic Universe teams and organizations | |
+| Time Variance Authority | Earth-616 | organization | Time Variance Authority | | List of Marvel Cinematic Universe teams and organizations | TVA |
 
 ### Tier 2: remaining MCU films and Disney+ series (second pass)
 

@@ -194,6 +194,10 @@ def link_tmdb_credits(tmdb_rows, roles, qids_by_person, tmdb_pointer, src):
     for qid, item in src.characters.items():
         for actor in _split(item["performer_qids"]):
             performed_by.setdefault(actor, set()).add(qid)
+    names_played = {}  # (title, TMDB person) -> every name credited (a voice actor's other parts)
+    for credit in tmdb_rows:
+        names_played.setdefault((credit["title_qid"], credit["tmdb_person_id"]), set()).update(
+            normalize_name(n) for n in name_parts(credit["character"]))
 
     def by_name(identities, credit):
         return [i for i in identities if character_matches(credit["character"], _names(i, src))]
@@ -203,7 +207,12 @@ def link_tmdb_credits(tmdb_rows, roles, qids_by_person, tmdb_pointer, src):
         same_title = by_title_actor.get((title, actor), [])
         if len({r["character_id"] for r in same_title}) == 1:
             role = same_title[0]
-            return role["base_qid"], role["character_id"], "parent_series" if role["via"] else "same_title"
+            # The only role takes the credit, unless the actor is credited under several names
+            # here and this credit names something else (Ross Marquand: Professor X, and
+            # 'Apocalypse (voice)'). A credit with no name names nothing else.
+            if (len(names_played[(title, credit["tmdb_person_id"])]) <= 1 or not name_parts(credit["character"])
+                    or character_matches(credit["character"], _names(role["base_qid"], src))):
+                return role["base_qid"], role["character_id"], "parent_series" if role["via"] else "same_title"
         ambiguous = []  # the credit names several of the actor's characters ('Kraglin / On-Set Rocket')
         if same_title:
             hits = by_name({r["base_qid"] for r in same_title}, credit)
@@ -325,6 +334,13 @@ def _node(cid, identity, src):
     return node, names
 
 
+def credit_aliases(tmdb_character, names):
+    """Names a TMDB credit adds to its character. A single name is kept (it may be one no other
+    source has); of several ('Cyclops / Russian Judge') only those naming the character are."""
+    parts = name_parts(tmdb_character)
+    return parts if len(parts) == 1 else [p for p in parts if character_matches(p, names)]
+
+
 def species_of(row, known):
     """A page's species, '|'-joined; a plural name ("Humans") becomes its known singular."""
     names = [n[:-1] if n.endswith("s") and n[:-1] in known else n for n in _split(row.get("species", ""))]
@@ -359,7 +375,7 @@ def character_rows(performances, src):
         if p.get("curated_variant_of"):
             nodes[cid]["variant_of"].add(p["curated_variant_of"])
         nodes[cid]["titles"].add(p["title_qid"])
-        for name in name_parts(p["tmdb_character"]):
+        for name in credit_aliases(p["tmdb_character"], _names(identity, src)):
             add_alias(cid, name, "tmdb")
 
     links = _variant_links(nodes, src) + _identity_links(nodes, src)

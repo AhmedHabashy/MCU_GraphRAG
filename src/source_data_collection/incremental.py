@@ -47,3 +47,14 @@ def in_title_order(rows, titles):
     """Rows sorted by their title's position in `titles` (stable within a title)."""
     position = {t["wikidata_qid"]: i for i, t in enumerate(titles)}
     return sorted(rows, key=lambda r: position[r["title_qid"]])
+
+
+def saved_or_fetched(path, fetch):
+    """The page saved at `path` by an earlier run, else `fetch()`ed now and saved there.
+    A page that does not exist (fetch gives None) is not saved, so it is tried again next run."""
+    if path.exists():
+        return read_json(path)
+    page = fetch()
+    if page is not None:
+        write_json(path, page)
+    return page

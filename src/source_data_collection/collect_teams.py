@@ -4,6 +4,8 @@ MCU wiki and the Marvel Database, two independent sources.
 The wikis give membership as of today (current or former), not per film.
 
 Needs:  docs/data_sources_and_tiers.md ("Teams")
+Pages saved by an earlier run are reused; only teams new to the table are fetched.
+
 Output: source_data/fandom/teams/<wiki>/<page>.json  (raw infobox section, as collected)
         source_data/wikipedia/teams/<page>.json      (whole Wikipedia team article, wikitext and text)
         source_data/fandom/team_members.csv    (one row per team, source, role and member)
@@ -18,6 +20,7 @@ import mwparserfromhell
 from src.source_data_collection.collect_characters import (
     FANDOM_DIR, FANDOM_LICENSE, MARVEL_DB_WIKI, MCU_WIKI,
 )
+from src.source_data_collection.incremental import saved_or_fetched
 from src.source_data_collection.storage import utc_now, write_csv, write_json
 from src.source_data_collection.tier_titles import PROJECT_ROOT, TIERS_DOC_PATH, read_table
 from src.source_data_collection.wikipedia_cast import WIKIPEDIA_LICENSE
@@ -72,6 +75,18 @@ def _file_name(page):
     return re.sub(r"[^A-Za-z0-9._-]+", "_", page) + ".json"
 
 
+def _team_lead(client, wiki, page, team, retrieved_at):
+    lead = client.lead(wiki, page)
+    return lead and {**lead, "team": team["team"], "reality": team["reality"], "source": wiki,
+                     "retrieved_at": retrieved_at, "license": FANDOM_LICENSE}
+
+
+def _article(client, page, teams, retrieved_at):
+    article = client.article(page)
+    return {**article, "text": plain_text(article["wikitext"]), "teams": teams, "source": "wikipedia",
+            "retrieved_at": retrieved_at, "license": WIKIPEDIA_LICENSE}
+
+
 def main():
     retrieved_at = utc_now()
     client = FandomClient()
@@ -80,15 +95,13 @@ def main():
         for wiki, page in ((MCU_WIKI, team["mcu wiki page"]), (MARVEL_DB_WIKI, team["marvel database page"])):
             if not page:
                 continue
-            lead = client.lead(wiki, page)
+            lead = saved_or_fetched(TEAMS_RAW_DIR / wiki / _file_name(page), lambda: _team_lead(
+                client, wiki, page, team, retrieved_at))
             if lead is None:
                 print(f"WARNING: {wiki}:{page} not found")
                 continue
-            write_json(TEAMS_RAW_DIR / wiki / _file_name(lead["page"]),
-                       {**lead, "team": team["team"], "reality": team["reality"], "source": wiki,
-                        "retrieved_at": retrieved_at, "license": FANDOM_LICENSE})
             provenance = {"source": wiki, "source_url": lead["url"], "revid": lead["revid"],
-                          "retrieved_at": retrieved_at, "license": FANDOM_LICENSE}
+                          "retrieved_at": lead["retrieved_at"], "license": FANDOM_LICENSE}
             member_rows += [{"team": team["team"], "reality": team["reality"], **m, **provenance}
                             for m in team_members(lead["wikitext"])]
             alias_rows += [{"team": team["team"], "reality": team["reality"], "alias": a, **provenance}
@@ -102,10 +115,10 @@ def main():
         if team["wikipedia page"]:
             pages.setdefault(team["wikipedia page"], []).append(team_label(team))
     for page, teams in pages.items():
-        article = wikimedia.article(page)
-        write_json(WIKIPEDIA_TEAMS_DIR / _file_name(article["page"]),
-                   {**article, "text": plain_text(article["wikitext"]), "teams": teams,
-                    "source": "wikipedia", "retrieved_at": retrieved_at, "license": WIKIPEDIA_LICENSE})
+        article = saved_or_fetched(WIKIPEDIA_TEAMS_DIR / _file_name(page), lambda: _article(
+            wikimedia, page, teams, retrieved_at))
+        if article["teams"] != teams:  # the teams an article covers is ours, not the source's
+            write_json(WIKIPEDIA_TEAMS_DIR / _file_name(page), {**article, "teams": teams})
     print(f"{len(member_rows)} team member rows, {len(alias_rows)} team aliases, "
           f"{len(pages)} Wikipedia team articles")
 

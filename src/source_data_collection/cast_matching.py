@@ -36,7 +36,7 @@ def _contains(longer, shorter):
 
 
 def _same_character(a, b):
-    if _contains(a, b) or _contains(b, a):
+    if _contains(a, b) or _contains(b, a) or a.replace(" ", "") == b.replace(" ", ""):  # Mastermold
         return True
     return bool((set(a.split()) & set(b.split())) - GENERIC_WORDS)
 

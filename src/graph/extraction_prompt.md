@@ -1,4 +1,4 @@
-# Fact extraction from plot text (pilot draft)
+# Fact extraction from plot text
 
 You extract facts about the Marvel screen universe from one title's plot or episode
 summaries, for a knowledge graph. Use only the text you are given: never add what you know
@@ -42,8 +42,12 @@ Relations (use exactly these names):
   or the context (e.g. "Wade" is Wade Wilson). If two cast entries could fit, pick the one whose
   `reality` fits the scene and say why in `note`.
 - A team or organization in `teams`: put its ID.
-- Anything else (a character missing from `cast`, a place, object or event): leave the ID
-  empty and give the name only. Never invent an ID.
+- Anything else (a character missing from `cast`, an organization missing from `teams`, a
+  place, object or event): leave the ID empty and give the name only. Never invent an ID.
+- This applies to the subject too: a fact may have an empty `subject_id` (e.g. the
+  Time-Keepers, who are not in `cast`), as long as `subject_name` is given.
+- Use the same name for the same unlinked thing throughout (always "Time Ripper", not
+  "the Time Ripper device" in one fact and "Time Ripper" in another).
 
 ## Output
 
@@ -66,8 +70,14 @@ Write a JSON object to the output path you are given:
 ```
 
 Rules:
-- `evidence` must be copied exactly from `text` (one sentence or less). It is checked by
-  string search, so do not fix typos, change quotes or join sentences.
-- `episode`: the episode number for series, `null` for films.
+- `evidence` must be copied exactly from `text`: one sentence or a part of one. It is checked
+  by string search, so do not fix typos, change quotes or join sentences.
+- `title_qid`: copied from the input's `title_qid` (a series split into parts keeps its own
+  QID, e.g. `Q18605540`, not the part's file name).
+- `episode`: the number after "Episode" in the text (numbered across the whole series), `null`
+  for films.
+- One sentence may support several facts; reuse the same `evidence` for each.
+- A group that is not in `cast` or `teams` (e.g. the Salem Seven) is an unlinked subject or
+  object: empty ID, the group's name.
 - No duplicate facts: the same subject, relation and object once per episode (once for a film).
 - Prefer fewer, correct facts over many uncertain ones.

@@ -1,9 +1,11 @@
 """Checks on an extraction agent's output (see src/graph/extraction_prompt.md).
 
-Run:  .venv\Scripts\python.exe -m src.graph.check_extraction <input.json> <output.json>
+Run:  .venv\Scripts\python.exe -m src.graph.check_extraction                      (every chunk)
+      .venv\Scripts\python.exe -m src.graph.check_extraction <input.json> <output.json>
 """
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -19,6 +21,7 @@ def fact_problems(source, output):
     if output.get("title_qid") != source["title_qid"]:
         return [(-1, "title_qid does not match the input")]
     known = {c["id"] for c in source["cast"]} | set(source["teams"])
+    episodes = {int(n) for n in re.findall(r"^Episode (\d+) \(", source["text"], flags=re.MULTILINE)}
     problems, seen = [], set()
     for i, fact in enumerate(output.get("facts", [])):
         missing = [f for f in FIELDS if f not in fact]
@@ -32,6 +35,8 @@ def fact_problems(source, output):
         for side in ("subject_id", "object_id"):
             if fact[side] and fact[side] not in known:
                 problems.append((i, f"{side} {fact[side]} is not in the cast or teams"))
+        if (fact["episode"] not in episodes) if episodes else (fact["episode"] is not None):
+            problems.append((i, f"episode {fact['episode']} is not in this text"))
         if not fact["evidence"] or fact["evidence"] not in source["text"]:
             problems.append((i, "evidence is not an exact quote of the text"))
         key = (fact["subject_id"] or fact["subject_name"], fact["relation"],
@@ -42,16 +47,32 @@ def fact_problems(source, output):
     return problems
 
 
-def main(input_path, output_path):
+def check(input_path, output_path):
+    """(number of facts, problems) for one chunk; a missing or unreadable output is a problem."""
     source = json.loads(Path(input_path).read_text(encoding="utf-8"))
-    output = json.loads(Path(output_path).read_text(encoding="utf-8"))
-    facts = output.get("facts", [])
-    problems = fact_problems(source, output)
-    for i, problem in problems:
-        print(f"fact {i}: {problem}")
-    linked = sum(bool(f.get("subject_id")) + bool(f.get("object_id")) for f in facts)
-    print(f"{len(facts)} facts, {len({i for i, _ in problems})} with problems, {linked} linked entity slots")
+    try:
+        output = json.loads(Path(output_path).read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError) as error:
+        return 0, [(-1, f"no valid output ({type(error).__name__})")]
+    return len(output.get("facts", [])), fact_problems(source, output)
+
+
+def main(args):
+    if args:
+        pairs = [(Path(args[0]), Path(args[1]))]
+    else:
+        from src.graph.prepare_extraction import INPUTS_DIR, OUTPUTS_DIR
+        pairs = [(p, OUTPUTS_DIR / p.name) for p in sorted(INPUTS_DIR.glob("*.json"))]
+    total, failed = 0, []
+    for input_path, output_path in pairs:
+        facts, problems = check(input_path, output_path)
+        total += facts
+        for i, problem in problems:
+            print(f"{input_path.stem} fact {i}: {problem}")
+        if problems:
+            failed.append(input_path.stem)
+    print(f"{len(pairs)} chunks, {total} facts, {len(failed)} chunks with problems: {failed}")
 
 
 if __name__ == "__main__":
-    main(*sys.argv[1:3])
+    main(sys.argv[1:3])

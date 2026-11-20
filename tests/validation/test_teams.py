@@ -130,6 +130,15 @@ def test_round_3_organizations(teams):
     assert teams["Defenders@Earth-616"]["kind"] == "team"
 
 
+def test_tva_is_an_organization_with_its_agents(teams, memberships, performances):
+    """Added after the extraction pilot: Mobius and B-15 (Loki season 1) are TVA agents."""
+    tva = "Time Variance Authority@Earth-616"
+    assert teams[tva]["kind"] == "organization" and "TVA" in teams[tva]["aliases"].split("|")
+    loki_1 = "Q107185252"
+    linked = {m["character_id"] for m in memberships if m["team_id"] == tva}
+    assert {role_of(performances, loki_1, "Owen Wilson"), role_of(performances, loki_1, "Wunmi Mosaku")} <= linked
+
+
 def test_defenders(memberships, performances):
     team = "Defenders@Earth-616"
     assert member(memberships, team, role_of(performances, "Q16977365", "Charlie Cox"))

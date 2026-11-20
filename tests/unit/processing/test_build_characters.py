@@ -190,6 +190,32 @@ def test_tmdb_credit_links_to_the_actors_only_role_in_that_title():
     assert row["tmdb_character"] == "Logan / Wolverine" and row["source"] == "tmdb"
 
 
+def test_a_voice_actors_other_parts_do_not_link_to_their_only_wikidata_role():
+    """X-Men '97: Ross Marquand's one Wikidata role is Professor X, but he is credited for
+    'Professor X / Apocalypse' and 'Apocalypse'. Only the credit naming the role links to it."""
+    credits = [tmdb("Q106182", "10", "Hugh Jackman", "Logan / Wolverine"),
+               tmdb("Q106182", "10", "Hugh Jackman", "Bartender (voice)")]
+    rows = link_tmdb_credits(credits, ROLES, QIDS, {}, sources())
+    assert [r["character_id"] for r in rows] == ["Q97275436@Earth-10005", ""]
+
+
+def test_an_actors_credits_under_one_name_or_none_still_link_to_the_only_role():
+    """Muse: 'Bastian' and 'Bastian (archive footage)' are one part; Gambit: a bare '(voice)'."""
+    for second in ("Logan (archive footage)", "(voice)"):
+        credits = [tmdb("Q106182", "10", "Hugh Jackman", "Logan"), tmdb("Q106182", "10", "Hugh Jackman", second)]
+        rows = link_tmdb_credits(credits, ROLES, QIDS, {}, sources())
+        assert [r["character_id"] for r in rows] == ["Q97275436@Earth-10005"] * 2
+
+
+def test_only_the_names_of_a_credit_that_match_its_character_become_aliases():
+    """'Logan / Bartender' linked to Logan: Bartender is another part, not Logan's name."""
+    perfs = [perf("Q106182", "Q97275436", "Q97275436@Earth-10005", "Logan / Bartender (voice)", "tmdb"),
+             perf("Q106182", "Q97275436", "Q97275436@Earth-10005", "Jimmy", "tmdb")]
+    _, aliases, _ = character_rows(perfs, sources())
+    tmdb_names = {a["normalized"] for a in aliases if a["source"] == "tmdb"}
+    assert tmdb_names == {"logan", "jimmy"}   # a single-name credit is kept (it may be a new name)
+
+
 def test_season_credit_links_to_the_parent_series_role_even_under_another_name():
     row = link(tmdb("Q107185252", "45", "Sophia Di Martino", "The Variant"))
     assert row["character_id"] == "Q107723311@Earth-616" and row["link_method"] == "parent_series"

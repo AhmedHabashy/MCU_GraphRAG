@@ -34,3 +34,11 @@ def test_unknown_relations_and_duplicates_are_caught():
 def test_unlinked_names_are_allowed():
     assert problems(fact(subject_id="", subject_name="Logan", relation="ENEMY_OF", object_type="character",
                          evidence="Logan fights Wade.")) == []
+
+
+def test_episode_must_be_one_of_the_chunks_episodes():
+    series = {**SOURCE, "text": "Episode 4 (season 1, episode 4): T\nWade joins the Avengers."}
+    assert fact_problems(series, {"title_qid": "Q1", "facts": [fact(episode=4)]}) == []
+    wrong = fact_problems(series, {"title_qid": "Q1", "facts": [fact(episode=5)]})
+    assert [p for _, p in wrong] == ["episode 5 is not in this text"]
+    assert problems(fact(episode=1)) == ["episode 1 is not in this text"]   # films have no episodes

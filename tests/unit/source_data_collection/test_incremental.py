@@ -4,6 +4,7 @@ from src.source_data_collection.incremental import (
     TitleScopes,
     collection_scope,
     in_title_order,
+    saved_or_fetched,
     stored_rows,
 )
 from src.source_data_collection.storage import write_csv
@@ -59,3 +60,21 @@ def test_stored_rows_by_another_key(tmp_path):
 def test_rows_are_put_back_in_title_order():
     rows = [{"title_qid": "QJJ", "n": 1}, {"title_qid": "QIM", "n": 2}, {"title_qid": "QJJ", "n": 3}]
     assert [r["n"] for r in in_title_order(rows, [IRON_MAN, JJ])] == [2, 1, 3]
+
+
+def test_a_saved_page_is_read_back_and_a_new_one_fetched_once(tmp_path):
+    calls = []
+
+    def fetch():
+        calls.append(1)
+        return {"page": "Time Variance Authority", "retrieved_at": "now"}
+
+    path = tmp_path / "TVA.json"
+    assert saved_or_fetched(path, fetch) == {"page": "Time Variance Authority", "retrieved_at": "now"}
+    assert saved_or_fetched(path, fetch)["page"] == "Time Variance Authority"
+    assert calls == [1]
+
+
+def test_a_missing_page_is_not_saved(tmp_path):
+    path = tmp_path / "Missing.json"
+    assert saved_or_fetched(path, lambda: None) is None and not path.exists()

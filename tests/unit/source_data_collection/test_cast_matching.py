@@ -45,6 +45,7 @@ def test_character_flags_are_false_for_plain_names():
     ("Thor", ["Thor Odinson"]),                                 # name contained in the other
     ("Steve Rogers / Captain America", ["Steven Rogers"]),      # shared distinctive surname
     ("The Watcher (voice)", ["The Watcher"]),                   # annotation ignored
+    ("Mastermold / Sentinels (voice)", ["Master Mold"]),        # spacing differs
 ])
 def test_character_matches_equivalent_names(tmdb_character, wikidata_names):
     assert character_matches(tmdb_character, wikidata_names)
