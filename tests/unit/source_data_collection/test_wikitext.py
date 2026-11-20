@@ -143,6 +143,18 @@ def test_infobox_params_is_empty_without_the_template():
     assert infobox_params("{{Otheruses}} text", "Marvel Database:Character Template") == {}
 
 
+def test_infobox_params_survive_markup_that_breaks_the_rest_of_the_page():
+    """MCU wiki Daredevil: an unclosed italic inside a reference plus an italic later in the
+    article made the whole-page parse drop the infobox."""
+    lead = ("{{Character\n|real name = Matt Murdock\n|IDno = 1<ref>[https://a.b ''Lot #65]</ref>\n}}\n"
+            "On the ''Northern Star''.")
+    assert infobox_params(lead, "Character")["real name"] == "Matt Murdock"
+
+
+def test_infobox_params_match_the_whole_template_name():
+    assert infobox_params("{{CharHub|A|B}}{{Character|name = A}}", "Character") == {"name": "A"}
+
+
 def test_name_list_splits_bullets_breaks_and_commas_and_drops_refs():
     assert name_list("* Howard Potts{{r|Avengers: Endgame}} * The Mechanic{{r|x}}") == \
         ["Howard Potts", "The Mechanic"]

@@ -218,7 +218,12 @@ the end of Guardians of the Galaxy Vol. 3, possibly not for good. Round 2 added 
 (the Eternals are a species on both wikis, not a team, so they are not listed). The Wikipedia page is kept as text for later extraction of who joins or leaves when.
 Round 3 adds the Defenders and, as organizations, S.H.I.E.L.D., HYDRA and the Hand ("Kind"
 is `team` or `organization`). The Inhuman Royal Family and the Fox Fantastic Fours are not
-added (expert). The Sinister Six is not listed: it has no screen page on either wiki.
+added (expert). The Sinister Six is not listed: the expert (round 4) confirmed no such group
+exists on screen; the five No Way Home villains fought together but are never called that, and
+the expert left it to us, so no team is invented for them. Per round 4, Daisy Johnson is linked
+to S.H.I.E.L.D. (a member, and a former director) and to the Inhumans through her species: each
+character's species comes from its MCU wiki infobox (former, temporary and Framework species
+are left out).
 
 | Team | Reality | Kind | MCU wiki page | Marvel Database page | Wikipedia page | Also called |
 | --- | --- | --- | --- | --- | --- | --- |

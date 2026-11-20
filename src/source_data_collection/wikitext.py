@@ -85,14 +85,32 @@ def episode_entries(wikitext):
     return episodes
 
 
+def _template_source(wikitext, template_name):
+    """Source text of the first `template_name` template, up to its matching '}}', or None."""
+    start = re.compile(r"\{\{\s*" + re.escape(template_name) + r"\s*(?=\||\}\})", re.IGNORECASE)
+    for match in start.finditer(wikitext):
+        depth, i = 0, match.start()
+        while i < len(wikitext):
+            if wikitext.startswith("{{", i):
+                depth, i = depth + 1, i + 2
+            elif wikitext.startswith("}}", i):
+                depth, i = depth - 1, i + 2
+                if depth == 0:
+                    return wikitext[match.start():i]
+            else:
+                i += 1
+    return None
+
+
 def infobox_params(wikitext, template_name):
-    """Non-empty parameters of the first `template_name` template, as raw wikitext."""
-    wanted = template_name.lower()
-    for template in mwparserfromhell.parse(wikitext).filter_templates():
-        if str(template.name).strip().lower() == wanted:
-            return {str(p.name).strip(): str(p.value).strip()
-                    for p in template.params if str(p.value).strip()}
-    return {}
+    """Non-empty parameters of the first `template_name` template, as raw wikitext. Only the
+    template's own text is parsed: broken markup elsewhere on a page (e.g. an unclosed italic)
+    can make a whole-page parse read the template as plain text."""
+    source = _template_source(wikitext, template_name)
+    if source is None:
+        return {}
+    template = mwparserfromhell.parse(source).filter_templates(recursive=False)[0]
+    return {str(p.name).strip(): str(p.value).strip() for p in template.params if str(p.value).strip()}
 
 
 _LINK_TEMPLATES = {"m"}  # Marvel Database {{m|Page|Shown text}}

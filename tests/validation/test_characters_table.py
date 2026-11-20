@@ -20,6 +20,7 @@ from src.source_data_collection.cast_matching import normalize_name
 from src.source_data_collection.collect_characters import (
     CHARACTERS_PATH as COLLECTED_CHARACTERS_PATH, MARVEL_DB_PATH, SELF_QID, earth_of,
 )
+from src.source_data_collection.collect_mcu_wiki import MCU_WIKI_CHARACTERS_PATH
 from src.source_data_collection.storage import read_csv
 from src.source_data_collection.tmdb_cast import TMDB_CAST_PATH
 from src.source_data_collection.wikidata_cast import WIKIDATA_CAST_PATH
@@ -447,3 +448,41 @@ def test_mcu_variants_of_one_character_are_linked(performances, links):
     mcu = role(performances, "Q107185252", "Tom Hiddleston")
     variants = {(l["from_id"], l["to_id"]) for l in links if l["relation"] == "variant"}
     assert any(a in mcu or b in mcu for a, b in variants)
+
+
+# --- species (from the MCU wiki infobox) ----------------------------------------------------
+
+def test_daisy_johnson_is_an_inhuman(characters):
+    """Expert, round 4: link the Agents of S.H.I.E.L.D. Daisy Johnson to the Inhumans."""
+    assert characters["Q24027972@Earth-616"]["species"] == "Inhuman"
+
+
+@pytest.mark.parametrize("cid, species", [
+    ("Q24046102@Earth-616", "Asgardian"),       # Thor
+    ("Q24046118@Earth-616", "Frost Giant"),     # Loki
+    ("Q64658380@Earth-616", "Human|Kree"),      # Carol Danvers: "Human/Kree Hybrid"
+    ("Q24050072@Earth-616", "Zehoberei"),       # Gamora: "Zehoberei (Cyborg)"
+    ("Q64825451@Earth-616", "Titan"),           # Thanos: "[[Titans|Titan]]"
+    ("Q23894967@Earth-616", "Human"),           # Tony Stark: page declared by Wikidata only
+])
+def test_known_species(characters, cid, species):
+    assert characters[cid]["species"] == species
+
+
+def test_species_names_are_clean(characters):
+    """No wiki markup, notes or qualifiers left in a species name."""
+    names = {s for c in characters.values() for s in c["species"].split("|") if s}
+    assert [n for n in names if any(ch in n for ch in "[]{}<>=()") or n.lower() in ("hybrid", "glossary")
+            or "formerly" in n.lower() or "temporarily" in n.lower()] == []
+
+
+def test_species_have_one_form(characters):
+    """"Humans" (a link to the plural page) is the same species as "Human"."""
+    names = {s for c in characters.values() for s in c["species"].split("|") if s}
+    assert [n for n in names if n.endswith("s") and n[:-1] in names] == []
+
+
+def test_every_character_with_a_species_on_its_mcu_wiki_page_has_it(characters):
+    pages = {r["requested_page"]: r for r in read_csv(MCU_WIKI_CHARACTERS_PATH)}
+    assert [c["character_id"] for c in characters.values() if not c["species"]
+            and pages.get(c["mcu_wiki_page"], {}).get("species")] == []

@@ -6,10 +6,13 @@ Many supporting MCU characters (e.g. Katy, B-15, Dar-Benn) have no Wikidata item
 has a page for them whose character infobox names the actor. A page is accepted for a credit
 only if that infobox lists the credit's TMDB actor, so a name search alone never decides.
 
-Needs:  source_data/wikidata/titles.csv, source_data/tmdb/cast.csv
-Output: source_data/fandom/mcu_wiki/<page>.json          (raw first section of each matched page)
+Pages that Wikidata declares for a collected character (e.g. Iron Man) are kept too, even when
+no credit matched them; "requested_page" is the declared name, which may redirect to "page".
+
+Needs:  source_data/wikidata/titles.csv, source_data/tmdb/cast.csv, source_data/wikidata/characters.csv
+Output: source_data/fandom/mcu_wiki/<page>.json          (raw first section of each kept page)
         source_data/fandom/mcu_wiki_credits.csv     (credit -> matched page, or blank)
-        source_data/fandom/mcu_wiki_characters.csv  (parsed infobox per matched page)
+        source_data/fandom/mcu_wiki_characters.csv  (parsed infobox per kept page)
 Run:    .venv\\Scripts\\python.exe -m src.source_data_collection.collect_mcu_wiki
 """
 
@@ -19,10 +22,12 @@ import mwparserfromhell
 
 from src.source_data_collection.build_title_registry import REGISTRY_PATH
 from src.source_data_collection.cast_matching import distinctive_tokens, name_parts, normalize_name
-from src.source_data_collection.collect_characters import FANDOM_DIR, FANDOM_LICENSE, MCU_WIKI
+from src.source_data_collection.collect_characters import (
+    CHARACTERS_PATH as WIKIDATA_CHARACTERS_PATH, FANDOM_DIR, FANDOM_LICENSE, MCU_WIKI,
+)
 from src.source_data_collection.storage import read_csv, read_json, utc_now, write_csv, write_json
 from src.source_data_collection.tmdb_cast import TMDB_CAST_PATH
-from src.source_data_collection.wikitext import infobox_params, name_list
+from src.source_data_collection.wikitext import infobox_params, name_list, plain_text
 from src.title_types import is_movie
 from src.utils import FandomClient
 
@@ -34,16 +39,41 @@ MCU_UNIVERSES = {"MCU", "MCU animation", "Netflix", "Marvel TV", "ABC"}  # tier-
 MAX_BILLING = 20  # films only
 SEARCH_HITS = 3
 INFOBOX = "Character"
+NOT_OWN_ALIASES = {"undercover"}  # Alias fields naming people the character posed as
+NOT_OWN_SPECIES = {"formerly", "temporarily", "framework"}  # a species with this note is not the character's own
+NOT_SPECIES = {"hybrid", "glossary"}  # links that qualify a species instead of naming one
 
 
 def _alias_names(value):
-    """Names inside {{Alias |primary = ... |codenames = ... |nicknames = ...}}."""
+    """Names inside {{Alias |primary = ... |codenames = ... |nicknames = ...}}, except the
+    'undercover' identities: those are people the character posed as (Talos as Nick Fury)."""
     names = []
     for template in mwparserfromhell.parse(value).filter_templates(recursive=False):
         if str(template.name).strip().lower() == "alias":
             for param in template.params:
-                names += name_list(str(param.value))
+                if str(param.name).strip().lower() not in NOT_OWN_ALIASES:
+                    names += name_list(str(param.value))
     return names or name_list(value)
+
+
+def species_names(value):
+    """Species in an infobox 'species' value, one entry per line: the linked names shown (or
+    the plain text when nothing is linked), without notes, references or comments. A line whose
+    note is (formerly), (temporarily) or (Framework) is not the character's own species."""
+    names = []
+    for line in re.split(r"<br\s*/?>|\n", value, flags=re.IGNORECASE):
+        code = mwparserfromhell.parse(line)
+        notes = [t for t in code.filter_tags(recursive=False) if str(t.tag).lower() in ("small", "ref")]
+        if any(plain_text(str(n.contents or "")).strip(" ()").lower() in NOT_OWN_SPECIES
+               for n in notes if str(n.tag).lower() == "small"):
+            continue
+        for node in [*notes, *code.filter_comments(recursive=False), *code.filter_templates(recursive=False)]:
+            code.remove(node)
+        links = [l for l in code.filter_wikilinks(recursive=False)
+                 if str(l.title).split("#")[0].strip().lower() not in NOT_SPECIES]
+        shown = [plain_text(str(l.text if l.text else l.title)) for l in links] or [plain_text(str(code))]
+        names += [n for n in shown if n and n not in names]
+    return names
 
 
 def mcu_wiki_infobox(wikitext):
@@ -56,7 +86,8 @@ def mcu_wiki_infobox(wikitext):
             "actors": name_list(params.get("actor", "")),
             "affiliations": name_list(params.get("affiliation", "")),
             "movies": name_list(params.get("movie", "")),
-            "tv_series": name_list(params.get("tv series", ""))}
+            "tv_series": name_list(params.get("tv series", "")),
+            "species": species_names(params.get("species", ""))}
 
 
 def actor_matches(actor_name, infobox_actors):
@@ -99,6 +130,12 @@ def credit_key(row):
     return row["title_qid"], row["tmdb_person_id"], row["tmdb_character"]
 
 
+def declared_pages(wikidata_characters, collected):
+    """MCU wiki pages Wikidata declares for its characters that are not collected yet."""
+    names = dict.fromkeys(r["mcu_wiki_page"].replace("_", " ") for r in wikidata_characters)
+    return [n for n in names if n and n not in collected]
+
+
 def _file_name(page):
     return re.sub(r"[^A-Za-z0-9._-]+", "_", page) + ".json"
 
@@ -133,10 +170,29 @@ def main():
         if searched % 100 == 0:
             print(f"{searched} new credits searched", flush=True)
 
+    # Declared pages saved before are read back; only new ones are fetched.
+    missing = []
+    for name in declared_pages(read_csv(WIKIDATA_CHARACTERS_PATH), pages):
+        path = MCU_WIKI_RAW_DIR / _file_name(name)
+        if path.exists():
+            pages[name] = read_json(path)
+            continue
+        page = client.lead(MCU_WIKI, name)
+        if not page:
+            missing.append(name)
+            continue
+        pages[name] = {**page, "source": "mcu_wiki", "retrieved_at": retrieved_at, "license": FANDOM_LICENSE}
+        write_json(path, pages[name])
+    if missing:
+        print(f"WARNING: {len(missing)} pages declared by Wikidata do not exist: {missing}")
+
     character_rows = []
     for name, page in pages.items():
         box = mcu_wiki_infobox(page["wikitext"])
-        character_rows.append({"page": name, "revid": page["revid"],
+        if box is None:
+            print(f"WARNING: {name} has no character infobox; skipped")
+            continue
+        character_rows.append({"page": page["page"], "requested_page": name, "revid": page["revid"],
                                **{k: "|".join(v) for k, v in box.items()},
                                "source": "mcu_wiki", "source_url": page["url"],
                                "retrieved_at": page["retrieved_at"], "license": FANDOM_LICENSE})

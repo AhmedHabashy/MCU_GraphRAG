@@ -58,9 +58,9 @@ TITLES = {"Q106182": {"wikidata_qid": "Q106182", "reality": "Earth-10005"},
           "Q2000": {"wikidata_qid": "Q2000", "reality": "Earth-616"},
           "Q65980671": {"wikidata_qid": "Q65980671", "reality": MULTIVERSE}}
 MCU_CHARACTERS = {"Katy Chen": {"page": "Katy Chen", "real_names": "Katy Chen|Chen Ruiwen",
-                                "aliases": "Katy|Little Mooch"},
+                                "aliases": "Katy|Little Mooch", "species": "Human"},
                   "Mobius M. Mobius": {"page": "Mobius M. Mobius", "real_names": "Mobius M. Mobius",
-                                       "aliases": "Mobius"}}
+                                       "aliases": "Mobius", "species": "Humans"}}
 MCU_CREDITS = {("Q65768589", "50", "Katy"): "Katy Chen",
                ("Q107185252", "60", "Agent Mobius"): "Mobius M. Mobius"}
 
@@ -365,6 +365,14 @@ def test_wikidata_character_with_a_matched_mcu_wiki_page_also_gets_its_aliases()
     _, aliases, _ = build()
     assert ("Q106706981@Earth-616", "mobius", "mcu_wiki") in {
         (a["character_id"], a["normalized"], a["source"]) for a in aliases}
+
+
+def test_species_comes_from_the_mcu_wiki_page_in_its_singular_form():
+    characters, _, _ = build()
+    species = {c["character_id"]: c["species"] for c in characters}
+    assert species["mcuwiki:Katy_Chen@Earth-616"] == "Human"
+    assert species["Q106706981@Earth-616"] == "Human"       # page says "Humans"; "Human" is known
+    assert species["Q192837@Earth-10005"] == ""             # no MCU wiki page
 
 
 def test_aliases_pool_wikidata_tmdb_and_matching_marvel_database_names():

@@ -141,5 +141,19 @@ def test_hydra_was_led_by_the_red_skull(memberships, performances):
     assert any(m["team_id"] == "HYDRA@Earth-616" and m["character_id"] == red_skull for m in memberships)
 
 
+@pytest.mark.parametrize("member_name, impostor", [
+    ("R. Keller", "Q66189316@Earth-616"),    # Talos posed as Director Keller
+    ("James Davis", "mcuwiki:Izel@Earth-616"),  # Izel posed as Agent Davis
+])
+def test_members_are_not_linked_to_someone_who_posed_as_them(memberships, member_name, impostor):
+    rows = [m for m in memberships if m["member_name"] == member_name or m["member_page"] == member_name]
+    assert rows and impostor not in {m["character_id"] for m in rows}
+
+
+def test_daisy_johnson_is_in_shield(memberships):
+    """Expert, round 4: link Daisy Johnson to S.H.I.E.L.D. (and to the Inhumans: her species)."""
+    assert member(memberships, "S.H.I.E.L.D.@Earth-616", "Q24027972@Earth-616")
+
+
 def test_rows_have_provenance(memberships):
     assert [m for m in memberships if not (m["source"] and m["source_url"] and m["revid"])] == []

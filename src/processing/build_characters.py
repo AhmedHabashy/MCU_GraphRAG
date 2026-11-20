@@ -69,7 +69,7 @@ class Sources:
     related: dict          # QID -> raw Wikidata entity (universes, same-as / different-from targets)
     universe_pages: dict   # universe QID -> Marvel Database Earth page name
     mcu_credits: dict      # (title QID, TMDB person, TMDB character) -> verified MCU wiki page
-    mcu_characters: dict   # MCU wiki page -> parsed infobox row
+    mcu_characters: dict   # MCU wiki page (as requested) -> parsed infobox row
     screen_realities: frozenset = None  # realities of films and series (None: no filter)
     mcu_pages: dict = None  # MCU wiki page -> character QID, inferred from credits (inferred_mcu_pages)
 
@@ -324,9 +324,16 @@ def _node(cid, identity, src):
     return node, names
 
 
+def species_of(row, known):
+    """A page's species, '|'-joined; a plural name ("Humans") becomes its known singular."""
+    names = [n[:-1] if n.endswith("s") and n[:-1] in known else n for n in _split(row.get("species", ""))]
+    return "|".join(dict.fromkeys(names))
+
+
 def character_rows(performances, src):
     """Character, alias and link rows for every character used in a performance."""
     nodes, aliases = {}, {}
+    known_species = {s for r in src.mcu_characters.values() for s in _split(r.get("species", ""))}
 
     def add_alias(cid, name, source):
         key = (cid, normalize_name(name), source)
@@ -340,8 +347,9 @@ def character_rows(performances, src):
         if cid not in nodes:
             node, names = _node(cid, identity, src)
             nodes[cid] = {"character_id": cid, "base_qid": identity,
-                          "reality": cid.rsplit("@", 1)[1], **node, "titles": set(),
-                          "variant_of": set()}
+                          "reality": cid.rsplit("@", 1)[1], **node,
+                          "species": species_of(src.mcu_characters.get(node["mcu_wiki_page"], {}), known_species),
+                          "titles": set(), "variant_of": set()}
             for name, source in names:
                 add_alias(cid, name, source)
         if p.get("curated_label"):
@@ -410,7 +418,7 @@ def load_sources(curated):
         universe_pages=universe_pages,
         mcu_credits={(r["title_qid"], r["tmdb_person_id"], r["tmdb_character"]): r["page"]
                      for r in read_csv(MCU_WIKI_CREDITS_PATH) if r["page"]},
-        mcu_characters={r["page"]: r for r in read_csv(MCU_WIKI_CHARACTERS_PATH)},
+        mcu_characters={r["requested_page"]: r for r in read_csv(MCU_WIKI_CHARACTERS_PATH)},
         screen_realities=screen_realities(titles, curated),
     )
 

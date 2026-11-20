@@ -3,14 +3,17 @@
 from src.source_data_collection.collect_mcu_wiki import (
     actor_matches,
     candidate_credits,
+    declared_pages,
     match_credit,
     mcu_wiki_infobox,
+    species_names,
 )
 
 KATY_LEAD = """{{Character
 |image = Katy.png
 |real name = Katy Chen{{Ref|SCatLotTR}}<br>Chen Ruiwen{{Ref|SCatLotTR}}
 |alias = {{Alias |primary = Katy |nicknames = Little Mooch{{Ref|SCatLotTR}}}}
+|species = [[Humans|Human]]
 |affiliation = [[Ta Lo]]
 |movie = [[Shang-Chi and the Legend of the Ten Rings]]
 |actor = [[Awkwafina]]
@@ -24,11 +27,53 @@ def test_infobox_reads_names_aliases_actors_and_appearances():
     box = mcu_wiki_infobox(KATY_LEAD)
     assert box == {"real_names": ["Katy Chen", "Chen Ruiwen"], "aliases": ["Katy", "Little Mooch"],
                    "actors": ["Awkwafina"], "affiliations": ["Ta Lo"],
-                   "movies": ["Shang-Chi and the Legend of the Ten Rings"], "tv_series": []}
+                   "movies": ["Shang-Chi and the Legend of the Ten Rings"], "tv_series": [],
+                   "species": ["Human"]}
 
 
 def test_pages_without_a_character_infobox_give_none():
     assert mcu_wiki_infobox("{{Location |name = Ta Lo}}") is None
+
+
+def test_undercover_identities_are_not_aliases():
+    """Talos posed as R. Keller and Nick Fury; those are other people, not his names."""
+    box = mcu_wiki_infobox("{{Character\n|alias = {{Alias\n|media = Shapeshifting Alien"
+                           "\n|undercover = [[R. Keller]]<br>[[Nick Fury]]}}\n|actor = [[Ben Mendelsohn]]}}")
+    assert box["aliases"] == ["Shapeshifting Alien"]
+
+
+# --- species_names (values copied from MCU wiki infoboxes) ---------------------------------
+
+def test_species_is_the_linked_name_shown():
+    assert species_names("[[Inhuman]]") == ["Inhuman"]
+    assert species_names("[[Humans|Human]]") == ["Human"]
+
+
+def test_species_ignores_notes_references_and_hybrid():
+    assert species_names("[[Human]] <small>([[Glossary|Cyborg]])</small>") == ["Human"]
+    assert species_names('[[Human]]/[[Kree]] [[Hybrid]]<ref name="Hybrid">[https://a.b c]</ref>') == ["Human", "Kree"]
+    assert species_names("[[Mindless One]] <small>(formerly [[Human]])</small>") == ["Mindless One"]
+
+
+def test_species_shown_as_former_temporary_or_simulated_are_dropped():
+    assert species_names("[[Human]] <small>(formerly)</small><br>[[Artificial Intelligence]]") == ["Artificial Intelligence"]
+    assert species_names("[[Asgardian]] <small>([[Cyborg]])</small><br>{{WPS|Frog}} <small>(temporarily)</small>") == ["Asgardian"]
+    assert species_names("[[Human]]<br>[[Inhuman]] <small>([[Framework]])</small>") == ["Human"]
+
+
+def test_unlinked_species_and_comments():
+    assert species_names("Fuertona<!-- Do not link -->") == ["Fuertona"]
+    assert species_names("Non-Corporeal Entity <small>([[Human]] apparence)</small>") == ["Non-Corporeal Entity"]
+    assert species_names("<!-- DO NOT ADD \"Elder of the Universe\", that's not a species -->") == []
+    assert species_names("") == []
+
+
+# --- declared_pages ------------------------------------------------------------------------
+
+def test_declared_pages_are_wikidata_pages_not_collected_yet():
+    rows = [{"mcu_wiki_page": "Iron_Man"}, {"mcu_wiki_page": "Iron Man"}, {"mcu_wiki_page": ""},
+            {"mcu_wiki_page": "Katy_Chen"}]
+    assert declared_pages(rows, collected={"Katy Chen"}) == ["Iron Man"]
 
 
 # --- actor_matches -------------------------------------------------------------------------
