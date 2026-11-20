@@ -71,6 +71,17 @@ Each agent gets one batch from `batches.json` (prompt and commands: [docs/extrac
 writes `outputs/<chunk>.json` and runs the check on it. A chunk is pending only when its output
 is missing or older than its input, so a rerun extracts only new or changed text.
 
+## Loading the graph
+
+With Neo4j running (`docker compose up -d --wait`), load the built tables and the extracted facts.
+Each run rebuilds the graph from the tables (about 15 seconds); the schema is described in
+[src/graph/load_neo4j.py](src/graph/load_neo4j.py).
+
+```powershell
+.venv\Scripts\python.exe -m src.graph.load_neo4j   # Title, Character, Actor, Team, Thing nodes; plot facts as edges
+.venv\Scripts\python.exe -m pytest -m neo4j        # check the loaded graph
+```
+
 ## Tests
 
 ```powershell
