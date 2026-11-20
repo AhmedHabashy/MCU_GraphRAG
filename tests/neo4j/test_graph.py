@@ -37,7 +37,7 @@ def count(db, query):
     return db(query)[0]["n"]
 
 
-@pytest.mark.parametrize("label, table", [("Title", "titles"), ("Character", "characters"), ("Actor", "actors"),
+@pytest.mark.parametrize("label, table", [("Title", "titles"), ("Character", "characters"), ("Person", "people"),
                                           ("Team", "teams"), ("Thing", "things")])
 def test_every_table_row_is_one_node(db, data, label, table):
     assert count(db, f"MATCH (n:{label}) RETURN count(n) AS n") == len(data[table])
@@ -67,7 +67,7 @@ def test_node_keys_are_unique_constraints(db):
 
 def test_only_known_relation_types(db):
     types = {r["t"] for r in db("MATCH ()-[r]->() RETURN DISTINCT type(r) AS t")}
-    assert types <= set(RELATIONS) | {"APPEARS_IN", "PLAYS", "VARIANT_OF", "MEMBER_OF"}
+    assert types <= set(RELATIONS) | {"APPEARS_IN", "PLAYS", "VARIANT_OF", "MEMBER_OF", "ACTED_IN", "DIRECTED", "WROTE", "FOLLOWS"}
 
 
 def test_daisy_johnson_is_an_inhuman_in_shield(db):
@@ -77,7 +77,7 @@ def test_daisy_johnson_is_an_inhuman_in_shield(db):
 
 
 def test_mobius_is_a_tva_agent_played_by_owen_wilson(db):
-    rows = db("MATCH (a:Actor)-[:PLAYS]->(c:Character)-[:MEMBER_OF]->(:Team {id: 'Time Variance Authority@Earth-616'}) "
+    rows = db("MATCH (a:Person)-[:PLAYS]->(c:Character)-[:MEMBER_OF]->(:Team {id: 'Time Variance Authority@Earth-616'}) "
               "WHERE c.label STARTS WITH 'Mobius' RETURN a.name AS actor LIMIT 1")
     assert rows and rows[0]["actor"] == "Owen Wilson"
 
@@ -93,3 +93,27 @@ def test_a_plot_fact_keeps_its_evidence(db):
     rows = db("MATCH (:Character {label: 'Sylvie'})-[r:KILLS {title_qid: 'Q107185252'}]->(v:Character) "
               "RETURN v.label AS victim, r.evidence AS evidence")
     assert any(r["victim"] == "He Who Remains" and r["evidence"] for r in rows)
+
+
+def test_every_credit_crew_member_and_sequel_link_is_loaded(db, data):
+    assert count(db, "MATCH ()-[r:ACTED_IN]->() RETURN count(r) AS n") == len(data["acted_in"])
+    assert count(db, "MATCH ()-[r:DIRECTED]->() RETURN count(r) AS n") == len(data["crew"]["DIRECTED"])
+    assert count(db, "MATCH ()-[r:WROTE]->() RETURN count(r) AS n") == len(data["crew"]["WROTE"])
+    assert count(db, "MATCH ()-[r:FOLLOWS]->() RETURN count(r) AS n") == len(data["follows"])
+
+
+def test_a_director_who_also_acts_is_one_person(db):
+    rows = db("MATCH (p:Person {name: 'Jon Favreau'}) RETURN EXISTS { (p)-[:DIRECTED]->() } AS d, "
+              "EXISTS { (p)-[:ACTED_IN]->() } AS a")
+    assert len(rows) == 1 and rows[0]["d"] and rows[0]["a"]
+
+
+def test_robert_downey_jr_birth_date(db):
+    assert db("MATCH (p:Person {name: 'Robert Downey Jr.'}) RETURN p.birth_date AS b")[0]["b"] == "1965-04-04"
+
+
+def test_box_office_is_wikidatas_else_tmdbs(db):
+    """Endgame's is Wikidata's; Brave New World has none on Wikidata, so TMDB's is used."""
+    rows = {r["t"]: r["s"] for r in db("MATCH (t:Title) WHERE t.qid IN ['Q23781155', 'Q112322116'] "
+                                       "RETURN t.qid AS t, t.box_office_source AS s")}
+    assert rows == {"Q23781155": "wikidata", "Q112322116": "tmdb"}

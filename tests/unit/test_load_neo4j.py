@@ -1,6 +1,8 @@
 """Unit tests for src/graph/load_neo4j.py (row building only; no database)."""
 
-from src.graph.load_neo4j import fact_rows, performance_rows, team_index, title_rows
+from src.graph.load_neo4j import (
+    birth_dates, crew_rows, fact_rows, follows_rows, performance_rows, team_index, title_rows,
+)
 
 TEAMS = [{"team_id": "X-Men@Earth-92131", "name": "X-Men", "reality": "Earth-92131", "aliases": ""},
          {"team_id": "New Avengers@Earth-616", "name": "New Avengers", "reality": "Earth-616",
@@ -43,25 +45,70 @@ def test_an_unlinked_place_is_not_matched_to_a_team():
     assert [t["type"] for t in things] == ["place"]
 
 
-def test_performances_give_one_actor_node_and_one_plays_edge_per_title():
-    perfs = [{"character_id": "C@E", "title_qid": "Q1", "actor_qid": "QA", "tmdb_person_id": "1", "actor_name": "A",
-              "tmdb_character": "Logan"},
-             {"character_id": "C@E", "title_qid": "Q1", "actor_qid": "QA", "tmdb_person_id": "1", "actor_name": "A",
-              "tmdb_character": ""},
-             {"character_id": "C@E", "title_qid": "Q1", "actor_qid": "", "tmdb_person_id": "2", "actor_name": "B",
-              "tmdb_character": "Logan (young)"},
-             {"character_id": "", "title_qid": "Q1", "actor_qid": "QX", "tmdb_person_id": "", "actor_name": "X",
-              "tmdb_character": "Extra"}]
-    actors, plays, appears = performance_rows(perfs)
-    assert [a["key"] for a in actors] == ["QA", "tmdb:2"]
-    assert [(p["actor"], p["credited_as"]) for p in plays] == [("QA", ["Logan"]), ("tmdb:2", ["Logan (young)"])]
+def perf(cid, actor_qid, tmdb_id, name, credit, billing=""):
+    return {"character_id": cid, "title_qid": "Q1", "actor_qid": actor_qid, "tmdb_person_id": tmdb_id,
+            "actor_name": name, "tmdb_character": credit, "billing_order": billing}
+
+
+def test_performances_give_one_person_and_one_plays_edge_per_title_with_the_best_billing():
+    perfs = [perf("C@E", "QA", "1", "A", "Logan", "3"), perf("C@E", "QA", "1", "A", "", "1"),
+             perf("C@E", "", "2", "B", "Logan (young)"), perf("", "QX", "", "Stan Lee", "Bus Driver")]
+    people, plays, appears, acted = performance_rows(perfs)
+    assert sorted(people) == ["QA", "QX", "tmdb:2"]
+    assert [(p["person"], p["credited_as"], p["billing_order"]) for p in plays] == [
+        ("QA", ["Logan"], 1), ("tmdb:2", ["Logan (young)"], None)]
     assert appears == [{"character": "C@E", "title": "Q1"}]
+    # every credit with a person counts as acting in the title, linked or not (Stan Lee's cameos)
+    assert acted == [{"person": "QA", "title": "Q1"}, {"person": "QX", "title": "Q1"}, {"person": "tmdb:2", "title": "Q1"}]
+
+
+REGISTRY = [{"wikidata_qid": "Q1", "title": "Iron Man", "type": "Film", "year": "2008", "universe": "MCU",
+             "reality": "Earth-616", "tier": "1"}]
 
 
 def test_title_rows_merge_release_phases_and_timeline():
-    registry = [{"wikidata_qid": "Q1", "title": "Iron Man", "type": "Film", "year": "2008", "universe": "MCU",
-                 "reality": "Earth-616", "tier": "1"}]
-    rows = title_rows(registry, {"Q1": {"first_release_date": "2008-04-14", "release_order": "15"}},
-                      {"Q1": {"phases": "Phase One", "sagas": "The Infinity Saga"}}, {})
+    rows = title_rows(REGISTRY, {"Q1": {"first_release_date": "2008-04-14", "release_order": "15"}},
+                      {"Q1": {"phases": "Phase One", "sagas": "The Infinity Saga"}}, {}, {}, {})
     assert rows[0]["release_order"] == 15 and rows[0]["phases"] == ["Phase One"]
-    assert rows[0]["chronological_order"] is None
+    assert rows[0]["chronological_order"] is None and rows[0]["start_year"] is None
+
+
+def test_money_is_wikidatas_else_tmdbs_and_says_which():
+    money = {"Q1": {"box_office_usd": "", "cost_usd": "140000000", "duration_minutes": "126"}}
+    stats = {"Q1": {"revenue_usd": "585174222", "budget_usd": "1", "runtime_minutes": "1", "vote_average": "7.668",
+                    "vote_count": "29220"}}
+    r = title_rows(REGISTRY, {}, {}, {}, money, stats)[0]
+    assert (r["box_office_usd"], r["box_office_source"]) == (585174222, "tmdb")
+    assert (r["budget_usd"], r["budget_source"], r["runtime_minutes"]) == (140000000, "wikidata", 126)
+    assert (r["tmdb_rating"], r["tmdb_votes"]) == (7.668, 29220)
+
+
+def test_years_are_the_mcu_wikis_else_wikipedias():
+    both = {"Q1": {"mcu_wiki_start_year": "2018", "mcu_wiki_end_year": "2023",
+                   "wikipedia_start_year": "2023", "wikipedia_end_year": "2023"}}
+    only_wp = {"Q1": {"mcu_wiki_start_year": "", "mcu_wiki_end_year": "",
+                      "wikipedia_start_year": "-1260", "wikipedia_end_year": "-1260"}}
+    r1, r2 = title_rows(REGISTRY, {}, {}, both, {}, {})[0], title_rows(REGISTRY, {}, {}, only_wp, {}, {})[0]
+    assert (r1["start_year"], r1["end_year"], r1["years_source"]) == (2018, 2023, "mcu_wiki")
+    assert (r2["start_year"], r2["years_source"]) == (-1260, "wikipedia")
+
+
+def test_directors_and_writers_join_the_people_once():
+    people = {"Q295964": {"key": "Q295964", "qid": "Q295964", "tmdb_id": "15277", "name": "Jon Favreau"}}
+    details = [{"title_qid": "Q1", "director_qids": "Q295964", "director_names": "Jon Favreau",
+                "writer_qids": "Q615343|Q3128755", "writer_names": "Mark Fergus|Hawk Ostby"}]
+    edges = crew_rows(details, people)
+    assert edges["DIRECTED"] == [{"person": "Q295964", "title": "Q1"}] and len(edges["WROTE"]) == 2
+    assert sorted(people) == ["Q295964", "Q3128755", "Q615343"]   # Favreau (actor) is not duplicated
+
+
+def test_birth_date_is_wikidatas_single_date_else_tmdbs():
+    people = {"QA": {"qid": "QA", "tmdb_id": "1"}, "QB": {"qid": "QB", "tmdb_id": "2"}, "tmdb:3": {"qid": "", "tmdb_id": "3"}}
+    birth_dates(people, [{"actor_qid": "QA", "birth_dates": "1965-04-04"}, {"actor_qid": "QB", "birth_dates": "1970-01-01|1971-01-01"}],
+                [{"tmdb_person_id": "2", "birthday": "1970-01-01"}, {"tmdb_person_id": "3", "birthday": "1980-05-05"}])
+    assert [people[k]["birth_date"] for k in ("QA", "QB", "tmdb:3")] == ["1965-04-04", "1970-01-01", "1980-05-05"]
+
+
+def test_follows_keeps_only_titles_in_scope():
+    details = [{"title_qid": "Q2", "follows_qids": "Q1|Q99"}, {"title_qid": "Q1", "follows_qids": ""}]
+    assert follows_rows(details) == [{"title": "Q2", "previous": "Q1"}]

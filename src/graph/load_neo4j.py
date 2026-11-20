@@ -1,9 +1,15 @@
 """Load the built tables and the extracted plot facts into Neo4j (a full rebuild each run).
 
-Nodes:  Title {qid}, Character {id}, Actor {key}, Team {id}, Thing {key}
+Nodes:  Title {qid}, Character {id}, Person {key}, Team {id}, Thing {key}
+        Person = an actor, director or writer: key is the Wikidata QID, else "tmdb:<TMDB id>".
         Thing = a fact end with no ID (Tesseract, Asgard, Team X): one per type, name and reality.
+        Title money: Wikidata's US dollars, else TMDB's (*_source says which); rating: TMDB's.
+        Title years: in-universe start/end year, MCU wiki's, else Wikipedia's (negative = BC).
 Edges:  (Character)-[:APPEARS_IN]->(Title)
-        (Actor)-[:PLAYS {title_qid, credited_as}]->(Character)
+        (Person)-[:PLAYS {title_qid, credited_as, billing_order}]->(Character)
+        (Person)-[:ACTED_IN]->(Title)           every credit, also those linked to no character
+        (Person)-[:DIRECTED]->(Title), (Person)-[:WROTE]->(Title)         (Wikidata)
+        (Title)-[:FOLLOWS]->(Title)             the title it follows in its series (Wikidata)
         (Character)-[:VARIANT_OF {shared_qid}]->(Character)
         (Character)-[:MEMBER_OF {role, status, source, source_url}]->(Team)       (wiki infoboxes)
         (x)-[:<RELATION> {title_qid, episode, evidence, note, chunk, source: "plot"}]->(y)
@@ -22,11 +28,15 @@ from src.processing.build_characters import ALIASES_PATH, CHARACTERS_PATH, LINKS
 from src.processing.build_teams import MEMBERSHIPS_PATH, TEAMS_PATH
 from src.processing.build_titles import RELEASE_ORDER_PATH, TIMELINE_PATH, TITLE_PHASES_PATH
 from src.source_data_collection.build_title_registry import REGISTRY_PATH
+from src.source_data_collection.collect_title_details import (
+    ACTOR_BIRTHS_PATH, TITLE_DETAILS_PATH, TMDB_BIRTHDAYS_PATH,
+)
+from src.source_data_collection.collect_title_stats import TMDB_STATS_PATH, WIKIDATA_MONEY_PATH
 from src.source_data_collection.cast_matching import normalize_name
 from src.source_data_collection.storage import read_csv, read_json
 
 BATCH = 1000
-KEYS = {"Title": "qid", "Character": "id", "Actor": "key", "Team": "id", "Thing": "key"}
+KEYS = {"Title": "qid", "Character": "id", "Person": "key", "Team": "id", "Thing": "key"}
 
 
 def _split(value):
@@ -37,17 +47,40 @@ def _by_qid(path):
     return {r["title_qid"]: r for r in read_csv(path)}
 
 
-def title_rows(registry, release, phases, timeline):
+def _int(value):
+    return int(float(value)) if value not in ("", None) else None
+
+
+def first_of(*sources):
+    """(value, source name) of the first source that has a value: sources are (value, name)."""
+    return next(((v, name) for v, name in sources if v is not None), (None, ""))
+
+
+def title_rows(registry, release, phases, timeline, money, stats):
     rows = []
     for t in registry:
         q = t["wikidata_qid"]
-        r, p, tl = release.get(q, {}), phases.get(q, {}), timeline.get(q, {})
+        r, p, tl, m, s = release.get(q, {}), phases.get(q, {}), timeline.get(q, {}), money.get(q, {}), stats.get(q, {})
+        box_office, box_office_source = first_of((_int(m.get("box_office_usd")), "wikidata"),
+                                                 (_int(s.get("revenue_usd")), "tmdb"))
+        budget, budget_source = first_of((_int(m.get("cost_usd")), "wikidata"), (_int(s.get("budget_usd")), "tmdb"))
+        runtime, _ = first_of((_int(m.get("duration_minutes")), "wikidata"), (_int(s.get("runtime_minutes")), "tmdb"))
+        mcu = (_int(tl.get("mcu_wiki_start_year")), _int(tl.get("mcu_wiki_end_year")))
+        wikipedia = (_int(tl.get("wikipedia_start_year")), _int(tl.get("wikipedia_end_year")))
+        years, years_source = first_of((mcu if mcu[0] is not None else None, "mcu_wiki"),
+                                       (wikipedia if wikipedia[0] is not None else None, "wikipedia"))
         rows.append({"qid": q, "title": t["title"], "type": t["type"], "year": int(t["year"]),
                      "universe": t["universe"], "reality": t["reality"], "tier": t["tier"],
                      "first_release_date": r.get("first_release_date", ""),
-                     "release_order": int(r["release_order"]) if r.get("release_order") else None,
-                     "chronological_order": int(tl["chronological_order"]) if tl.get("chronological_order") else None,
-                     "phases": _split(p.get("phases", "")), "sagas": _split(p.get("sagas", ""))})
+                     "release_order": _int(r.get("release_order")),
+                     "chronological_order": _int(tl.get("chronological_order")),
+                     "start_year": years[0] if years else None, "end_year": years[1] if years else None,
+                     "years_source": years_source,
+                     "phases": _split(p.get("phases", "")), "sagas": _split(p.get("sagas", "")),
+                     "box_office_usd": box_office, "box_office_source": box_office_source,
+                     "budget_usd": budget, "budget_source": budget_source, "runtime_minutes": runtime,
+                     "tmdb_rating": float(s["vote_average"]) if s.get("vote_average") else None,
+                     "tmdb_votes": _int(s.get("vote_count"))})
     return rows
 
 
@@ -61,29 +94,64 @@ def character_rows(characters, aliases):
              "marvel_db_page": c["marvel_db_page"], "mcu_wiki_page": c["mcu_wiki_page"]} for c in characters]
 
 
-def actor_key(performance):
-    return performance["actor_qid"] or f"tmdb:{performance['tmdb_person_id']}"
+def person_key(qid, tmdb_id):
+    return qid or f"tmdb:{tmdb_id}"
 
 
 def performance_rows(performances):
-    """(actor nodes, PLAYS edges, APPEARS_IN edges), each once."""
-    actors, plays, appears = {}, {}, set()
+    """(people, PLAYS edges, APPEARS_IN edges, ACTED_IN edges), each once. ACTED_IN counts every
+    credit with a known person, also those linked to no character (most of Stan Lee's cameos)."""
+    people, plays, appears, acted = {}, {}, set(), set()
     for p in performances:
-        cid = p["character_id"]
+        cid, has_person = p["character_id"], bool(p["actor_qid"] or p["tmdb_person_id"])
+        if cid:
+            appears.add((cid, p["title_qid"]))
+        if not has_person:
+            continue
+        key = person_key(p["actor_qid"], p["tmdb_person_id"])
+        person = people.setdefault(key, {"key": key, "qid": p["actor_qid"], "tmdb_id": p["tmdb_person_id"],
+                                         "name": p["actor_name"]})
+        person["tmdb_id"] = person["tmdb_id"] or p["tmdb_person_id"]
+        acted.add((key, p["title_qid"]))
         if not cid:
             continue
-        appears.add((cid, p["title_qid"]))
-        if not (p["actor_qid"] or p["tmdb_person_id"]):
-            continue
-        key = actor_key(p)
-        actors.setdefault(key, {"key": key, "qid": p["actor_qid"], "tmdb_id": p["tmdb_person_id"],
-                                "name": p["actor_name"]})
-        edge = plays.setdefault((key, cid, p["title_qid"]), {"actor": key, "character": cid,
-                                                              "title_qid": p["title_qid"], "credited_as": []})
+        edge = plays.setdefault((key, cid, p["title_qid"]), {"person": key, "character": cid, "title_qid": p["title_qid"],
+                                                              "credited_as": [], "billing_order": None})
         if p["tmdb_character"] and p["tmdb_character"] not in edge["credited_as"]:
             edge["credited_as"].append(p["tmdb_character"])
-    return (list(actors.values()), list(plays.values()),
-            [{"character": c, "title": t} for c, t in sorted(appears)])
+        billing = _int(p["billing_order"])
+        if billing is not None and (edge["billing_order"] is None or billing < edge["billing_order"]):
+            edge["billing_order"] = billing
+    return (people, list(plays.values()), [{"character": c, "title": t} for c, t in sorted(appears)],
+            [{"person": k, "title": t} for k, t in sorted(acted)])
+
+
+def crew_rows(details, people):
+    """DIRECTED and WROTE edges from Wikidata's title details; adds crew members to `people`."""
+    edges = {"DIRECTED": [], "WROTE": []}
+    for d in details:
+        for relation, qids, names in (("DIRECTED", d["director_qids"], d["director_names"]),
+                                      ("WROTE", d["writer_qids"], d["writer_names"])):
+            for qid, name in zip(_split(qids), _split(names), strict=True):
+                people.setdefault(qid, {"key": qid, "qid": qid, "tmdb_id": "", "name": name})
+                edges[relation].append({"person": qid, "title": d["title_qid"]})
+    return edges
+
+
+def birth_dates(people, wikidata_births, tmdb_birthdays):
+    """Set each person's birth_date: Wikidata's when it gives one date, else TMDB's."""
+    by_qid = {r["actor_qid"]: _split(r["birth_dates"]) for r in wikidata_births if r["actor_qid"]}
+    by_tmdb = {r["tmdb_person_id"]: r["birthday"] for r in tmdb_birthdays if r["birthday"]}
+    for person in people.values():
+        wikidata = by_qid.get(person["qid"], [])
+        person["birth_date"] = wikidata[0] if len(wikidata) == 1 else by_tmdb.get(person["tmdb_id"], "")
+
+
+def follows_rows(details):
+    """(title)-[:FOLLOWS]->(the title it follows), both in the registry."""
+    in_scope = {d["title_qid"] for d in details}
+    return [{"title": d["title_qid"], "previous": prev} for d in details
+            for prev in _split(d["follows_qids"]) if prev in in_scope]
 
 
 def group_name(name):
@@ -151,13 +219,21 @@ def load(session, data):
     session.run("MATCH (n) DETACH DELETE n")
     for label, key in KEYS.items():
         session.run(f"CREATE CONSTRAINT {label.lower()}_{key} IF NOT EXISTS FOR (n:{label}) REQUIRE n.{key} IS UNIQUE")
-    for label, rows in (("Title", data["titles"]), ("Character", data["characters"]), ("Actor", data["actors"]),
+    for label, rows in (("Title", data["titles"]), ("Character", data["characters"]), ("Person", data["people"]),
                         ("Team", data["teams"]), ("Thing", data["things"])):
         _run(session, f"UNWIND $rows AS r CREATE (n:{label}) SET n = r", rows)
     _run(session, """UNWIND $rows AS r MATCH (c:Character {id: r.character}), (t:Title {qid: r.title})
                      CREATE (c)-[:APPEARS_IN]->(t)""", data["appears"])
-    _run(session, """UNWIND $rows AS r MATCH (a:Actor {key: r.actor}), (c:Character {id: r.character})
-                     CREATE (a)-[:PLAYS {title_qid: r.title_qid, credited_as: r.credited_as}]->(c)""", data["plays"])
+    _run(session, """UNWIND $rows AS r MATCH (p:Person {key: r.person}), (c:Character {id: r.character})
+                     CREATE (p)-[:PLAYS {title_qid: r.title_qid, credited_as: r.credited_as,
+                                         billing_order: r.billing_order}]->(c)""", data["plays"])
+    _run(session, """UNWIND $rows AS r MATCH (p:Person {key: r.person}), (t:Title {qid: r.title})
+                     CREATE (p)-[:ACTED_IN]->(t)""", data["acted_in"])
+    for relation in ("DIRECTED", "WROTE"):
+        _run(session, f"""UNWIND $rows AS r MATCH (p:Person {{key: r.person}}), (t:Title {{qid: r.title}})
+                          CREATE (p)-[:{relation}]->(t)""", data["crew"][relation])
+    _run(session, """UNWIND $rows AS r MATCH (t:Title {qid: r.title}), (p:Title {qid: r.previous})
+                     CREATE (t)-[:FOLLOWS]->(p)""", data["follows"])
     _run(session, """UNWIND $rows AS r MATCH (a:Character {id: r.from_id}), (b:Character {id: r.to_id})
                      CREATE (a)-[:VARIANT_OF {shared_qid: r.shared_qid}]->(b)""", data["variants"])
     _run(session, """UNWIND $rows AS r MATCH (c:Character {id: r.character_id}), (t:Team {id: r.team_id})
@@ -174,14 +250,19 @@ def load(session, data):
 def read_data():
     registry = read_csv(REGISTRY_PATH)
     teams = read_csv(TEAMS_PATH)
-    actors, plays, appears = performance_rows(read_csv(PERFORMANCES_PATH))
+    people, plays, appears, acted_in = performance_rows(read_csv(PERFORMANCES_PATH))
+    details = read_csv(TITLE_DETAILS_PATH)
+    crew = crew_rows(details, people)
+    birth_dates(people, read_csv(ACTOR_BIRTHS_PATH), read_csv(TMDB_BIRTHDAYS_PATH))
     outputs = {p.stem: read_json(p) for p in sorted(OUTPUTS_DIR.glob("*.json"))}
     things, facts = fact_rows(outputs, {t["wikidata_qid"]: t["reality"] for t in registry},
                               {t["team_id"] for t in teams}, team_index(teams))
     return {
-        "titles": title_rows(registry, _by_qid(RELEASE_ORDER_PATH), _by_qid(TITLE_PHASES_PATH), _by_qid(TIMELINE_PATH)),
+        "titles": title_rows(registry, _by_qid(RELEASE_ORDER_PATH), _by_qid(TITLE_PHASES_PATH), _by_qid(TIMELINE_PATH),
+                             _by_qid(WIKIDATA_MONEY_PATH), _by_qid(TMDB_STATS_PATH)),
         "characters": character_rows(read_csv(CHARACTERS_PATH), read_csv(ALIASES_PATH)),
-        "actors": actors, "plays": plays, "appears": appears,
+        "people": list(people.values()), "plays": plays, "appears": appears, "acted_in": acted_in,
+        "crew": crew, "follows": follows_rows(details),
         "teams": [{"id": t["team_id"], "name": t["name"], "reality": t["reality"], "kind": t["kind"],
                    "aliases": _split(t["aliases"])} for t in teams],
         "things": things,

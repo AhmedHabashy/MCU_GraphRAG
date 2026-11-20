@@ -3,6 +3,7 @@
 from src.source_data_collection.collect_title_details import (
     first_release,
     sequel_links,
+    sequel_series,
     title_detail_row,
     tmdb_crew_rows,
 )
@@ -25,7 +26,7 @@ IRON_MAN = {"id": "Q192724", "claims": {
     "P57": [item("Q295964")], "P58": [item("Q1"), item("Q2")],
     "P577": [date("+2008-05-02T00:00:00Z", "preferred"), date("+2008-04-14T00:00:00Z")],
     "P840": [item("Q889")],
-    "P179": [item("Q642878", {"P156": "Q205028"})]}}
+    "P179": [item("Q16642701", {"P156": "Q205028"})]}}   # the Iron Man film series
 LABELS = {"Q295964": "Jon Favreau", "Q1": "Mark Fergus", "Q2": "Hawk Ostby",
           "Q889": "Afghanistan", "Q205028": "Iron Man 2"}
 
@@ -54,23 +55,46 @@ def test_no_dates_give_blanks():
 
 # --- sequel_links -----------------------------------------------------------------------
 
-def test_sequel_links_prefer_the_ordering_within_a_series():
+def test_sequel_links_come_from_the_ordering_within_a_sequel_series():
     """X-Men Origins: Wikidata's direct 'follows' wrongly says First Class, its series says Last Stand."""
     entity = {"claims": {"P155": [item("QFirstClass")],
                          "P179": [item("QXMenSeries", {"P155": "QLastStand", "P156": "QFirstClass"})]}}
-    assert sequel_links(entity) == (["QLastStand"], ["QFirstClass"])
+    assert sequel_links(entity, {"QXMenSeries"}) == (["QLastStand"], ["QFirstClass"])
 
 
-def test_sequel_links_fall_back_to_direct_claims_without_series_ordering():
-    entity = {"claims": {"P155": [item("QA")], "P179": [item("QS")]}}
-    assert sequel_links(entity) == (["QA"], [])
+def test_release_order_in_a_franchise_or_direct_claims_is_not_a_sequel():
+    """Ant-Man 'follows' Age of Ultron in the MCU franchise item; Jessica Jones 'follows' Daredevil
+    by a direct claim. Both are release order, not sequels."""
+    ant_man = {"claims": {"P179": [item("QMCU", {"P155": "QAgeOfUltron"}), item("QAntManSeries")]}}
+    jessica_jones = {"claims": {"P155": [item("QDaredevil")]}}
+    assert sequel_links(ant_man, {"QAntManSeries"}) == ([], [])
+    assert sequel_links(jessica_jones, set()) == ([], [])
+
+
+def series(qid, kinds, parts=(), part_of=()):
+    return qid, {"claims": {"P31": [item(k) for k in kinds], "P527": [item(p) for p in parts],
+                            "P361": [item(p) for p in part_of]}}
+
+
+def test_sequel_series_are_the_most_specific_film_or_tv_series():
+    entities = dict([
+        series("QIronMan", ["Q24856", "Q149010"]),                      # film series, trilogy
+        series("QPhaseOne", ["Q24856", "Q431289"]),                     # film series, but a brand
+        series("QMCU", ["Q196600", "Q3275581"]),                        # franchise, shared universe
+        series("QXMen", ["Q24856"], parts=["QXMenTrilogy"]),            # umbrella of a kept series
+        series("QXMenTrilogy", ["Q13593818"]),                          # film trilogy
+        series("QLoki", ["Q5398426"]),                                  # television series
+        series("QPortrayal", ["Q138337574"]),                           # 'Spider-Man in film'
+        series("QWolverine", ["Q24856"], part_of=["QXMen"]),
+    ])
+    assert sequel_series(entities) == {"QIronMan", "QXMenTrilogy", "QLoki", "QWolverine"}
 
 
 # --- title_detail_row -------------------------------------------------------------------
 
 def test_title_detail_row_flattens_people_dates_locations_and_sequels():
     title = {"title": "Iron Man", "wikidata_qid": "Q192724", "type": "Film"}
-    row = title_detail_row(title, IRON_MAN, [], LABELS, retrieved_at="t")
+    row = title_detail_row(title, IRON_MAN, [], LABELS, {"Q16642701"}, retrieved_at="t")
     assert row == {
         "title": "Iron Man", "title_qid": "Q192724", "type": "Film",
         "director_qids": "Q295964", "director_names": "Jon Favreau",

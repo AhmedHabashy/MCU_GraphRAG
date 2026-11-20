@@ -7,6 +7,7 @@ project. Series and seasons use their earliest episode when that is earlier or t
 Needs:  build_title_registry, collect_cast, collect_plots (episode items)
 Output: source_data/wikidata/title_details.csv   (directors, writers, first release, sequels, locations)
         source_data/wikidata/title_people.json   (raw labels of the people, places and titles linked)
+        source_data/wikidata/series_entities.json (raw series items; which ones order sequels)
         source_data/wikidata/actor_births.csv    (every credited actor's birth dates)
         source_data/tmdb/first_releases.csv       (TMDB's first release per title)
         source_data/tmdb/crew.csv                 (directors and writers from the saved credits)
@@ -32,6 +33,7 @@ WIKIDATA_DIR = PROJECT_ROOT / "source_data" / "wikidata"
 TMDB_DIR = PROJECT_ROOT / "source_data" / "tmdb"
 TITLE_DETAILS_PATH = WIKIDATA_DIR / "title_details.csv"
 TITLE_PEOPLE_PATH = WIKIDATA_DIR / "title_people.json"
+SERIES_ENTITIES_PATH = WIKIDATA_DIR / "series_entities.json"
 ACTOR_BIRTHS_PATH = WIKIDATA_DIR / "actor_births.csv"
 TMDB_FIRST_RELEASES_PATH = TMDB_DIR / "first_releases.csv"
 TMDB_CREW_PATH = TMDB_DIR / "crew.csv"
@@ -47,6 +49,17 @@ P_FOLLOWED_BY = "P156"
 P_PART_OF_THE_SERIES = "P179"
 P_NARRATIVE_LOCATION = "P840"
 P_BIRTH_DATE = "P569"
+P_INSTANCE_OF = "P31"
+P_PART_OF = "P361"
+P_HAS_PARTS = "P527"
+
+# A series whose follows/followed-by order is a sequel chain is a film or TV series (Iron Man,
+# Loki); one that is also a brand, shared universe or franchise only orders releases (the MCU,
+# its phases and sagas, Sony's Spider-Man Universe). Item types verified on Wikidata 2026-11-20.
+SEQUEL_SERIES_KINDS = {"Q24856", "Q13593818", "Q149010", "Q67655225", "Q5398426"}
+# film series, film trilogy, trilogy, film duology, television series
+GROUPING_KINDS = {"Q431289", "Q3275581", "Q196600", "Q130371093"}
+# brand, shared universe, media franchise, film franchise
 
 TMDB_CREW_ROLES = {"Directing": "director", "Writing": "writer"}
 
@@ -63,21 +76,41 @@ def first_release(entity, episodes):
     return min(candidates, default=("", ""))
 
 
-def sequel_links(entity):
-    """(follows, followed by) QIDs. The ordering within a series ('part of the series' with
-    follows / followed-by qualifiers) is preferred; direct claims are used only without it,
-    because they can disagree (e.g. X-Men Origins: Wolverine)."""
-    def series_ordering(pid):
-        return [q for _, qs in claims_with_qualifiers(entity, P_PART_OF_THE_SERIES, pid) for q in qs]
-
-    scoped = {pid: series_ordering(pid) for pid in (P_FOLLOWS, P_FOLLOWED_BY)}
-    if not any(scoped.values()):
-        scoped = {pid: claim_values(entity, pid) for pid in (P_FOLLOWS, P_FOLLOWED_BY)}
-    return list(dict.fromkeys(scoped[P_FOLLOWS])), list(dict.fromkeys(scoped[P_FOLLOWED_BY]))
+def series_qids(entity):
+    """The series an item is part of ('part of the series')."""
+    return claim_values(entity, P_PART_OF_THE_SERIES)
 
 
-def title_detail_row(title, entity, episodes, labels, retrieved_at):
-    follows, followed_by = sequel_links(entity)
+def sequel_series(series_entities):
+    """Series whose ordering is a sequel chain: a film or TV series that is no brand, shared
+    universe or franchise, and the most specific one (the X-Men umbrella series, whose parts
+    are the original trilogy, the Beginnings films and the Wolverine and Deadpool films, orders
+    all Fox films and is left out)."""
+    kept = {q for q, e in series_entities.items()
+            if set(claim_values(e, P_INSTANCE_OF)) & SEQUEL_SERIES_KINDS
+            and not set(claim_values(e, P_INSTANCE_OF)) & GROUPING_KINDS}
+
+    def contains_another(q):
+        parts = set(claim_values(series_entities[q], P_HAS_PARTS))
+        inside = {o for o in kept if q in set(claim_values(series_entities[o], P_PART_OF))
+                  | set(series_qids(series_entities[o]))}
+        return bool((parts | inside) & (kept - {q}))
+    return {q for q in kept if not contains_another(q)}
+
+
+def sequel_links(entity, sequels):
+    """(follows, followed by) QIDs: the item's order within its sequel series ('part of the
+    series' with follows / followed-by qualifiers). Direct follows claims and the order within
+    the MCU or Netflix groupings are release order, not sequels (Jessica Jones 'follows'
+    Daredevil), and are not used; the series order also beats a wrong direct claim (X-Men
+    Origins: Wolverine)."""
+    def ordering(pid):
+        return [q for s, qs in claims_with_qualifiers(entity, P_PART_OF_THE_SERIES, pid) if s in sequels for q in qs]
+    return list(dict.fromkeys(ordering(P_FOLLOWS))), list(dict.fromkeys(ordering(P_FOLLOWED_BY)))
+
+
+def title_detail_row(title, entity, episodes, labels, sequels, retrieved_at):
+    follows, followed_by = sequel_links(entity, sequels)
     date, date_from = first_release(entity, episodes)
 
     def qids_and_names(qids):
@@ -131,17 +164,23 @@ def main():
     episodes = read_json(EPISODE_ENTITIES_PATH)["by_title"]
     wikimedia, tmdb = WikimediaClient(), make_client()
 
+    series = wikimedia.get_entities(
+        list(dict.fromkeys(s for t in titles for s in series_qids(entities[t["wikidata_qid"]]))),
+        props="labels|claims")
+    write_json(SERIES_ENTITIES_PATH, {"retrieved_at": retrieved_at, "source": "wikidata",
+                                      "license": WIKIDATA_LICENSE, "entities": series})
+    sequels = sequel_series(series)
     linked = list(dict.fromkeys(
         q for t in titles for e in [entities[t["wikidata_qid"]]]
         for q in [*claim_values(e, P_DIRECTOR), *claim_values(e, P_SCREENWRITER),
-                  *claim_values(e, P_NARRATIVE_LOCATION), *(x for s in sequel_links(e) for x in s)]))
+                  *claim_values(e, P_NARRATIVE_LOCATION), *(x for s in sequel_links(e, sequels) for x in s)]))
     people = wikimedia.get_entities(linked, props="labels")
     write_json(TITLE_PEOPLE_PATH, {"retrieved_at": retrieved_at, "source": "wikidata",
                                    "license": WIKIDATA_LICENSE, "entities": people})
     labels = {q: label(e) or "" for q, e in people.items()}
     write_csv(TITLE_DETAILS_PATH, [
         title_detail_row(t, entities[t["wikidata_qid"]], episodes.get(t["wikidata_qid"], []),
-                         labels, retrieved_at) for t in titles])
+                         labels, sequels, retrieved_at) for t in titles])
     print(f"Wikidata: details for {len(titles)} titles, {len(people)} linked items", flush=True)
 
     # First releases: only new or changed titles are looked up again.

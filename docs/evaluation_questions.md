@@ -10,7 +10,7 @@ scope for now.
 - **data**: computed from the collected data (Tiers 1 to 3), so the graph must reproduce
   it exactly. Box office and budgets are Wikidata's in US dollars, or TMDB's where Wikidata
   has none (Captain America: Brave New World's box office); ratings are TMDB's, as of
-  collection (2026-11-19).
+  collection (2026-11-20; they drift by a few hundredths from day to day).
 - **plot text**: events that exist only in the plot and episode summaries, so they must be
   extracted. The MCU expert confirmed these answers (round 3).
 - **expert**: an MCU expert decision (docs/data_sources_and_tiers.md).
@@ -64,9 +64,9 @@ scope for now.
 | Q45 | Analytics | Which actor appears in the most titles? | Stan Lee, 36 titles, all cameos. Not counting cameos, Samuel L. Jackson and Chris Evans (15 each). | data |
 | Q46 | Analytics | Which character shares films with the most other characters? | Steve Rogers (239 characters), then Nick Fury (223) and Thor (201), leaving out Stan Lee's cameo character. | data |
 | Q47 | Analytics | Which film had the biggest budget? | Avengers: Infinity War, $400 million. | data |
-| Q48 | Analytics | What is the average TMDB rating of the films in each phase? | Phase One 7.11, Phase Two 7.23, Phase Three 7.47 (the highest), Phase Four 7.11, Phase Five 6.81 and Phase Six 7.70 (two released films); films outside the phases 6.58. | data |
+| Q48 | Analytics | What is the average TMDB rating of the films in each phase? | Phase One 7.12, Phase Two 7.22, Phase Three 7.48 (the highest), Phase Four 7.12, Phase Five 6.81 and Phase Six 7.69 (two released films); films outside the phases 6.58. | data |
 | Q49 | Analytics | How old was Robert Downey Jr. when Iron Man was first released? | 43: born on 4 April 1965; Iron Man was first released on 30 April 2008. | data |
-| Q50 | Analytics | Which title has the highest TMDB rating? | X-Men '97 (8.70). Among films, Spider-Man: Brand New Day (8.46), then Avengers: Infinity War (8.25) and Avengers: Endgame (8.20). | data |
+| Q50 | Analytics | Which title has the highest TMDB rating? | X-Men '97 (8.70). Among films, Spider-Man: Brand New Day (8.46), then Avengers: Infinity War and Avengers: Endgame, tied at 8.25. | data |
 
 ## Data gaps found while writing the answers
 

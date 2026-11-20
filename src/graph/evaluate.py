@@ -4,7 +4,7 @@ Each question is a Cypher query plus the key items of its expected answer. Statu
   PASS          the graph gives the expected answer
   PARTIAL       part of it (missing or extra items are shown)
   FAIL          the graph gives a wrong or no answer
-  NOT IN GRAPH  the answer needs data that is collected but not loaded (directors, money, years...)
+  NOT IN GRAPH  the answer needs data that is collected but not loaded
   FACTS FOUND / FACTS MISSING   plot-text questions: whether the facts the answer rests on are in
                 the graph (writing the answer itself is the chatbot's job)
 
@@ -72,7 +72,7 @@ NAMES = "[c.label] + c.aliases AS names"
 
 @question("Q01")
 def q01(db):
-    rows = db("""MATCH (a:Actor)-[:PLAYS {title_qid: 'Q113244839'}]->(c:Character)-[:APPEARS_IN]->(:Title {universe: 'Fox X-Men'})
+    rows = db("""MATCH (a:Person)-[:PLAYS {title_qid: 'Q113244839'}]->(c:Character)-[:APPEARS_IN]->(:Title {universe: 'Fox X-Men'})
                  RETURN DISTINCT a.name AS name""")
     return compare([r["name"] for r in rows], ["Patrick Stewart", "Ian McKellen", "James Marsden", "Kelsey Grammer",
                                                "Alan Cumming", "Rebecca Romijn"])
@@ -80,25 +80,21 @@ def q01(db):
 
 @question("Q02")
 def q02(db):
-    rows = db("""MATCH (a:Actor)-[:PLAYS]->(c:Character)-[:APPEARS_IN]->(t:Title)
-                 WITH a, c, count(DISTINCT t) AS n
-                 WITH a, collect(DISTINCT c.base_qid) AS bases, collect(c) AS cs
-                 WHERE size(bases) >= 2
-                   AND NOT EXISTS { MATCH (x:Character)-[:VARIANT_OF]-(y:Character)
-                                    WHERE x IN cs AND y IN cs AND x.base_qid <> y.base_qid
-                                    AND size(bases) = 2 }
+    # "Major" is taken as billed in the top 10 of some title; the expected list is a judgement, so
+    # extras such as Gemma Chan (Minn-Erva, Sersi) are shown, not counted as wrong.
+    rows = db("""MATCH (a:Person)-[p:PLAYS]->(c:Character) WHERE p.billing_order < 10
+                 WITH a, collect(DISTINCT c.base_qid) AS bases WHERE size(bases) >= 2
                  RETURN a.name AS name""")
     expected = ["Chris Evans", "Robert Downey Jr.", "Josh Brolin", "Oscar Isaac", "Paul Bettany", "Peter Dinklage",
                 "Michael B. Jordan", "Aaron Taylor-Johnson", "Laurence Fishburne"]
-    status, detail = compare([r["name"] for r in rows], expected, exact=False)
-    # "Major" needs billing order, which is not loaded: the graph lists every actor with two characters.
-    return ("PARTIAL" if status == "PASS" and len(rows) > len(expected) else status),         f"{detail} among {len(rows)} actors with two or more characters ('major' needs billing order, not loaded)"
+    status, detail = compare([r["name"] for r in rows], expected)
+    return ("PARTIAL" if status == "PASS" else status), f"top-10 billing: {detail}"
 
 
 @question("Q03")
 def q03(db):
     rows = db("""MATCH (c:Character {base_qid: 'Q24022542'})-[:APPEARS_IN]->(t:Title)
-                 OPTIONAL MATCH (a:Actor)-[:PLAYS]->(c) RETURN DISTINCT t.title AS title, a.name AS actor""")
+                 OPTIONAL MATCH (a:Person)-[:PLAYS]->(c) RETURN DISTINCT t.title AS title, a.name AS actor""")
     status, detail = compare({r["title"] for r in rows}, [
         "Captain America: The Winter Soldier", "Avengers: Age of Ultron", "Captain America: Civil War",
         "Avengers: Infinity War", "Avengers: Endgame", "WandaVision", "Doctor Strange in the Multiverse of Madness",
@@ -109,7 +105,7 @@ def q03(db):
 
 @question("Q04")
 def q04(db):
-    rows = db("""MATCH (a:Actor)-[:PLAYS {title_qid: 'Q68934496'}]->(c:Character)
+    rows = db("""MATCH (a:Person)-[:PLAYS {title_qid: 'Q68934496'}]->(c:Character)
                  WHERE c.reality <> 'Earth-616' RETURN DISTINCT a.name AS name""")
     return compare([r["name"] for r in rows], ["Tobey Maguire", "Willem Dafoe", "Alfred Molina", "Thomas Haden Church",
                                                "Andrew Garfield", "Jamie Foxx", "Rhys Ifans", "Tom Hardy"])
@@ -117,7 +113,7 @@ def q04(db):
 
 @question("Q05")
 def q05(db):
-    rows = db("""MATCH (a:Actor)-[:PLAYS {title_qid: 'Q16977365'}]->(:Character)
+    rows = db("""MATCH (a:Person)-[:PLAYS {title_qid: 'Q16977365'}]->(:Character)
                  MATCH (a)-[p:PLAYS]->(:Character) WHERE p.title_qid <> 'Q16977365'
                  RETURN DISTINCT a.name AS name""")
     return compare([r["name"] for r in rows], [
@@ -127,7 +123,7 @@ def q05(db):
 
 @question("Q06")
 def q06(db):
-    rows = db("""MATCH (:Actor {name: 'Jonathan Majors'})-[:PLAYS]->(c:Character)
+    rows = db("""MATCH (:Person {name: 'Jonathan Majors'})-[:PLAYS]->(c:Character)
                  OPTIONAL MATCH (c)-[:VARIANT_OF]-(k:Character {base_qid: 'Q1982051'})
                  RETURN DISTINCT c.label AS label, c.base_qid = 'Q1982051' OR k IS NOT NULL AS kang""")
     status, detail = compare({r["label"] for r in rows}, ["He Who Remains", "Victor Timely", "Kang the Conqueror"])
@@ -145,19 +141,22 @@ def q07(db):
 
 @question("Q08")
 def q08(db):
-    return "NOT IN GRAPH", "directors are collected (title_details) but not loaded"
+    rows = db("""MATCH (p:Person)-[:DIRECTED]->(t:Title {type: 'Film'})
+                 RETURN p.name AS name, count(t) AS n ORDER BY n DESC, name LIMIT 4""")
+    return compare({f"{r['name']} {r['n']}" for r in rows},
+                   ["Anthony Russo 5", "Joe Russo 5", "Bryan Singer 4", "Sam Raimi 4"])
 
 
 @question("Q09")
 def q09(db):
-    rows = db("""MATCH (:Actor {name: 'Hugh Jackman'})-[:PLAYS]->(c:Character) RETURN DISTINCT c.id AS id""")
+    rows = db("""MATCH (:Person {name: 'Hugh Jackman'})-[:PLAYS]->(c:Character) RETURN DISTINCT c.id AS id""")
     return compare([r["id"] for r in rows], ["Q97275436@Earth-10005", "Q97275436@Earth-17315",
                                              "mcuwiki:Wolverine@Unknown", "Q50805198@Earth-17315"])
 
 
 @question("Q10")
 def q10(db):
-    rows = db("""MATCH (a:Actor)-[:PLAYS]->(c:Character {base_qid: 'Q23894967'}) RETURN DISTINCT a.name AS name, c.reality AS reality""")
+    rows = db("""MATCH (a:Person)-[:PLAYS]->(c:Character {base_qid: 'Q23894967'}) RETURN DISTINCT a.name AS name, c.reality AS reality""")
     return compare({f"{r['name']} {r['reality']}" for r in rows}, [
         "Robert Downey Jr. Earth-616", "Mick Wingert Multiverse", "Mick Wingert Earth-86445"])
 
@@ -166,14 +165,19 @@ def q10(db):
 
 @question("Q11")
 def q11(db):
-    rows = db("MATCH (t:Title) WHERE t.chronological_order IS NOT NULL RETURN t.title AS title ORDER BY t.chronological_order LIMIT 1")
-    status, detail = compare([r["title"] for r in rows], ["Eyes of Wakanda"])
-    return ("PARTIAL" if status == "PASS" else status), detail + "; the in-universe years are not loaded"
+    first = db("""MATCH (t:Title) WHERE t.start_year IS NOT NULL
+                  RETURN t.title AS title, t.start_year AS y ORDER BY t.start_year LIMIT 1""")[0]
+    film = db("""MATCH (t:Title {type: 'Film', universe: 'MCU'}) WHERE t.start_year IS NOT NULL
+                 RETURN t.title AS title, t.start_year AS s, t.end_year AS e ORDER BY t.start_year LIMIT 1""")[0]
+    got = (first["title"], first["y"], film["title"], film["s"], film["e"])
+    expected = ("Eyes of Wakanda", -1260, "Captain America: The First Avenger", 1942, 1945)
+    return ("PASS" if got == expected else "FAIL"), str(got)
 
 
 @question("Q12")
 def q12(db):
-    return "NOT IN GRAPH", "in-universe years are collected (timeline) but not loaded"
+    r = db("MATCH (t:Title {title: 'Captain Marvel'}) RETURN t.start_year AS s, t.end_year AS e")[0]
+    return ("PASS" if (r["s"], r["e"]) == (1995, 1995) else "FAIL"), f"{r['s']}-{r['e']}"
 
 
 @question("Q13")
@@ -194,7 +198,8 @@ def q14(db):
 
 @question("Q15")
 def q15(db):
-    return "NOT IN GRAPH", "in-universe years are collected (timeline) but not loaded"
+    r = db("MATCH (t:Title {qid: 'Q23781155'}) RETURN t.start_year AS s, t.end_year AS e")[0]
+    return ("PASS" if (r["s"], r["e"]) == (2018, 2023) else "FAIL"), f"Endgame {r['s']}-{r['e']}: {r['e'] - r['s']} years"
 
 
 @question("Q16", "plot text")
@@ -239,14 +244,14 @@ def q20(db):
 
 @question("Q21", "expert")
 def q21(db):
-    rows = db("""MATCH (a:Actor {name: 'Hayley Atwell'})-[:PLAYS]->(c:Character {base_qid: 'Q24034679'})
+    rows = db("""MATCH (a:Person {name: 'Hayley Atwell'})-[:PLAYS]->(c:Character {base_qid: 'Q24034679'})
                  RETURN collect(DISTINCT c.id) AS ids""")
     return compare(rows[0]["ids"], ["Q24034679@Earth-616", "Q24034679@Earth-838", "Q24034679@Multiverse"])
 
 
 @question("Q22", "expert")
 def q22(db):
-    rows = db("""MATCH (a:Actor)-[p:PLAYS]->(c:Character) WHERE p.title_qid IN ['Q113244839', 'Q64211112']
+    rows = db("""MATCH (a:Person)-[p:PLAYS]->(c:Character) WHERE p.title_qid IN ['Q113244839', 'Q64211112']
                    AND (c.label = 'Reed Richards' OR 'Mister Fantastic' IN c.aliases)
                  RETURN DISTINCT a.name + ' ' + c.reality AS r""")
     return compare([r["r"] for r in rows], ["Pedro Pascal Earth-828", "John Krasinski Earth-838"])
@@ -268,7 +273,7 @@ def q24(db):
 
 @question("Q25", "expert")
 def q25(db):
-    rows = db("""MATCH (a:Actor)-[:PLAYS]->(c:Character) WHERE c.label = 'Johnny Storm'
+    rows = db("""MATCH (a:Person)-[:PLAYS]->(c:Character) WHERE c.label = 'Johnny Storm'
                  RETURN DISTINCT a.name + ' ' + c.reality AS r""")
     return compare([r["r"] for r in rows], ["Chris Evans Earth-121698", "Joseph Quinn Earth-828",
                                             "Michael B. Jordan Earth-15866"])
@@ -284,7 +289,7 @@ def q26(db):
 
 @question("Q27", "expert")
 def q27(db):
-    rows = db("""MATCH (a:Actor)-[:PLAYS]->(c:Character {id: 'Q23991271@Earth-616'}) RETURN c.aliases AS aliases, collect(DISTINCT a.name) AS actors""")
+    rows = db("""MATCH (a:Person)-[:PLAYS]->(c:Character {id: 'Q23991271@Earth-616'}) RETURN c.aliases AS aliases, collect(DISTINCT a.name) AS actors""")
     may = any("maybelle" in normalize_name(a) for a in rows[0]["aliases"])
     tomei = "Marisa Tomei" in rows[0]["actors"]
     return ("PASS" if may and tomei else "PARTIAL" if may or tomei else "FAIL"), f"Maybelle alias: {may}; Marisa Tomei: {tomei}"
@@ -389,7 +394,7 @@ def q39(db):
 
 @question("Q40", "plot text")
 def q40(db):
-    return facts(db, """MATCH (a:Actor {name: 'Robert Downey Jr.'})-[:PLAYS {title_qid: 'Q113244839'}]->(c:Character)
+    return facts(db, """MATCH (a:Person {name: 'Robert Downey Jr.'})-[:PLAYS {title_qid: 'Q113244839'}]->(c:Character)
                         RETURN 'Robert Downey Jr. plays ' + c.label + ' in Avengers: Doomsday' AS fact
                         UNION MATCH (v:Character)-[:VARIANT_OF]-(:Character {base_qid: 'Q1982051'})
                         RETURN v.label + ' is a Kang variant' AS fact""")
@@ -397,10 +402,68 @@ def q40(db):
 
 # --- Analytics ------------------------------------------------------------------------------
 
-for _qid, _what in (("Q41", "box office"), ("Q42", "box office"), ("Q43", "box office and sequel links"),
-                    ("Q47", "budgets"), ("Q48", "TMDB ratings"), ("Q49", "actor birth dates and release dates"),
-                    ("Q50", "TMDB ratings")):
-    QUESTIONS[_qid] = ("data", lambda db, w=_what: ("NOT IN GRAPH", f"{w} collected (title_stats, title_details) but not loaded"))
+@question("Q41")
+def q41(db):
+    r = db("MATCH (t:Title) WHERE t.box_office_usd IS NOT NULL RETURN t.title AS t, t.box_office_usd AS b ORDER BY b DESC LIMIT 1")[0]
+    return ("PASS" if r["t"] == "Avengers: Endgame" and round(r["b"] / 1e9, 2) == 2.80 else "FAIL"), f"{r['t']} ${r['b']:,}"
+
+
+@question("Q42")
+def q42(db):
+    least = "MATCH (t:Title {type: 'Film'}) WHERE t.box_office_usd IS NOT NULL FILTER RETURN t.title AS t, t.box_office_usd AS b ORDER BY b LIMIT 1"
+    mcu, every = db(least.replace("FILTER", "AND t.universe = 'MCU'"))[0], db(least.replace("FILTER", ""))[0]
+    got = (mcu["t"], round(mcu["b"] / 1e6), every["t"], round(every["b"] / 1e6))
+    ok = mcu["t"] == "The Marvels" and every["t"] == "The New Mutants"
+    return ("PASS" if ok else "FAIL"), f"MCU: {mcu['t']} ${got[1]}M; all: {every['t']} ${got[3]}M"
+
+
+@question("Q43")
+def q43(db):
+    rows = db("""MATCH (s:Title {type: 'Film'})-[:FOLLOWS]->(p:Title {type: 'Film'})
+                 WHERE s.box_office_usd IS NOT NULL AND p.box_office_usd IS NOT NULL
+                 RETURN s.title AS sequel, s.box_office_usd > p.box_office_usd AS more""")
+    less = [r["sequel"] for r in rows if not r["more"]]
+    status, detail = compare(set(less), [
+        "Avengers: Age of Ultron", "Thor: Love and Thunder", "Guardians of the Galaxy Vol. 3",
+        "Ant-Man and the Wasp: Quantumania", "Black Panther: Wakanda Forever", "The Marvels",
+        "Captain America: Brave New World", "X-Men: Apocalypse", "Dark Phoenix",
+        "Fantastic Four: Rise of the Silver Surfer", "Spider-Man 2", "The Amazing Spider-Man 2",
+        "Venom: Let There Be Carnage", "Venom: The Last Dance"])
+    return status, f"{len(rows) - len(less)} of {len(rows)} sequels earned more; {detail}"
+
+
+@question("Q47")
+def q47(db):
+    r = db("MATCH (t:Title {type: 'Film'}) WHERE t.budget_usd IS NOT NULL RETURN t.title AS t, t.budget_usd AS b ORDER BY b DESC LIMIT 1")[0]
+    return ("PASS" if (r["t"], r["b"]) == ("Avengers: Infinity War", 400_000_000) else "FAIL"), f"{r['t']} ${r['b']:,}"
+
+
+@question("Q48")
+def q48(db):
+    rows = db("""MATCH (t:Title {type: 'Film'}) WHERE t.tmdb_rating > 0
+                 UNWIND (CASE WHEN size(t.phases) = 0 THEN ['outside the phases'] ELSE t.phases END) AS phase
+                 RETURN phase, round(avg(t.tmdb_rating), 2) AS avg""")
+    return compare({f"{r['phase']} {r['avg']:.2f}" for r in rows}, [
+        "Phase One 7.12", "Phase Two 7.22", "Phase Three 7.48", "Phase Four 7.12", "Phase Five 6.81",
+        "Phase Six 7.69", "outside the phases 6.58"])
+
+
+@question("Q49")
+def q49(db):
+    r = db("""MATCH (p:Person {name: 'Robert Downey Jr.'}), (t:Title {title: 'Iron Man'})
+              RETURN p.birth_date AS b, t.first_release_date AS d""")[0]
+    b, d = r["b"], r["d"]
+    age = int(d[:4]) - int(b[:4]) - ((d[5:] < b[5:]) if b and d else 0)
+    return ("PASS" if age == 43 else "FAIL"), f"born {b}, Iron Man first released {d}: {age}"
+
+
+@question("Q50")
+def q50(db):
+    top = db("MATCH (t:Title) WHERE t.tmdb_rating IS NOT NULL RETURN t.title AS t, t.tmdb_rating AS r ORDER BY r DESC LIMIT 1")[0]
+    films = db("MATCH (t:Title {type: 'Film'}) WHERE t.tmdb_rating IS NOT NULL RETURN t.title AS t, t.tmdb_rating AS r ORDER BY r DESC LIMIT 3")
+    got = (top["t"], films[0]["t"], {f["t"] for f in films[1:]})   # Infinity War and Endgame are tied
+    expected = ("X-Men '97", "Spider-Man: Brand New Day", {"Avengers: Infinity War", "Avengers: Endgame"})
+    return ("PASS" if got == expected else "FAIL"), f"{top['t']} {top['r']}; films: " + ", ".join(f"{f['t']} {f['r']}" for f in films)
 
 
 CAMEO = "Watcher Informant"
@@ -416,7 +479,7 @@ def q44(db):
 
 @question("Q45")
 def q45(db):
-    rows = db("""MATCH (a:Actor)-[p:PLAYS]->() RETURN a.name AS name, count(DISTINCT p.title_qid) AS n ORDER BY n DESC LIMIT 3""")
+    rows = db("""MATCH (a:Person)-[:ACTED_IN]->(t:Title) RETURN a.name AS name, count(t) AS n ORDER BY n DESC, name LIMIT 3""")
     top = [f"{r['name']} {r['n']}" for r in rows]
     return ("PASS" if top[0] == "Stan Lee 36" and set(top[1:]) == {"Samuel L. Jackson 15", "Chris Evans 15"} else "FAIL"), ", ".join(top)
 
