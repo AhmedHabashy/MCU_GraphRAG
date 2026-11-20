@@ -74,8 +74,8 @@ is missing or older than its input, so a rerun extracts only new or changed text
 ## Loading the graph
 
 With Neo4j running (`docker compose up -d --wait`), load the built tables and the extracted facts.
-Each run rebuilds the graph from the tables (about 15 seconds); the schema is described in
-[src/graph/load_neo4j.py](src/graph/load_neo4j.py).
+Each run rebuilds the graph from the tables (about 15 seconds). What every node and
+relationship means, and where it comes from: [docs/db_schematics.md](docs/db_schematics.md).
 
 ```powershell
 .venv\Scripts\python.exe -m src.graph.load_neo4j   # Title, Character, Actor, Team, Thing nodes; plot facts as edges
