@@ -2,7 +2,7 @@
 name = "mcu-graphrag"
 version = "0.1.0"
 requires-python = ">=3.13"
-dependencies = ["requests", "python-dotenv", "mwparserfromhell"]
+dependencies = ["requests", "python-dotenv", "mwparserfromhell", "neo4j"]
 
 [project.optional-dependencies]
 dev = ["pytest"]
@@ -12,4 +12,5 @@ pythonpath = ["."]
 testpaths = ["tests"]
 markers = [
     "validation: checks collected data in source_data/ (run after collection)",
+    "neo4j: checks the running Neo4j database (docker compose up -d)",
 ]

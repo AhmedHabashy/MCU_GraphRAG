@@ -151,6 +151,14 @@ def test_infobox_params_survive_markup_that_breaks_the_rest_of_the_page():
     assert infobox_params(lead, "Character")["real name"] == "Matt Murdock"
 
 
+def test_infobox_params_survive_a_stray_italic_inside_the_template():
+    """MCU wiki Punisher: ''Title'' - x]'' in a reference made 'real name' swallow the rest."""
+    lead = ("{{Character\n|real name = Frank<ref>[https://a.b ''The Punisher'' - Graves]''</ref> "
+            "<small>(birth name)</small>\n|species = [[Human]]\n|comic = ''[[Born Again]]'' <small>(mentioned)</small>\n}}")
+    params = infobox_params(lead, "Character")
+    assert params["species"] == "[[Human]]" and params["comic"].startswith("''[[Born Again]]''")
+
+
 def test_infobox_params_match_the_whole_template_name():
     assert infobox_params("{{CharHub|A|B}}{{Character|name = A}}", "Character") == {"name": "A"}
 
@@ -159,6 +167,17 @@ def test_name_list_splits_bullets_breaks_and_commas_and_drops_refs():
     assert name_list("* Howard Potts{{r|Avengers: Endgame}} * The Mechanic{{r|x}}") == \
         ["Howard Potts", "The Mechanic"]
     assert name_list("Logan, Weapon X<br>Patch; ''Jim''") == ["Logan", "Weapon X", "Patch", "Jim"]
+
+
+def test_name_list_drops_references_and_comments_before_splitting():
+    """MCU wiki values: a comma inside a reference or comment is not a list separator."""
+    assert name_list('Swoll Groot<ref>[https://x.y James Gunn on Twitter - November 25, 2022]</ref>'
+                     '<br>Groot') == ["Swoll Groot", "Groot"]
+    assert name_list('Timothy Cadwallader Dugan<!--- Credits for "Timothy", SSR File --->') == \
+        ["Timothy Cadwallader Dugan"]
+    assert name_list('Loki <ref>{{ConjectureRef|Name, see talk}}</ref>') == ["Loki"]
+    assert name_list('Hoskins<ref group="note">Unknown which parent, if any</ref>') == ["Hoskins"]
+    assert name_list('Soul Vision<ref name="a"/>') == ["Soul Vision"]
 
 
 def test_name_list_keeps_link_template_text_and_drops_status_prefixes():

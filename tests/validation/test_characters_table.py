@@ -486,3 +486,10 @@ def test_every_character_with_a_species_on_its_mcu_wiki_page_has_it(characters):
     pages = {r["requested_page"]: r for r in read_csv(MCU_WIKI_CHARACTERS_PATH)}
     assert [c["character_id"] for c in characters.values() if not c["species"]
             and pages.get(c["mcu_wiki_page"], {}).get("species")] == []
+
+
+def test_names_have_no_wiki_markup(characters, aliases):
+    """References and comments are dropped before a name list is split (Swoll Groot<ref>...)."""
+    markup = ("<ref", "</ref", "<!--", "-->", "{{", "}}", "[[", "]]")
+    names = [c["label"] for c in characters.values()] + [a["alias"] for rows in aliases.values() for a in rows]
+    assert [n for n in names if any(m in n for m in markup)] == []

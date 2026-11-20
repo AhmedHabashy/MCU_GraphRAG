@@ -10,14 +10,19 @@ Scope and data sources are defined in [docs/data_sources_and_tiers.md](docs/data
 
 ```powershell
 python -m venv .venv
-.venv\Scripts\pip.exe install requests python-dotenv mwparserfromhell pytest
+.venv\Scripts\pip.exe install requests python-dotenv mwparserfromhell neo4j pytest
 ```
 
-Create a `.env` file in the project root with a TMDB API key:
+Copy `.env.example` to `.env` and fill in a TMDB API key and a Neo4j password of your choice.
 
+The graph database (Neo4j Community, version pinned in `docker-compose.yml`) runs in Docker:
+
+```powershell
+docker compose up -d --wait   # start Neo4j; the graph is kept in the mcu-neo4j-data volume
+docker compose down           # stop it (add -v to delete the graph)
 ```
-TMDB_API_KEY=your_key_here
-```
+
+Neo4j Browser is at http://localhost:7474 (user `neo4j`, the password from `.env`).
 
 ## Collecting data
 
@@ -53,8 +58,9 @@ Merged tables built from the collected data are written to `processed_data/` (no
 ## Tests
 
 ```powershell
-.venv\Scripts\python.exe -m pytest -m "not validation"   # unit tests (offline)
-.venv\Scripts\python.exe -m pytest -m validation         # checks on collected data (run after collecting)
+.venv\Scripts\python.exe -m pytest -m "not validation and not neo4j"   # unit tests (offline)
+.venv\Scripts\python.exe -m pytest -m validation                       # checks on collected data (run after collecting)
+.venv\Scripts\python.exe -m pytest -m neo4j                            # checks on the running database
 ```
 
 ## Credits

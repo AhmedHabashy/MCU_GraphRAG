@@ -104,12 +104,12 @@ def _template_source(wikitext, template_name):
 
 def infobox_params(wikitext, template_name):
     """Non-empty parameters of the first `template_name` template, as raw wikitext. Only the
-    template's own text is parsed: broken markup elsewhere on a page (e.g. an unclosed italic)
-    can make a whole-page parse read the template as plain text."""
+    template's own text is parsed, and '' / ''' are left as text: an unclosed italic (often in a
+    reference) can otherwise make the parser merge parameters or read the template as text."""
     source = _template_source(wikitext, template_name)
     if source is None:
         return {}
-    template = mwparserfromhell.parse(source).filter_templates(recursive=False)[0]
+    template = mwparserfromhell.parse(source, skip_style_tags=True).filter_templates(recursive=False)[0]
     return {str(p.name).strip(): str(p.value).strip() for p in template.params if str(p.value).strip()}
 
 
@@ -119,8 +119,12 @@ _STATUS_PREFIX = re.compile(r"^(formerly|currently|former|current)\s*:?\s*", re.
 
 
 def name_list(value):
-    """Split an infobox list (bullets, line breaks, ';' or ',') into plain names."""
+    """Split an infobox list (bullets, line breaks, ';' or ',') into plain names. References and
+    comments go first: a comma inside them is not a separator."""
     code = mwparserfromhell.parse(value)
+    for node in [*code.filter_comments(recursive=False),
+                 *(t for t in code.filter_tags(recursive=False) if str(t.tag).lower() in _DROPPED_TAGS)]:
+        code.remove(node)
     for template in code.filter_templates(recursive=False):
         name = str(template.name).strip().lower()
         if name in _LINK_TEMPLATES and template.params:
