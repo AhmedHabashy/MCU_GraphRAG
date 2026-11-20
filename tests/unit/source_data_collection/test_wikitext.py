@@ -180,6 +180,14 @@ def test_name_list_drops_references_and_comments_before_splitting():
     assert name_list('Soul Vision<ref name="a"/>') == ["Soul Vision"]
 
 
+def test_name_list_drops_notes():
+    """MCU wiki notes such as <small>(birth name)</small> describe a name; they are not part of it."""
+    assert name_list("Francis David Castle <small>(birth name)</small><br>Peter Castiglione "
+                     "<small>(legal name)</small>") == ["Francis David Castle", "Peter Castiglione"]
+    assert name_list("[[Charlie Cox]]<br>[[Skylar Gaertner]] <small>(young)</small>") == \
+        ["Charlie Cox", "Skylar Gaertner"]
+
+
 def test_name_list_keeps_link_template_text_and_drops_status_prefixes():
     """{{m|Page}} / {{m|Page|Shown}} is the Marvel Database link template."""
     assert name_list("Formerly: * {{m|Avengers}} * [[X-Men]] * {{m|Strategic Homeland|S.H.I.E.L.D.}}") \

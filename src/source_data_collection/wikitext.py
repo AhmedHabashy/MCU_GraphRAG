@@ -119,11 +119,13 @@ _STATUS_PREFIX = re.compile(r"^(formerly|currently|former|current)\s*:?\s*", re.
 
 
 def name_list(value):
-    """Split an infobox list (bullets, line breaks, ';' or ',') into plain names. References and
-    comments go first: a comma inside them is not a separator."""
+    """Split an infobox list (bullets, line breaks, ';' or ',') into plain names. References,
+    notes (<small>(birth name)</small>) and comments go first: they are not part of a name, and
+    a comma inside them is not a separator."""
     code = mwparserfromhell.parse(value)
     for node in [*code.filter_comments(recursive=False),
-                 *(t for t in code.filter_tags(recursive=False) if str(t.tag).lower() in _DROPPED_TAGS)]:
+                 *(t for t in code.filter_tags(recursive=False)
+                   if str(t.tag).lower() in _DROPPED_TAGS | _NOTE_TAGS)]:
         code.remove(node)
     for template in code.filter_templates(recursive=False):
         name = str(template.name).strip().lower()

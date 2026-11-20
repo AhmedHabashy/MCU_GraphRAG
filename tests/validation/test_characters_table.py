@@ -493,3 +493,10 @@ def test_names_have_no_wiki_markup(characters, aliases):
     markup = ("<ref", "</ref", "<!--", "-->", "{{", "}}", "[[", "]]")
     names = [c["label"] for c in characters.values()] + [a["alias"] for rows in aliases.values() for a in rows]
     assert [n for n in names if any(m in n for m in markup)] == []
+
+
+def test_mcu_wiki_names_have_no_notes(aliases):
+    """<small>(birth name)</small>, (legal name), (married name) describe a name, not part of it."""
+    notes = ("(birth name)", "(legal name)", "(married name)", "(young)", "(disguised)")
+    assert [a["alias"] for rows in aliases.values() for a in rows
+            if a["source"] == "mcu_wiki" and a["alias"].lower().endswith(notes)] == []

@@ -305,7 +305,8 @@ def _node(cid, identity, src):
         page = identity.removeprefix(MCU_WIKI_PREFIX).replace("_", " ")
         row = src.mcu_characters.get(page, {"real_names": "", "aliases": ""})
         names = _mcu_wiki_names(row)
-        node = {"label": names[0] if names else page, "identity_source": "mcu_wiki",
+        matchable = [n for n in names if normalize_name(n)]  # not e.g. 中島依 alone
+        node = {"label": matchable[0] if matchable else page, "identity_source": "mcu_wiki",
                 "marvel_db_page": "", "mcu_wiki_page": page}
         return node, [(n, "mcu_wiki") for n in [page, *names]]
 

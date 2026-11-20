@@ -361,6 +361,15 @@ def test_mcu_wiki_character_takes_its_name_and_aliases_from_the_wiki():
     assert {("katy chen", "mcu_wiki"), ("little mooch", "mcu_wiki"), ("katy", "tmdb")} <= names
 
 
+def test_mcu_wiki_label_is_the_first_name_in_latin_script_else_the_page():
+    """Yori Nakajima's real name is given as 中島依 only; the page title is a usable label."""
+    src = sources(mcu_characters={"Yori Nakajima": {"page": "Yori Nakajima", "real_names": "中島依",
+                                                     "aliases": "", "species": ""}})
+    characters, _, _ = character_rows(
+        [perf("Q65768589", "mcuwiki:Yori_Nakajima", "mcuwiki:Yori_Nakajima@Earth-616")], src)
+    assert characters[0]["label"] == "Yori Nakajima"
+
+
 def test_wikidata_character_with_a_matched_mcu_wiki_page_also_gets_its_aliases():
     _, aliases, _ = build()
     assert ("Q106706981@Earth-616", "mobius", "mcu_wiki") in {
