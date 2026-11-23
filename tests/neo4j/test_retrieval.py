@@ -118,3 +118,13 @@ def test_search_plots_fuses_the_vector_and_keyword_rankings(tools):
     titles = [p["title"] for p in tools.search_plots("Vormir")["passages"]]
     assert "The Fantastic Four: First Steps" in titles
     assert {"Avengers: Infinity War", "Avengers: Endgame"} <= set(titles)
+
+
+def test_every_example_query_in_the_system_prompt_runs_and_returns_rows(tools):
+    import re
+    from src.retrieval.agent import SYSTEM_PROMPT
+    queries = re.findall(r"`(MATCH [^`]+)`", SYSTEM_PROMPT)
+    assert len(queries) >= 4
+    for query in queries:
+        result = tools.run_cypher(query)
+        assert "error" not in result and result["rows"], query

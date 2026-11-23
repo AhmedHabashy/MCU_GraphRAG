@@ -493,13 +493,16 @@ def q46(db):
     return ("PASS" if top == ["Steve Rogers 239", "Nick Fury 223", "Thor 201"] else "FAIL"), ", ".join(top)
 
 
+def statuses(db):
+    """{question id: (source, status, detail)} for every question."""
+    return {qid: (QUESTIONS[qid][0], *QUESTIONS[qid][1](db)) for qid in sorted(QUESTIONS)}
+
+
 def main():
     counts = {}
     with connect() as driver:
-        db = lambda cypher, **params: driver.execute_query(cypher, **params).records
-        for qid in sorted(QUESTIONS):
-            source, fn = QUESTIONS[qid]
-            status, detail = fn(db)
+        for qid, (source, status, detail) in statuses(lambda cypher, **params: driver.execute_query(
+                cypher, **params).records).items():
             counts[status] = counts.get(status, 0) + 1
             print(f"{qid} [{source}] {status}: {detail}")
     print(" | ".join(f"{k} {v}" for k, v in sorted(counts.items())))

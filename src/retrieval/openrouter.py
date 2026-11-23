@@ -30,9 +30,10 @@ class OpenRouterClient(JsonHttpClient):
             raise RuntimeError(f"{url} returned error {error.get('code')}: {str(error.get('message'))[:300]}")
         return reply
 
-    def chat(self, messages, tools=None):
-        """The whole chat-completions response (choices, usage) for these messages."""
-        body = {"model": self.chat_model, "messages": messages}
+    def chat(self, messages, tools=None, **options):
+        """The whole chat-completions response (choices, usage) for these messages. Options are
+        sent as they are (tool_choice, response_format)."""
+        body = {"model": self.chat_model, "messages": messages, **options}
         if tools:
             body["tools"] = tools
         return self._post("/chat/completions", body)

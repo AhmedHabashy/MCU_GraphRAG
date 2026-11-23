@@ -28,10 +28,11 @@ def test_chat_sends_the_model_messages_and_tools_and_returns_the_response():
     assert body["model"] == "chat/model" and body["tools"] == tools and body["messages"][0]["content"] == "hello"
 
 
-def test_chat_without_tools_sends_no_tools_field():
+def test_chat_without_tools_sends_no_tools_field_and_passes_options_through():
     client, session = make_client({"choices": [{"message": {"content": "hi"}}]})
-    client.chat([{"role": "user", "content": "hello"}])
+    client.chat([{"role": "user", "content": "hello"}], response_format={"type": "json_object"})
     assert "tools" not in session.calls[0][1]
+    assert session.calls[0][1]["response_format"] == {"type": "json_object"}
 
 
 def test_embed_returns_vectors_in_input_order_in_batches():
