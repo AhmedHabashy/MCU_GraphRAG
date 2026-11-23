@@ -46,6 +46,10 @@ class FakeSession:
         self.calls.append((url, dict(params or {})))
         return self.responses.pop(0)
 
+    def post(self, url, json=None, timeout=None):
+        self.calls.append((url, json))
+        return self.responses.pop(0)
+
 
 def make_client(responses):
     session = FakeSession(responses)
@@ -344,6 +348,17 @@ def test_client_errors_never_include_request_parameters():
         client.get_json("https://api.example.org/3/movie/1", {"api_key": "SECRET"})
     assert "SECRET" not in str(error.value)
     assert "401" in str(error.value)
+
+
+def test_post_json_sends_the_body_and_retries_like_get_json():
+    session = FakeSession([FakeResponse(503), FakeResponse(200, payload={"ok": True})])
+    client = JsonHttpClient(session=session, sleep=lambda _s: None)
+    assert client.post_json("https://example.org/api", {"q": "SECRET"}) == {"ok": True}
+    assert session.calls == [("https://example.org/api", {"q": "SECRET"})] * 2
+    session = FakeSession([FakeResponse(400)])
+    with pytest.raises(RuntimeError) as error:
+        JsonHttpClient(session=session, sleep=lambda _s: None).post_json("https://example.org/api", {"q": "SECRET"})
+    assert "SECRET" not in str(error.value) and "400" in str(error.value)
 
 
 # --- WikimediaClient: sparql ------------------------------------------------
