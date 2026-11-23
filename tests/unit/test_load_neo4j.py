@@ -1,13 +1,20 @@
 """Unit tests for src/graph/load_neo4j.py (row building only; no database)."""
 
 from src.graph.load_neo4j import (
-    birth_dates, crew_rows, fact_rows, follows_rows, performance_rows, team_index, title_rows,
+    birth_dates, crew_rows, fact_rows, follows_rows, name_index, performance_rows, title_rows,
 )
 
-TEAMS = [{"team_id": "X-Men@Earth-92131", "name": "X-Men", "reality": "Earth-92131", "aliases": ""},
-         {"team_id": "New Avengers@Earth-616", "name": "New Avengers", "reality": "Earth-616",
-          "aliases": "Thunderbolts|B-Vengers"}]
-TEAM_IDS = {t["team_id"] for t in TEAMS}
+TEAMS = [{"id": "X-Men@Earth-92131", "name": "X-Men", "reality": "Earth-92131", "aliases": []},
+         {"id": "New Avengers@Earth-616", "name": "New Avengers", "reality": "Earth-616",
+          "aliases": ["Thunderbolts", "B-Vengers"]}]
+CHARACTERS = [{"id": "N@Earth-616", "label": "Natasha Romanoff", "reality": "Earth-616",
+               "aliases": ["Black Widow", "Natalie Rushman"]},
+              {"id": "Y@Earth-616", "label": "Yelena Belova", "reality": "Earth-616", "aliases": ["Black Widow"]},
+              {"id": "L1@Earth-616", "label": "Loki", "reality": "Earth-616", "aliases": []},
+              {"id": "L2@Earth-616", "label": "Loki", "reality": "Earth-616", "aliases": []},
+              {"id": "K@Earth-616", "label": "Kang the Conqueror", "reality": "Earth-616", "aliases": ["Victor Timely"]},
+              {"id": "V@Earth-616", "label": "Victor Timely", "reality": "Earth-616", "aliases": []}]
+TEAM_IDS = {t["id"] for t in TEAMS}
 
 
 def fact(subject_id="", subject_name="", obj_id="", obj_name="", obj_type="character", relation="ALLY_OF"):
@@ -16,13 +23,17 @@ def fact(subject_id="", subject_name="", obj_id="", obj_name="", obj_type="chara
 
 
 def load_facts(*facts, title="Q1", reality="Earth-616"):
-    return fact_rows({"c1": {"title_qid": title, "facts": list(facts)}}, {title: reality}, TEAM_IDS, team_index(TEAMS))
+    return fact_rows({"c1": {"title_qid": title, "facts": list(facts)}}, {title: reality}, TEAM_IDS,
+                     name_index(TEAMS, "name"), name_index(CHARACTERS, "label"))
+
+
+def ends(edges, relation):
+    return [(e["from_label"], e["from"], e["to_label"], e["to"]) for e in edges[relation]]
 
 
 def test_linked_ends_are_characters_or_teams_by_id():
     _, edges = load_facts(fact("C@Earth-616", "Yelena", "New Avengers@Earth-616", "New Avengers", "team", "MEMBER_OF"))
-    e = edges["MEMBER_OF"][0]
-    assert (e["from_label"], e["from"], e["to_label"], e["to"]) == ("Character", "C@Earth-616", "Team", "New Avengers@Earth-616")
+    assert ends(edges, "MEMBER_OF") == [("Character", "C@Earth-616", "Team", "New Avengers@Earth-616")]
 
 
 def test_an_unlinked_group_is_the_team_of_that_name_or_alias_in_the_titles_reality():
@@ -30,6 +41,28 @@ def test_an_unlinked_group_is_the_team_of_that_name_or_alias_in_the_titles_reali
     assert edges["MEMBER_OF"][0]["to_label"] == "Team" and edges["MEMBER_OF"][0]["to"] == "New Avengers@Earth-616"
     _, edges = load_facts(fact("C@Earth-10005", "Logan", "", "X-Men", "team", "MEMBER_OF"), reality="Earth-10005")
     assert edges["MEMBER_OF"][0]["to_label"] == "Thing"     # no X-Men team row for that reality
+
+
+def test_an_unlinked_character_is_the_one_character_of_that_name_else_of_that_alias():
+    _, edges = load_facts(fact("", "Natalie Rushman", "", "Victor Timely", "character", "IMPERSONATES"))
+    # Natalie Rushman is only an alias; Victor Timely is one character's name and another's alias
+    assert ends(edges, "IMPERSONATES") == [("Character", "N@Earth-616", "Character", "V@Earth-616")]
+
+
+def test_a_name_of_the_other_end_itself_stays_a_thing():
+    """A cover identity, a symbiote or a transformed form is named apart from the character in
+    the plot; linking it would make a self-loop. Self-facts given by ID (suicides) are kept."""
+    things, edges = load_facts(fact("N@Earth-616", "Natasha", "", "Natalie Rushman", "character", "IMPERSONATES"),
+                               fact("N@Earth-616", "Natasha", "N@Earth-616", "Natasha", "character", "KILLS"))
+    assert ends(edges, "IMPERSONATES") == [("Character", "N@Earth-616", "Thing", "character:natalie rushman@Earth-616")]
+    assert ends(edges, "KILLS") == [("Character", "N@Earth-616", "Character", "N@Earth-616")]
+
+
+def test_an_unlinked_character_stays_a_thing_when_its_name_is_shared_or_from_another_reality():
+    things, _ = load_facts(fact("", "Natasha Romanoff", "", "Hydra", "organization", "ENEMY_OF"), reality="Multiverse")
+    assert {t["key"] for t in things} == {"character:natasha romanoff@Multiverse", "organization:hydra@Multiverse"}
+    things, _ = load_facts(fact("", "Loki", "", "Black Widow", "character", "ENEMY_OF"))
+    assert {t["key"] for t in things} == {"character:loki@Earth-616", "character:black widow@Earth-616"}
 
 
 def test_other_unlinked_ends_are_things_shared_within_a_reality():
@@ -40,9 +73,24 @@ def test_other_unlinked_ends_are_things_shared_within_a_reality():
     assert edges["ENEMY_OF"][0]["from_label"] == "Thing"
 
 
-def test_an_unlinked_place_is_not_matched_to_a_team():
-    things, _ = load_facts(fact("C@Earth-616", "Yelena", "", "Thunderbolts", "place", "TRAVELS_TO"))
-    assert [t["type"] for t in things] == ["place"]
+def test_a_thing_typed_once_as_a_group_takes_that_type_over_the_default_character_type():
+    things, edges = load_facts(fact("", "Ravagers", "C@Earth-616", "Yondu", "character", "WORKS_FOR"),
+                               fact("C@Earth-616", "Yondu", "", "the Ravagers", "organization", "LEADS"))
+    assert [(t["key"], t["type"]) for t in things] == [("organization:ravagers@Earth-616", "organization")]
+    assert edges["WORKS_FOR"][0]["from"] == edges["LEADS"][0]["to"]
+
+
+def test_a_name_given_two_other_types_keeps_one_thing_per_type():
+    things, _ = load_facts(fact("C@Earth-616", "Shang-Chi", "", "Ten Rings", "object", "POSSESSES"),
+                           fact("C@Earth-616", "Shang-Chi", "", "Ten Rings", "organization", "ENEMY_OF"),
+                           fact("", "Ten Rings", "C@Earth-616", "Shang-Chi", "character", "ENEMY_OF"))
+    assert {t["type"] for t in things} == {"object", "organization", "character"}
+
+
+def test_an_unlinked_place_is_not_matched_to_a_team_or_character():
+    things, _ = load_facts(fact("C@Earth-616", "Yelena", "", "Thunderbolts", "place", "TRAVELS_TO"),
+                           fact("C@Earth-616", "Yelena", "", "Loki", "place", "TRAVELS_TO"))
+    assert sorted(t["type"] for t in things) == ["place", "place"]
 
 
 def perf(cid, actor_qid, tmdb_id, name, credit, billing=""):

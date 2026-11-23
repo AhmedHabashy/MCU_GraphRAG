@@ -2,7 +2,8 @@
 
 Nodes:  Title {qid}, Character {id}, Person {key}, Team {id}, Thing {key}
         Person = an actor, director or writer: key is the Wikidata QID, else "tmdb:<TMDB id>".
-        Thing = a fact end with no ID (Tesseract, Asgard, Team X): one per type, name and reality.
+        Thing = a fact end that is no Title, Character or Team (Tesseract, Asgard, Team X):
+                one per type, name and reality.
         Title money: Wikidata's US dollars, else TMDB's (*_source says which); rating: TMDB's.
         Title years: in-universe start/end year, MCU wiki's, else Wikipedia's (negative = BC).
 Edges:  (Character)-[:APPEARS_IN]->(Title)
@@ -14,8 +15,9 @@ Edges:  (Character)-[:APPEARS_IN]->(Title)
         (Character)-[:MEMBER_OF {role, status, source, source_url}]->(Team)       (wiki infoboxes)
         (x)-[:<RELATION> {title_qid, episode, evidence, note, chunk, source: "plot"}]->(y)
             one per extracted fact; RELATION is one of check_extraction.RELATIONS.
-An unlinked fact end is a Team when exactly one team in the title's reality has that name or
-alias (the X-Men of X-Men '97), else a Thing.
+An unlinked fact end (a name without an ID) is the Team, or for a character the Character, with
+that name in the title's reality when exactly one has it (the X-Men of X-Men '97; Natalie
+Rushman is Natasha Romanoff); else a Thing.
 
 Needs:  processed_data/ (titles, characters, teams, extraction/plots/outputs), Neo4j running
 Run:    .venv\\Scripts\\python.exe -m src.graph.load_neo4j
@@ -160,53 +162,88 @@ def group_name(name):
     return normalized.removeprefix("the ")
 
 
-def team_index(teams):
-    """(reality, group name of the team's name or alias) -> team IDs."""
-    index = {}
-    for t in teams:
-        for name in [t["name"], *_split(t["aliases"])]:
-            index.setdefault((t["reality"], group_name(name)), set()).add(t["team_id"])
-    return index
+def name_index(rows, name_field):
+    """Two indexes of graph rows (Team or Character), (reality, group name) -> IDs: one by the
+    row's own name (`name_field`), then one by its aliases."""
+    own, aliases = {}, {}
+    for r in rows:
+        own.setdefault((r["reality"], group_name(r[name_field])), set()).add(r["id"])
+        for alias in r["aliases"]:
+            aliases.setdefault((r["reality"], group_name(alias)), set()).add(r["id"])
+    return own, aliases
+
+
+def unique_match(index, reality, name):
+    """The one ID of that name in the reality: by own name, else by alias. None when the first
+    index that knows the name has several IDs for it (five characters named Loki)."""
+    for by_name in index:
+        found = by_name.get((reality, group_name(name)), set())
+        if found:
+            return next(iter(found)) if len(found) == 1 else None
+    return None
 
 
 GROUP_TYPES = {"team", "organization"}
+DEFAULT_TYPE = "character"   # a subject's type; also what extraction gives most unknown names
 
 
 def _end_type(fact, side):
-    return "character" if side == "subject" else fact["object_type"]
+    return DEFAULT_TYPE if side == "subject" else fact["object_type"]
 
 
-def fact_end(fact, side, reality, team_ids, teams_by_name):
-    """(label, key) of a fact's subject or object. An unlinked group (any subject, or an object
-    typed team/organization) is the team of that name or alias in the title's reality, if one."""
-    node_id, name = fact[f"{side}_id"], fact[f"{side}_name"]
+def fact_end(fact, side, reality, team_ids, teams, characters):
+    """(label, ID) of a fact's subject or object; ID is None for a Thing. An unlinked end is the
+    team (if a subject or typed team/organization) or else the character (if typed character)
+    with that name in the title's reality, when exactly one has it (see unique_match)."""
+    node_id, name, end_type = fact[f"{side}_id"], fact[f"{side}_name"], _end_type(fact, side)
     if node_id:
         return ("Team" if node_id in team_ids else "Character"), node_id
-    if side == "subject" or fact["object_type"] in GROUP_TYPES:
-        found = teams_by_name.get((reality, group_name(name)), set())
-        if len(found) == 1:
-            return "Team", next(iter(found))
-    return "Thing", f"{_end_type(fact, side)}:{normalize_name(name)}@{reality}"
+    if side == "subject" or end_type in GROUP_TYPES:
+        if team := unique_match(teams, reality, name):
+            return "Team", team
+    if end_type == DEFAULT_TYPE:
+        if character := unique_match(characters, reality, name):
+            return "Character", character
+    return "Thing", None
 
 
-def fact_rows(outputs, realities, team_ids, teams_by_name):
-    """(Thing nodes, fact edges by relation) from the extraction outputs ({chunk: output})."""
-    things, edges = {}, {r: [] for r in RELATIONS}
+def thing_type(end_type, other_types):
+    """A Thing's type. The default type gives way to the one other type the same name has in the
+    reality ("Ravagers" as a subject and as an organization are one organization)."""
+    return next(iter(other_types)) if end_type == DEFAULT_TYPE and len(other_types) == 1 else end_type
+
+
+def fact_rows(outputs, realities, team_ids, teams, characters):
+    """(Thing nodes, fact edges by relation) from the extraction outputs ({chunk: output});
+    `teams` and `characters` are name_index results."""
+    resolved, other_types = [], {}
     for chunk, output in outputs.items():
         reality = realities[output["title_qid"]]
         for fact in output["facts"]:
-            ends = {}
-            for side in ("subject", "object"):
-                label, key = fact_end(fact, side, reality, team_ids, teams_by_name)
-                ends[side] = (label, key)
-                if label == "Thing":
-                    things.setdefault(key, {"key": key, "name": fact[f"{side}_name"], "reality": reality,
-                                            "type": _end_type(fact, side)})
-            edges[fact["relation"]].append({
-                "from_label": ends["subject"][0], "from": ends["subject"][1],
-                "to_label": ends["object"][0], "to": ends["object"][1],
-                "title_qid": output["title_qid"], "episode": fact["episode"], "evidence": fact["evidence"],
-                "note": fact["note"], "chunk": chunk})
+            ends = {side: fact_end(fact, side, reality, team_ids, teams, characters) for side in ("subject", "object")}
+            for side, other in (("subject", "object"), ("object", "subject")):
+                if not fact[f"{side}_id"] and ends[side][1] is not None and ends[side][1] == ends[other][1]:
+                    ends[side] = ("Thing", None)   # a name for the other end itself: a cover identity, a form
+            for side, (label, _) in ends.items():
+                if label == "Thing" and _end_type(fact, side) != DEFAULT_TYPE:
+                    other_types.setdefault((group_name(fact[f"{side}_name"]), reality), set()).add(
+                        _end_type(fact, side))
+            resolved.append((chunk, output["title_qid"], reality, fact, ends))
+    things, edges = {}, {r: [] for r in RELATIONS}
+    for chunk, title_qid, reality, fact, ends in resolved:
+        for side, (label, node_id) in ends.items():
+            if label == "Thing":
+                name = group_name(fact[f"{side}_name"])
+                kind = thing_type(_end_type(fact, side), other_types.get((name, reality), set()))
+                node_id = f"{kind}:{name}@{reality}"
+                things.setdefault(node_id, {"key": node_id, "name": fact[f"{side}_name"], "reality": reality,
+                                            "type": kind})
+            ends[side] = (label, node_id)
+        edges[fact["relation"]].append({
+            "from_label": ends["subject"][0], "from": ends["subject"][1],
+            "to_label": ends["object"][0], "to": ends["object"][1],
+            "title_qid": title_qid, "episode": fact["episode"], "evidence": fact["evidence"],
+            "note": fact["note"], "chunk": chunk})
     return list(things.values()), edges
 
 
@@ -249,22 +286,23 @@ def load(session, data):
 
 def read_data():
     registry = read_csv(REGISTRY_PATH)
-    teams = read_csv(TEAMS_PATH)
+    teams = [{"id": t["team_id"], "name": t["name"], "reality": t["reality"], "kind": t["kind"],
+              "aliases": _split(t["aliases"])} for t in read_csv(TEAMS_PATH)]
+    characters = character_rows(read_csv(CHARACTERS_PATH), read_csv(ALIASES_PATH))
     people, plays, appears, acted_in = performance_rows(read_csv(PERFORMANCES_PATH))
     details = read_csv(TITLE_DETAILS_PATH)
     crew = crew_rows(details, people)
     birth_dates(people, read_csv(ACTOR_BIRTHS_PATH), read_csv(TMDB_BIRTHDAYS_PATH))
     outputs = {p.stem: read_json(p) for p in sorted(OUTPUTS_DIR.glob("*.json"))}
-    things, facts = fact_rows(outputs, {t["wikidata_qid"]: t["reality"] for t in registry},
-                              {t["team_id"] for t in teams}, team_index(teams))
+    things, facts = fact_rows(outputs, {t["wikidata_qid"]: t["reality"] for t in registry}, {t["id"] for t in teams},
+                              name_index(teams, "name"), name_index(characters, "label"))
     return {
         "titles": title_rows(registry, _by_qid(RELEASE_ORDER_PATH), _by_qid(TITLE_PHASES_PATH), _by_qid(TIMELINE_PATH),
                              _by_qid(WIKIDATA_MONEY_PATH), _by_qid(TMDB_STATS_PATH)),
-        "characters": character_rows(read_csv(CHARACTERS_PATH), read_csv(ALIASES_PATH)),
+        "characters": characters,
         "people": list(people.values()), "plays": plays, "appears": appears, "acted_in": acted_in,
         "crew": crew, "follows": follows_rows(details),
-        "teams": [{"id": t["team_id"], "name": t["name"], "reality": t["reality"], "kind": t["kind"],
-                   "aliases": _split(t["aliases"])} for t in teams],
+        "teams": teams,
         "things": things,
         "variants": [l for l in read_csv(LINKS_PATH) if l["relation"] == "variant"],
         "memberships": [m for m in read_csv(MEMBERSHIPS_PATH) if m["character_id"]],

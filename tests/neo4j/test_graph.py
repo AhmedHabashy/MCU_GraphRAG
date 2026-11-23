@@ -117,3 +117,17 @@ def test_box_office_is_wikidatas_else_tmdbs(db):
     rows = {r["t"]: r["s"] for r in db("MATCH (t:Title) WHERE t.qid IN ['Q23781155', 'Q112322116'] "
                                        "RETURN t.qid AS t, t.box_office_source AS s")}
     assert rows == {"Q23781155": "wikidata", "Q112322116": "tmdb"}
+
+
+def test_an_unlinked_alias_in_a_plot_reaches_its_character(db):
+    """Falcon and the Winter Soldier names the Power Broker without an ID; that is Sharon Carter."""
+    rows = db("MATCH (:Character {label: 'Georges Batroc'})<-[r:KILLS {source: 'plot'}]-(c:Character) "
+              "WHERE r.evidence CONTAINS 'Power Broker' RETURN c.id AS killer")
+    assert [r["killer"] for r in rows] == ["Q24027486@Earth-616"]
+
+
+def test_no_character_thing_has_the_name_of_exactly_one_character_in_its_reality(db):
+    """Such a Thing should have been that character, unless it names the fact's other end itself."""
+    assert count(db, "MATCH (t:Thing {type: 'character'}) MATCH (c:Character {reality: t.reality}) "
+                     "WHERE toLower(c.label) = toLower(t.name) WITH t, collect(c) AS cs WHERE size(cs) = 1 "
+                     "WITH t, cs[0] AS c WHERE NOT (t)--(c) RETURN count(t) AS n") == 0

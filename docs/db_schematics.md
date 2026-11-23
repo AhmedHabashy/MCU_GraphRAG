@@ -19,7 +19,7 @@ The graph is a network of **things** (nodes) joined by **facts** (relationships,
   New Avengers (Thunderbolts), the Fantastic Four of Earth-828, S.H.I.E.L.D., the TVA, ...
 - A **Thing** is anything else a plot fact mentions that is not in our tables: an object
   (the Tesseract, the TemPad), a place (the Quantum Realm), a group not in the teams list
-  (the Ravagers), or a character missing from that title's cast list.
+  (the Ravagers), or a character we have no Character node for in that reality.
 
 Facts come in two kinds:
 
@@ -67,7 +67,7 @@ graph LR
 - **Teams** are `<name>@<reality>`, e.g. `X-Men@Earth-10005` and `X-Men@Earth-92131`
   (X-Men '97) are different teams.
 - **Things** are `<type>:<name>@<reality>`, e.g. `object:tesseract@Earth-616`: one node per
-  name per reality, shared by every fact that mentions it.
+  name per reality (a leading "the" is ignored), shared by every fact that mentions it.
 
 The realities, team list, curated roles and other expert decisions are in
 [data_sources_and_tiers.md](data_sources_and_tiers.md).
@@ -80,7 +80,7 @@ The realities, team list, curated roles and other expert decisions are in
 | Character | 2,511 | A character in one reality | `id` |
 | Person | 7,599 | An actor, director or writer | `key` |
 | Team | 12 | A team or organization from the curated list | `id` |
-| Thing | 766 | A plot-fact end that is not a character, team or title | `key` |
+| Thing | 691 | A plot-fact end that is not a character, team or title | `key` |
 
 Each key is unique (a Neo4j constraint).
 
@@ -130,7 +130,12 @@ Each key is unique (a Neo4j constraint).
 | Property | Meaning |
 | --- | --- |
 | `key`, `name`, `reality` | See "How identities work"; `name` is as the plot fact gave it |
-| `type` | `character` (352), `object` (178), `organization` (109), `place` (79), `team` (18), `universe` (12), `event` (12), `time` (6) |
+| `type` | `character` (277), `object` (178), `organization` (109), `place` (79), `team` (18), `universe` (12), `event` (12), `time` (6) |
+
+`character` is also the type of every fact's subject, so a name the plot facts call
+`character` once and, say, `organization` elsewhere is one `organization` Thing (the
+Ravagers). A name given two other types keeps one Thing per type (the Ten Rings as an
+organization and as an object).
 
 ## Relationships from the data sources
 
@@ -169,8 +174,19 @@ agent's remark, e.g. "undone later"), `chunk` (which piece of text it came from)
 | VARIANT_OF | 13 | the plot says one is another version of the other |
 
 MEMBER_OF and VARIANT_OF exist from both kinds of source; `source = 'plot'` tells them apart.
-An unlinked group name in a plot fact is joined to its Team when exactly one team of that name
-or alias exists in the title's reality (the X-Men of X-Men '97); 184 facts were linked this way.
+
+The extraction agents give an ID for each character or team they find in the title's cast and
+team lists. A fact end the agent could only name is joined by name, within the title's reality:
+
+1. a group (any subject, or an end typed team or organization) to the Team with that name;
+2. else a character to the Character with that name: Natalie Rushman is Natasha Romanoff,
+   the Power Broker is Sharon Carter, Thanos is Thanos where he is named but not in the cast.
+
+A Character or Team's own name is tried first, then its aliases; the match must be the only
+one (five characters are named Loki, so "Loki" without an ID stays a Thing). A name that would
+join the fact's other end itself stays a Thing: a cover identity, a symbiote, a transformed
+form ("Natasha impersonates Natalie Rushman"). 97 fact ends were joined by name (96 characters,
+1 team); the rest stay Things.
 
 How the plot facts were extracted, and the rules the agents followed, are in
 [extraction_agents.md](extraction_agents.md) and
@@ -206,10 +222,14 @@ The 50 evaluation questions and their Cypher are in `src/graph/evaluate.py`
 
 ## Known limitations
 
-- **Things are matched only by name.** Many character Things are real characters missing from
-  that title's cast list (Charles Xavier in Deadpool & Wolverine), some already exist as
-  Character nodes elsewhere; near-duplicates exist ("branched timelines" and "Branching
-  timelines tree"). Matching them to existing nodes is a planned clean-up.
+- **Things are joined only by exact name.** 277 character Things have no single Character of
+  that name in their reality: most have no Character node there (What If...?'s variants in
+  the Multiverse reality, Peter Parker of Earth-86445), some share a name (Loki, Odin).
+  Near-duplicates are not merged ("branched timelines" and "Branching timelines tree").
+- **Joining by alias trusts the aliases.** A wrong alias joins a name to the wrong character.
+  Known case, fix pending: Wikidata links T'Challa and Natasha Romanoff to the MCU wiki pages
+  "Black Panther" and "Black Widow", which now describe Shuri and Yelena Belova, so both carry
+  their successor's names as aliases.
 - **Plot facts depend on the summaries.** A fact missing from Wikipedia's summary is missing
   from the graph (Heimdall's death is not among the Infinity War facts). Some series share one
   summary across several episodes (Agents of S.H.I.E.L.D., X-Men '97).
