@@ -20,15 +20,24 @@ them.
 
 ### What gets a summary
 
-| Grouping | Count | Written from |
-| --- | --- | --- |
-| Teams | 12 | members and roles (MEMBER_OF), plus the team's plot facts |
-| Phases | 6 | the plot summaries of their titles |
-| Sagas | 2 | the summaries of their phases |
-| Universes | 10 | the plot summaries of their titles |
-| Realities that span several universes | Earth-616 and Multiverse, for example | their characters and titles (the other realities repeat their universe) |
-| Series (seasons or sequels joined by FOLLOWS) | 16 | the plot summaries of their titles |
-| Main characters: at least 5 plot facts or 3 titles | 391 | names, reality, species, actors by title, appearances in release order, teams, variants, and the plot facts with their evidence sentences, grouped by title |
+The raw plots are too big to write group summaries from. Phase Four's titles hold 112,000
+characters of plot, the MCU universe's 305,000, and Agents of S.H.I.E.L.D. alone 141,000.
+So the summaries are built in three levels. Each group is written from the summaries one
+level down (agreed 2026-11-25):
+
+| Level | Summary | Count | Written from |
+| --- | --- | --- | --- |
+| 1 | Title digests | 98 | the title's plot: the film's text, or a series' episode summaries |
+| 1 | Main characters: at least 5 plot facts or 3 titles | 391 | the profile, then the plot facts with their evidence sentences, in release order (on average 12 facts; Coulson has the most, 81) |
+| 1 | Teams | 12 | members with role, status and reality (MEMBER_OF), plus the team's plot facts |
+| 2 | Series: titles joined by FOLLOWS, film series included (the Iron Man trilogy, the five Avengers films, Loki's two seasons) | 18 | their title digests |
+| 2 | Phases | 6 | their title digests |
+| 2 | Universes | 10 | their title digests |
+| 3 | Sagas | 2 | their phase summaries |
+| 3 | Realities that span several universes: Earth-616 (MCU, MCU animation, Netflix, Marvel TV, ABC) and Earth-10005 (Fox X-Men, plus its MCU titles) | 2 | the summaries of their universes; or, for a universe only partly in the reality, the digests of its titles there |
+
+In all, about 540 summaries. Title digests also give global search a level per title,
+next to the long plot passages.
 
 Every character, all 2,511, also gets a **profile** built from the graph without an LLM.
 This makes every character searchable, and a profile can't hold anything the graph doesn't.
@@ -68,6 +77,58 @@ checked three ways:
    rewritten or flagged.
 3. **The user**: reviews a sample of about 10 summaries across the kinds, including the
    expert decisions (for example, Captain Carter is a separate character from Peggy Carter).
+
+### Inputs
+
+Each summary gets an input file that holds exactly what its subagent may use (built by
+`src/graph/summary_inputs.py`):
+
+```
+processed_data/summaries/
+  inputs/<kind>/<id>.json    id, kind, name, level, sources, the input text, input_hash
+  outputs/<kind>/<id>.json   written by the subagents: summary, key facts, input_hash, writer
+  batches.json               pending inputs, grouped per subagent
+```
+
+- The kinds are `title`, `season`, `character`, `team`, `series`, `phase`, `universe`, `saga`
+  and `reality`.
+- A summary is pending when its output is missing, or the output's `input_hash` differs from
+  its input's. An input file is rewritten only when its content changes, the same rule as
+  `prepare_extraction` uses.
+- A level 2 or 3 input can be built only once the summaries below it exist. So the builder
+  builds what it can, and runs again after each level is written. An upper input contains
+  the lower summaries' text, so a rewritten title digest makes its phase pending again.
+- Citations in inputs are `[<title qid>]`, or `[<title qid> ep <n>]` for a series episode.
+  A character fact looks like
+  `[Q107185252 ep 6] Sylvie KILLS He Who Remains: "Sylvie kills He Who Remains, ..."`.
+- An input over 40,000 characters is reported, not cut. Two rules keep inputs under the
+  limit (agreed 2026-11-25):
+  - **A title too long for one input is split by season.** Each season gets a digest
+    (kind `season`, id `<title qid>-s<n>`), and the title digest is written from its season
+    digests. This applies to Agents of S.H.I.E.L.D., Jessica Jones and Daredevil, about 13
+    seasons in all.
+  - **A group whose digests exceed the limit is built from the level that covers it.** A
+    universe is written from the summaries of the phases its titles are in, plus the digests
+    of its titles in no phase. The input notes which titles of those phases belong to other
+    universes. A reality is written from its universes' summaries, each taken whole, and the
+    input notes which of their titles belong to other realities. This applies to the MCU
+    universe (58 titles) and Earth-616, whose inputs from digests would come to about 87,000
+    and 90,000 characters.
+
+Built 2026-11-25. Ready now: 95 title, 13 season, 391 character and 12 team inputs, 511
+pending in 30 batches, none over the limit. Agents of S.H.I.E.L.D. (7 seasons), Daredevil
+and Jessica Jones (3 each) are split by season, and their 3 title digests wait for their
+seasons. The 38 inputs at levels 2 and 3 also wait for the summaries below them.
+
+The MCU universe is only partly in Earth-616 (Deadpool & Wolverine is Earth-10005), and Fox
+X-Men is only partly in Earth-10005 (Logan is Earth-17315). So each of those realities is
+written from title digests, apart from the universes that lie wholly in it. If that comes to
+more than the limit, the reality is written from its universes instead (see the rules above).
+
+Validation: unit tests on the hash, the pending rule, the cascade and the character
+threshold. On the real inputs, check the counts, that every citation names a real title
+(and a real episode), that Phase One holds exactly its six titles, and the 40,000-character
+limit.
 
 ### Storage and updates
 

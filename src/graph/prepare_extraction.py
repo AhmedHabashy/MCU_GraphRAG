@@ -87,7 +87,7 @@ def batches(chunks, batch_chars=BATCH_CHARS):
     return groups + ([current] if current else [])
 
 
-def _write_if_changed(path, value):
+def write_if_changed(path, value):
     if not path.exists() or read_json(path) != value:
         write_json(path, value)
 
@@ -105,7 +105,7 @@ def main():
         plot = read_json(path)
         inputs |= chunk_inputs(plot, title_cast(plot["title_qid"], performances, characters, aliases), teams)
     for cid, value in inputs.items():
-        _write_if_changed(INPUTS_DIR / f"{cid}.json", value)
+        write_if_changed(INPUTS_DIR / f"{cid}.json", value)
     OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 
     todo = pending(list(inputs))
