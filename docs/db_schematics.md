@@ -81,7 +81,6 @@ The realities, team list, curated roles and other expert decisions are in
 | Person | 7,599 | An actor, director or writer | `key` |
 | Team | 12 | A team or organization from the curated list | `id` |
 | Thing | 691 | A plot-fact end that is not a character, team or title | `key` |
-| Passage | 738 | A piece of a plot summary, for search (see "Plot passages and indexes") | `id` |
 
 Each key is unique (a Neo4j constraint).
 
@@ -192,32 +191,6 @@ form ("Natasha impersonates Natalie Rushman"). 97 fact ends were joined by name 
 How the plot facts were extracted, and the rules the agents followed, are in
 [extraction_agents.md](extraction_agents.md) and
 [../src/graph/extraction_prompt.md](../src/graph/extraction_prompt.md).
-
-## Plot passages and indexes
-
-`src.retrieval.passages` loads the plot summaries as 738 `Passage` nodes, each linked
-`(:Passage)-[:FROM]->(:Title)`. Run it after `src.graph.load_neo4j`, which deletes them.
-
-| Property | Meaning |
-| --- | --- |
-| `id` | A hash of the title, heading and text: it changes only when the text does |
-| `title_qid`, `heading`, `episodes` | The title; "Loki season 1, episode 1 (season 1): Glorious Purpose"; the episode numbers (empty for a film). The parts of a multi-part episode share one summary and one passage |
-| `text` | Whole paragraphs, up to about 1,500 characters |
-| `embedding` | `text-embedding-3-small` vector of heading + text (1,536 numbers) |
-
-The vectors are cached in `processed_data/retrieval/embeddings.json` with the model's name, so
-a rerun embeds only new or changed passages. A new `EMBEDDING_MODEL` embeds all of them again.
-
-| Index | Over | Used by |
-| --- | --- | --- |
-| `entity_names` (full-text) | `title`, `label`, `name`, `aliases` of Title, Character, Person, Team, Thing | `find_entity` |
-| `passage_embedding` (vector, cosine) | `Passage.embedding` | `search_plots` |
-| `passage_text` (full-text) | `Passage.heading`, `Passage.text` | `search_plots` |
-
-`search_plots` fuses the vector and keyword rankings (reciprocal rank fusion). On 12 probe
-questions it found the right title in the top 8 for all 12 (MRR 0.83). Vectors alone found 11
-(0.69) and keywords alone 12 (0.75): keywords catch names like Vormir and Batroc, vectors catch
-paraphrases.
 
 ## Exploring it
 

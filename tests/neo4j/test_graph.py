@@ -67,8 +67,7 @@ def test_node_keys_are_unique_constraints(db):
 
 def test_only_known_relation_types(db):
     types = {r["t"] for r in db("MATCH ()-[r]->() RETURN DISTINCT type(r) AS t")}
-    assert types <= set(RELATIONS) | {"APPEARS_IN", "PLAYS", "VARIANT_OF", "MEMBER_OF", "ACTED_IN", "DIRECTED", "WROTE", "FOLLOWS",
-                               "FROM"}    # Passage -> Title (src.retrieval.passages)
+    assert types <= set(RELATIONS) | {"APPEARS_IN", "PLAYS", "VARIANT_OF", "MEMBER_OF", "ACTED_IN", "DIRECTED", "WROTE", "FOLLOWS"}
 
 
 def test_daisy_johnson_is_an_inhuman_in_shield(db):

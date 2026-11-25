@@ -18,8 +18,6 @@ Edges:  (Character)-[:APPEARS_IN]->(Title)
 An unlinked fact end (a name without an ID) is the Team, or for a character the Character, with
 that name in the title's reality when exactly one has it (the X-Men of X-Men '97; Natalie
 Rushman is Natasha Romanoff); else a Thing.
-Indexes: a uniqueness constraint per node key, and the full-text index NAME_INDEX over names and
-aliases. Plot passages are loaded afterwards by src.retrieval.passages (this run deletes them).
 
 Needs:  processed_data/ (titles, characters, teams, extraction/plots/outputs), Neo4j running
 Run:    .venv\\Scripts\\python.exe -m src.graph.load_neo4j
@@ -41,7 +39,6 @@ from src.source_data_collection.storage import read_csv, read_json
 
 BATCH = 1000
 KEYS = {"Title": "qid", "Character": "id", "Person": "key", "Team": "id", "Thing": "key"}
-NAME_INDEX = "entity_names"     # full-text over every node's names, for src.retrieval.tools.find_entity
 
 
 def _split(value):
@@ -250,7 +247,7 @@ def fact_rows(outputs, realities, team_ids, teams, characters):
     return list(things.values()), edges
 
 
-def run_batches(session, query, rows):
+def _run(session, query, rows):
     for i in range(0, len(rows), BATCH):
         session.run(query, rows=rows[i:i + BATCH])
 
@@ -259,31 +256,29 @@ def load(session, data):
     session.run("MATCH (n) DETACH DELETE n")
     for label, key in KEYS.items():
         session.run(f"CREATE CONSTRAINT {label.lower()}_{key} IF NOT EXISTS FOR (n:{label}) REQUIRE n.{key} IS UNIQUE")
-    session.run(f"CREATE FULLTEXT INDEX {NAME_INDEX} IF NOT EXISTS FOR (n:{'|'.join(KEYS)}) "
-                "ON EACH [n.title, n.label, n.name, n.aliases]")
     for label, rows in (("Title", data["titles"]), ("Character", data["characters"]), ("Person", data["people"]),
                         ("Team", data["teams"]), ("Thing", data["things"])):
-        run_batches(session, f"UNWIND $rows AS r CREATE (n:{label}) SET n = r", rows)
-    run_batches(session, """UNWIND $rows AS r MATCH (c:Character {id: r.character}), (t:Title {qid: r.title})
+        _run(session, f"UNWIND $rows AS r CREATE (n:{label}) SET n = r", rows)
+    _run(session, """UNWIND $rows AS r MATCH (c:Character {id: r.character}), (t:Title {qid: r.title})
                      CREATE (c)-[:APPEARS_IN]->(t)""", data["appears"])
-    run_batches(session, """UNWIND $rows AS r MATCH (p:Person {key: r.person}), (c:Character {id: r.character})
+    _run(session, """UNWIND $rows AS r MATCH (p:Person {key: r.person}), (c:Character {id: r.character})
                      CREATE (p)-[:PLAYS {title_qid: r.title_qid, credited_as: r.credited_as,
                                          billing_order: r.billing_order}]->(c)""", data["plays"])
-    run_batches(session, """UNWIND $rows AS r MATCH (p:Person {key: r.person}), (t:Title {qid: r.title})
+    _run(session, """UNWIND $rows AS r MATCH (p:Person {key: r.person}), (t:Title {qid: r.title})
                      CREATE (p)-[:ACTED_IN]->(t)""", data["acted_in"])
     for relation in ("DIRECTED", "WROTE"):
-        run_batches(session, f"""UNWIND $rows AS r MATCH (p:Person {{key: r.person}}), (t:Title {{qid: r.title}})
+        _run(session, f"""UNWIND $rows AS r MATCH (p:Person {{key: r.person}}), (t:Title {{qid: r.title}})
                           CREATE (p)-[:{relation}]->(t)""", data["crew"][relation])
-    run_batches(session, """UNWIND $rows AS r MATCH (t:Title {qid: r.title}), (p:Title {qid: r.previous})
+    _run(session, """UNWIND $rows AS r MATCH (t:Title {qid: r.title}), (p:Title {qid: r.previous})
                      CREATE (t)-[:FOLLOWS]->(p)""", data["follows"])
-    run_batches(session, """UNWIND $rows AS r MATCH (a:Character {id: r.from_id}), (b:Character {id: r.to_id})
+    _run(session, """UNWIND $rows AS r MATCH (a:Character {id: r.from_id}), (b:Character {id: r.to_id})
                      CREATE (a)-[:VARIANT_OF {shared_qid: r.shared_qid}]->(b)""", data["variants"])
-    run_batches(session, """UNWIND $rows AS r MATCH (c:Character {id: r.character_id}), (t:Team {id: r.team_id})
+    _run(session, """UNWIND $rows AS r MATCH (c:Character {id: r.character_id}), (t:Team {id: r.team_id})
                      CREATE (c)-[:MEMBER_OF {role: r.role, status: r.status, source: r.source,
                                              source_url: r.source_url}]->(t)""", data["memberships"])
     for relation, rows in data["facts"].items():  # RELATION names come from a fixed list, not the data
         for (fl, tl) in {(r["from_label"], r["to_label"]) for r in rows}:
-            run_batches(session, f"""UNWIND $rows AS r MATCH (a:{fl} {{{KEYS[fl]}: r.from}}), (b:{tl} {{{KEYS[tl]}: r.to}})
+            _run(session, f"""UNWIND $rows AS r MATCH (a:{fl} {{{KEYS[fl]}: r.from}}), (b:{tl} {{{KEYS[tl]}: r.to}})
                               CREATE (a)-[:{relation} {{title_qid: r.title_qid, episode: r.episode,
                                   evidence: r.evidence, note: r.note, chunk: r.chunk, source: 'plot'}}]->(b)""",
                  [r for r in rows if (r["from_label"], r["to_label"]) == (fl, tl)])
