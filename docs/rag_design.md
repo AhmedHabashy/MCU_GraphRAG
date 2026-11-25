@@ -64,6 +64,30 @@ Profiles (built 2026-11-25 by `src/graph/profiles.py`):
 - A group summary is built from the level below it. A phase is written from its titles' plots,
   and a saga from its phases.
 
+### Output format and prompts (agreed 2026-11-25)
+
+- The writer follows `src/graph/summary_prompt.md`. Its output goes to
+  `processed_data/summaries/outputs/<kind>/<id>.json` and holds `kind`, `id`, `name` and
+  `input_hash` (copied from the input), `summary`, `key_facts` (3 to 10, each a `fact` with its
+  `cite`) and `writer`.
+- A summary is 150 to 250 words of prose. A thin input may give less, down to about 60 words:
+  the writer never pads. Every key fact is stated in the summary too.
+- Citations are copied from the input. A group summary carries up the title citations found in
+  the key facts of the summaries below it, so every key fact leads back to a title.
+- The checker follows `src/graph/summary_check_prompt.md`. Its output goes to
+  `processed_data/summaries/checks/<kind>/<id>.json`: each statement of the summary and each
+  key fact, marked supported or not with a reason, and a `verdict` of pass or fail.
+- The automatic check is `src/graph/check_summaries.py`. It checks the JSON shape, that `kind`,
+  `id`, `name` and `input_hash` match the input, the length, and the key facts (3 to 10, each
+  citing citations that appear in the input). It also lists capitalized names that the input
+  never mentions; this is a warning to review, not a failure. The writer runs it on its own
+  output and fixes problems until there are none.
+- One summary flows: writer, then the automatic check, then the checker. On a fail, the writer
+  rewrites from the checker's reasons and the checks run again. After two failed rewrites, the
+  summary is flagged for the user's review.
+- Pilot set: Iron Man (a film), Agents of S.H.I.E.L.D. season 1, Loki (Earth-616, many facts),
+  a main character near the threshold (5 facts), and the Avengers.
+
 ### Who writes and checks them
 
 Claude Code subagents on Sonnet 5.5 write the summaries, the same way the plot facts were
