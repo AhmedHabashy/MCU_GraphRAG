@@ -1,7 +1,7 @@
 """Unit tests for src/graph/summary_inputs.py (no database, no files)."""
 
 from src.graph.summary_inputs import (
-    batches, citations, fact_line, group_input, group_inputs, is_main_character, is_pending, make_input,
+    batches, citations, fact_line, facts_text, group_input, group_inputs, is_main_character, is_pending, make_input,
     reality_sources, summary_block, title_inputs, title_text,
 )
 
@@ -39,6 +39,20 @@ def test_a_fact_line_cites_and_names_its_title_and_keeps_evidence_and_note():
     assert fact_line(fact) == '[Q2 ep 6] Loki, season 1: Sylvie KILLS He Who Remains: "Sylvie kills He Who Remains."'
     assert fact_line(dict(fact, episode=None, note="undone later")) == \
         '[Q2] Loki, season 1: Sylvie KILLS He Who Remains: "Sylvie kills He Who Remains." (note: undone later)'
+
+
+def test_facts_of_one_title_are_in_story_order_by_where_their_evidence_appears_in_the_plot():
+    """Wave 8: a film's facts were sorted by relation, so Thor 'defeats Surtur' came after Sakaar."""
+    plot = {"title": "Thor: Ragnarok", "title_qid": "Q9", "text": "Thor is imprisoned by Surtur. Thor defeats Surtur. "
+            "Thor crash-lands on Sakaar.", "episodes": []}
+    def f(relation, evidence):
+        return {"title_qid": "Q9", "title": "Thor: Ragnarok", "order": 1, "episode": None, "subject": "Thor",
+                "relation": relation, "object": "x", "evidence": evidence, "note": ""}
+    facts = [f("TRAVELS_TO", "Thor crash-lands on Sakaar"), f("ENEMY_OF", "Thor is imprisoned by Surtur"),
+             f("KILLS", "Thor defeats Surtur"), f("ALLY_OF", "not in the plot")]
+    lines = facts_text(facts, {"Q9": plot}).splitlines()
+    assert [l.split('"')[1] for l in lines] == ["Thor is imprisoned by Surtur", "Thor defeats Surtur",
+                                                "Thor crash-lands on Sakaar", "not in the plot"]   # unfound go last
 
 
 def test_main_characters_have_five_plot_facts_or_three_titles_and_at_least_one_fact():

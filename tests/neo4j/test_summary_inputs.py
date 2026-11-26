@@ -59,7 +59,7 @@ def test_every_citation_names_a_real_title_and_episode(level1, plots):
 
 def test_a_character_input_is_its_profile_and_its_plot_facts(level1):
     sylvie = next(i for i in level1[0] if i["kind"] == "character" and i["name"] == "Sylvie")
-    profile, facts = sylvie["text"].split("\n\nPlot facts (release order):\n")
+    profile, facts = sylvie["text"].split("\n\nPlot facts (story order):\n")
     assert profile.startswith("Sylvie (")
     assert "KILLS He Who Remains" in facts and "[Q107185252 ep 6]" in facts
 
@@ -84,3 +84,11 @@ def test_upper_levels_take_their_members_from_the_summaries_below(session, plots
     # Earth-616 takes the Netflix, Marvel TV and ABC universes whole, and the MCU's titles one by one
     earth_616 = items[("reality", "Earth-616")]["sources"]
     assert {"Netflix", "Marvel TV", "ABC"} <= set(earth_616) and "MCU" not in earth_616
+
+
+def test_every_plot_fact_evidence_is_found_in_its_titles_plot(db, plots):  # noqa: F811
+    """Facts are put in story order by where their evidence appears in the plot; all must be found."""
+    from src.graph.summary_inputs import title_text
+    texts = {q: title_text(p) for q, p in plots.items()}
+    rows = db("MATCH ()-[r {source: 'plot'}]->() RETURN r.title_qid AS q, r.evidence AS e")
+    assert [r["e"] for r in rows if texts.get(r["q"], "").find(r["e"]) < 0] == []

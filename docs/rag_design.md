@@ -95,6 +95,30 @@ Profiles (built 2026-11-25 by `src/graph/profiles.py`):
   checks in a row**, each by a new checker, pass it, since checkers vary and one may miss what
   another finds. After two failed rewrites, the summary is flagged for the user's review.
 
+- **Titles stay close to the plot's wording (agreed 2026-11-26).** Of the first 11 title
+  digests, 6 failed their first check, against about 15% of character summaries. The writers'
+  own knowledge of the films leaked in: Secret Invasion's square became "Moscow", "plans to
+  lure" became "lures", "injured while protecting him from a lion" became "injured by a lion".
+  So title and season writers add no place, name, cause or outcome the plot doesn't state, and
+  keep who does what to whom exactly as the plot says. Checkers compare each event's actors,
+  object and outcome with its plot sentence.
+- **Plot facts in story order (agreed 2026-11-26).** Within one film, a character's plot facts
+  had been sorted by relation type, not by when they happen. So the kept Thor summary had him
+  defeat Surtur after reaching Sakaar, where the film has it first. The checkers couldn't catch
+  this, since the order matched the input. Now each title's facts are sorted by where their
+  evidence sentence appears in the title's plot; a series is sorted by episode first. All 3,552
+  evidence sentences are found in their plots, and a test keeps it so. This changed every
+  character and team input, so all 385 of those summaries were written and checked again
+  (wave 9 onward). Titles and seasons were unaffected.
+- **Known limitation: release order for long series.** Plot facts are sorted by their title's
+  first release, so all seven seasons of Agents of S.H.I.E.L.D. (2013 to 2020) come before the
+  films released after 2013. A team's facts "in order" are therefore not quite chronological.
+- **Teams say who leads and when (agreed 2026-11-26).** A team summary gives each leader and
+  member once, with the status the member list gives ("Cyclops, a former leader and a current
+  member"). It tells leadership changes from the plot facts in order, naming the title. It
+  never gives two leaders without saying which is current or in which title. The first X-Men
+  '97 draft said the team was "led by Professor X" and then "Magneto leads the X-Men". The 10
+  team drafts written before this rule were written again.
 - **Reviews (agreed 2026-11-26).** The user, or the main session, can send any summary back with
   a review (`processed_data/summaries/reviews/<kind>/<id>.json`, a failing check in the same
   shape), even one already kept. Two checks can both miss an error: wave 3 kept "is consoled

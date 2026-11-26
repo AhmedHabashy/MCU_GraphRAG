@@ -136,8 +136,20 @@ PLOT_FACTS = """COLLECT { MATCH (n)-[r]-() WHERE r.source = 'plot' WITH DISTINCT
                               evidence: r.evidence, note: r.note} }"""
 
 
-def _facts_text(facts):
-    ordered = sorted(facts, key=lambda f: (f["order"], f["episode"] or 0, f["relation"], f["subject"], f["object"]))
+def facts_text(facts, plots):
+    """Fact lines in story order: by title (release order), episode, then where the evidence sentence
+    appears in the title's plot. A fact whose evidence isn't found comes last in its episode."""
+    texts = {}
+
+    def position(f):
+        qid = f["title_qid"]
+        if qid not in texts:
+            texts[qid] = title_text(plots[qid]) if qid in plots else ""
+        found = texts[qid].find(f["evidence"])
+        return found if found >= 0 else len(texts[qid]) + 1
+
+    ordered = sorted(facts, key=lambda f: (f["order"], f["episode"] or 0, position(f), f["relation"], f["subject"],
+                                           f["object"]))
     return "\n".join(fact_line(f) for f in ordered)
 
 
@@ -164,7 +176,7 @@ def title_inputs(titles, plots, outputs, max_chars=MAX_INPUT_CHARS):
     return items
 
 
-def character_inputs(session):
+def character_inputs(session, plots):
     inputs = []
     for r in session.run(f"""MATCH (n:Character)
             WITH n, COUNT {{ (n)-[x]-() WHERE x.source = 'plot' }} AS facts,
@@ -176,13 +188,13 @@ def character_inputs(session):
             raise RuntimeError("characters have no profile; run src.graph.profiles first")
         text = r["profile"]
         if r["plot_facts"]:
-            text += "\n\nPlot facts (release order):\n" + _facts_text(r["plot_facts"])
+            text += "\n\nPlot facts (story order):\n" + facts_text(r["plot_facts"], plots)
         inputs.append(make_input("character", r["id"], r["label"], 1,
                                  sorted({f["title_qid"] for f in r["plot_facts"]}), text))
     return inputs
 
 
-def team_inputs(session):
+def team_inputs(session, plots):
     inputs = []
     for r in session.run(f"""MATCH (n:Team)
             RETURN n.id AS id, n.name AS name, n.kind AS kind, n.reality AS reality, n.aliases AS aliases,
@@ -200,7 +212,7 @@ def team_inputs(session):
                  "", "Members (from the wikis):"]
         lines += [f"- {label} ({reality}): {memberships_text(ms)}" for (label, reality), ms in sorted(members.items())]
         if r["plot_facts"]:
-            lines += ["", "Plot facts (release order):", _facts_text(r["plot_facts"])]
+            lines += ["", "Plot facts (story order):", facts_text(r["plot_facts"], plots)]
         inputs.append(make_input("team", r["id"], r["name"], 1,
                                  sorted({f["title_qid"] for f in r["plot_facts"]}), "\n".join(lines)))
     return inputs
@@ -286,7 +298,7 @@ def build(session, plots, outputs):
         "MATCH (t:Title) RETURN t.qid AS qid, t.title AS title, t.type AS type, t.year AS year, "
         "t.universe AS universe, t.reality AS reality, t.phases AS phases, t.sagas AS sagas, "
         "t.release_order AS release_order ORDER BY t.release_order")]
-    built = character_inputs(session) + team_inputs(session)
+    built = character_inputs(session, plots) + team_inputs(session, plots)
     waiting = {}
     for kind, _, inp in title_inputs(titles, plots, outputs) + group_inputs(titles, series_chains(session), outputs):
         if inp:

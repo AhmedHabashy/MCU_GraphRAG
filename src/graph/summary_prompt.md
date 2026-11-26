@@ -15,7 +15,7 @@ A JSON file with:
   - **title, season**: a header line, then the plot. A film's plot is under one citation
     `[Q…]`. A series' episodes each start with their own citation, `[Q… ep N]`.
   - **character**: the profile (names, reality, species, actors, appearances, teams,
-    variants), then the plot facts in release order. Each fact is one line, naming its title:
+    variants), then the plot facts in story order (titles in release order; within a title, the order of its plot). Each fact is one line, naming its title:
     `[Q… ep N] Title: Subject RELATION Object: "evidence sentence" (note: …)`.
   - **team**: the team, its members from the wikis (role and status), then its plot facts.
   - **series, phase, universe, saga, reality, or a title built from its seasons**: the summaries
@@ -50,12 +50,23 @@ A JSON file with:
 - **Actors as the profile gives them.** Say which actor plays which role (a younger version, a
   voice) only when the profile's credits say so (`as "Young Danny Rand"`, `as "Wolverine
   (voice)"`). Don't pair an actor with an alias yourself.
+- **Titles and seasons: stay close to the plot's wording.** You likely know these films and
+  series; that knowledge is the main risk. Add no place, name, cause or outcome the plot
+  doesn't state: "plans to lure him" stays a plan (it doesn't become "lures him"), a square
+  doesn't become a city, "injured while protecting him from a lion" doesn't become "injured
+  by a lion". Keep who does what to whom exactly as the plot says. When the plot is unclear
+  about it, leave that part out rather than resolve it.
+- **Teams: who leads and who belongs, and when.** Take leaders and members from the member list
+  with their status, naming each character once: "Cyclops, a former leader and a current
+  member" when the list marks him both ways. Tell leadership or membership changes that the
+  plot facts show in their order, naming the title ("In X-Men '97, Magneto leads the team").
+  Never give two leaders without saying which is current or in which title.
 - **Tell the story, not the input.** Write as a narrator. Never mention "the input", "plot
   facts", "the wikis", "the profile" or what is "recorded" or "listed"; state what happens.
 - **Plot facts with notes.** A KILLS fact with a note such as "undone later" is not a final
   death: say it in one sentence, such as "the bombing seems to kill him, but he survives". A
   FAMILY_OF note gives the kind of family tie: use it.
-- **Order.** Tell events in the order the input gives them (release order, episode order).
+- **Order.** Tell events in the order the input gives them: titles in release order, and within a title the order of its plot (episode order for a series).
 - **Length.** 150 to 250 words of plain prose, without headings or lists. If the input is thin,
   write less, down to about 30 words. Never pad: don't repeat a fact in other words, and don't
   describe the input to fill space.
