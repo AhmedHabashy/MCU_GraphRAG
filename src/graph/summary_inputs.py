@@ -90,11 +90,12 @@ def summary_block(kind, id_, output):
 
 def _group(kind, id_, name, level, members, outputs, note=None):
     """The input built from member summaries [(kind, id)], after an optional note, or None while
-    one is missing."""
+    one is missing. Its sources are the members as [kind, id]: an id alone can name two summaries
+    (a series is named by its first title's qid)."""
     if any(m not in outputs for m in members):
         return None
     text = "\n\n".join(([note] if note else []) + [summary_block(k, i, outputs[(k, i)]) for k, i in members])
-    return make_input(kind, id_, name, level, [i for _, i in members], text)
+    return make_input(kind, id_, name, level, [[k, i] for k, i in members], text)
 
 
 def group_input(kind, id_, name, level, member_kind, member_ids, outputs):

@@ -222,6 +222,7 @@ Each summary gets an input file that holds exactly what its subagent may use (bu
 ```
 processed_data/summaries/
   inputs/<kind>/<id>.json    id, kind, name, level, sources, the input text, input_hash
+                             (sources: the plot's title qids, or for a group [kind, id] of each member summary)
   outputs/<kind>/<id>.json   written by the subagents: summary, key facts, input_hash, writer
   checks/<kind>/<id>.check1.json, .check2.json   the two checks of the current version
   status.json                every summary's state and the batches per next action (src/graph/summary_status.py)
@@ -294,6 +295,34 @@ Problems found during the run:
   and universes have no node of their own, so their summary links to its member titles.
 - A summary is rewritten only when the hash of its input changes (the project's
   only-redo-what-changed rule).
+
+### Summary nodes (agreed 2026-11-26)
+
+Loaded by `src/graph/load_summaries.py`, run after `load_neo4j`, `profiles` and `summary_inputs`.
+
+- **Node:** `(:Summary {id: "<kind>:<id>", kind, level, name, text, key_facts, key_fact_cites,
+  input_hash, writer})`. Neo4j properties can't hold maps, so the key facts are two lists of
+  the same length: the sentences and their citations. A unique constraint is on `id`.
+- **SUMMARIZES** links a summary to what it describes: its Title, Character or Team; a season to
+  its series' Title, with a `season` number; a series, phase, universe, saga or reality to every
+  Title it covers, through the summaries it was written from (a saga reaches its titles through
+  its phases).
+- **PART_OF** links each summary a group was written from to the group's summary (title -> series,
+  title -> phase -> saga, season -> title, universe -> reality), so DRIFT search can step from a
+  broad summary down to narrower ones. Character and team summaries have none.
+- Group inputs record their members as `[kind, id]`: an id alone is ambiguous (a series is named
+  by its first title's qid, so `Q106182` is both the X-Men title and the X-Men series).
+- The load stops, naming them, unless every summary is kept against its current input. It
+  replaces all Summary nodes rather than merging them, so a summary that no longer exists can't
+  linger, and running it twice changes nothing.
+- The keyword and vector indexes on summaries belong to the index step.
+
+Result (2026-11-26): 534 Summary nodes, 864 SUMMARIZES and 205 PART_OF links; the same counts
+after a second run. Validation (`tests/neo4j/test_summaries.py`): one node per summary input and
+kind; every summary has a SUMMARIZES link; each title, character and team summary points at its
+own node and every Title has a title summary; Phase One links to its 6 titles and the Infinity
+Saga to all its titles; each season link carries its number; every title summary reaches its
+universe's summary through PART_OF; every key-fact citation names a real title and episode.
 
 ## How we judge retrieval
 

@@ -75,7 +75,7 @@ def test_a_summary_block_carries_the_lower_summary_and_its_cited_key_facts():
 
 def test_a_group_input_is_built_only_when_every_member_summary_exists():
     inp = group_input("series", "Q1", "Iron Man series", 2, "title", ["Q1", "Q3"], OUTPUTS)
-    assert inp["sources"] == ["Q1", "Q3"] and "Tony faces Vanko." in inp["text"]
+    assert inp["sources"] == [["title", "Q1"], ["title", "Q3"]] and "Tony faces Vanko." in inp["text"]
     assert group_input("series", "Q1", "Iron Man series", 2, "title", ["Q1", "Q9"], OUTPUTS) is None
 
 
@@ -109,7 +109,7 @@ def test_a_title_too_long_for_one_input_is_written_from_its_season_digests():
     seasons = {("season", f"Q5-s{s}"): {"name": f"Saga Show, season {s}", "summary": f"season {s}", "key_facts": []}
                for s in (1, 2)}
     title = dict(title_inputs(TITLES, {"Q5": LONG}, outputs=seasons, max_chars=100)[-1][2])
-    assert title["sources"] == ["Q5-s1", "Q5-s2"] and "season 2" in title["text"]
+    assert title["sources"] == [["season", "Q5-s1"], ["season", "Q5-s2"]] and "season 2" in title["text"]
     short = title_inputs(TITLES, {"Q5": LONG}, outputs={}, max_chars=10_000)
     assert [(k, i) for k, i, _ in short] == [("title", "Q5")]
 
@@ -132,9 +132,9 @@ def test_a_universe_too_big_from_digests_is_built_from_its_phases_and_names_thei
                    + [stub("phase", p) for p in ("Phase One", "Phase Two")])
     items = {(k, i): inp for k, i, inp in group_inputs(group_titles(), [], outputs, max_chars=150)}
     mcu = items[("universe", "MCU")]
-    assert mcu["sources"] == ["Phase One", "Phase Two"]
+    assert mcu["sources"] == [["phase", "Phase One"], ["phase", "Phase Two"]]
     assert "TQ4" in mcu["text"].split("\n\n")[0]          # the note: Phase Two also covers an MCU animation title
-    assert items[("universe", "Netflix")]["sources"] == ["Q5"]           # small enough from its digest
+    assert items[("universe", "Netflix")]["sources"] == [["title", "Q5"]]           # small enough from its digest
 
 
 def test_a_reality_too_big_from_digests_takes_its_universes_whole_and_names_their_other_titles():
@@ -143,7 +143,7 @@ def test_a_reality_too_big_from_digests_takes_its_universes_whole_and_names_thei
                    + [stub("phase", p) for p in ("Phase One", "Phase Two")])
     items = {(k, i): inp for k, i, inp in group_inputs(group_titles(), [], outputs, max_chars=200)}
     earth_616 = items[("reality", "Earth-616")]
-    assert earth_616["sources"] == ["MCU", "MCU animation", "Netflix"]
+    assert earth_616["sources"] == [["universe", "MCU"], ["universe", "MCU animation"], ["universe", "Netflix"]]
     note = earth_616["text"].split("\n\n")[0]
     assert "TQ3" in note and "Earth-10005" in note
 

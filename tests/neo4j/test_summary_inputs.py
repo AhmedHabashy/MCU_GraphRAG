@@ -74,15 +74,15 @@ def test_upper_levels_take_their_members_from_the_summaries_below(session, plots
                  for t in titles})
     items = {(k, i): inp for k, i, inp in group_inputs(titles, series_chains(session), stub)}
     phase_one = items[("phase", "Phase One")]
-    assert [next(t["title"] for t in titles if t["qid"] == q) for q in phase_one["sources"]] == [
+    assert [next(t["title"] for t in titles if t["qid"] == q) for _, q in phase_one["sources"]] == [
         "Iron Man", "The Incredible Hulk", "Iron Man 2", "Thor", "Captain America: The First Avenger", "The Avengers"]
-    assert items[("saga", "The Infinity Saga")]["sources"] == ["Phase One", "Phase Two", "Phase Three"]
+    assert items[("saga", "The Infinity Saga")]["sources"] == [["phase", "Phase One"], ["phase", "Phase Two"], ["phase", "Phase Three"]]
     # Logan (Earth-17315) keeps the Fox X-Men universe from lying wholly in Earth-10005, so Earth-10005 is
     # written from its own titles: the 12 Fox films there and Deadpool & Wolverine
-    earth_10005 = {next(t["title"] for t in titles if t["qid"] == q) for q in items[("reality", "Earth-10005")]["sources"]}
+    earth_10005 = {next(t["title"] for t in titles if t["qid"] == q) for _, q in items[("reality", "Earth-10005")]["sources"]}
     assert len(earth_10005) == 13 and "Deadpool & Wolverine" in earth_10005 and "Logan" not in earth_10005
     # Earth-616 takes the Netflix, Marvel TV and ABC universes whole, and the MCU's titles one by one
-    earth_616 = items[("reality", "Earth-616")]["sources"]
+    earth_616 = [i for _, i in items[("reality", "Earth-616")]["sources"]]
     assert {"Netflix", "Marvel TV", "ABC"} <= set(earth_616) and "MCU" not in earth_616
 
 
