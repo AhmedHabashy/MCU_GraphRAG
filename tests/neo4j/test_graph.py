@@ -67,7 +67,7 @@ def test_node_keys_are_unique_constraints(db):
 
 def test_only_known_relation_types(db):
     types = {r["t"] for r in db("MATCH ()-[r]->() RETURN DISTINCT type(r) AS t")}
-    assert types <= set(RELATIONS) | {"APPEARS_IN", "PLAYS", "VARIANT_OF", "MEMBER_OF", "ACTED_IN", "DIRECTED", "WROTE", "FOLLOWS",
+    assert types <= set(RELATIONS) | {"FROM", "APPEARS_IN", "PLAYS", "VARIANT_OF", "MEMBER_OF", "ACTED_IN", "DIRECTED", "WROTE", "FOLLOWS",
                      "SUMMARIZES", "PART_OF"}
 
 

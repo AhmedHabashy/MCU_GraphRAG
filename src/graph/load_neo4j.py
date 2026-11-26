@@ -18,6 +18,8 @@ Edges:  (Character)-[:APPEARS_IN]->(Title)
 An unlinked fact end (a name without an ID) is the Team, or for a character the Character, with
 that name in the title's reality when exactly one has it (the X-Men of X-Men '97; Natalie
 Rushman is Natasha Romanoff); else a Thing.
+Indexes: a uniqueness constraint per node key, and the full-text index NAME_INDEX over names and
+aliases. The search indexes are built afterwards by src.retrieval.indexes (this run clears the data).
 
 Needs:  processed_data/ (titles, characters, teams, extraction/plots/outputs), Neo4j running
 Run:    .venv\\Scripts\\python.exe -m src.graph.load_neo4j
@@ -39,6 +41,7 @@ from src.source_data_collection.storage import read_csv, read_json
 
 BATCH = 1000
 KEYS = {"Title": "qid", "Character": "id", "Person": "key", "Team": "id", "Thing": "key"}
+NAME_INDEX = "entity_names"     # full-text over every node's names and aliases: the entry point for a name
 
 
 def _split(value):
@@ -276,6 +279,8 @@ def load(session, data):
     session.run("MATCH (n) DETACH DELETE n")
     for label, key in KEYS.items():
         session.run(f"CREATE CONSTRAINT {label.lower()}_{key} IF NOT EXISTS FOR (n:{label}) REQUIRE n.{key} IS UNIQUE")
+    session.run(f"CREATE FULLTEXT INDEX {NAME_INDEX} IF NOT EXISTS FOR (n:{'|'.join(KEYS)}) "
+                "ON EACH [n.title, n.label, n.name, n.aliases]")
     for label, rows in (("Title", data["titles"]), ("Character", data["characters"]), ("Person", data["people"]),
                         ("Team", data["teams"]), ("Thing", data["things"])):
         run_batches(session, f"UNWIND $rows AS r CREATE (n:{label}) SET n = r", rows)

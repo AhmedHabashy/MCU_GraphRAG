@@ -46,6 +46,10 @@ class FakeSession:
         self.calls.append((url, dict(params or {})))
         return self.responses.pop(0)
 
+    def post(self, url, json=None, timeout=None):
+        self.calls.append((url, json))
+        return self.responses.pop(0)
+
 
 def make_client(responses):
     session = FakeSession(responses)

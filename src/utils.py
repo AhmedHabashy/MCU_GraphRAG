@@ -140,7 +140,7 @@ def _chunks(items, size):
 # --- HTTP clients -------------------------------------------------------------
 
 class JsonHttpClient:
-    """GET JSON with retry on rate limiting / server errors (honours Retry-After).
+    """GET or POST JSON with retry on rate limiting / server errors (honours Retry-After).
 
     `session` and `sleep` are injected so tests can run without the network.
     Error messages name only the URL, never the parameters, which may hold secrets.
@@ -152,12 +152,19 @@ class JsonHttpClient:
         self.sleep = sleep
 
     def get_json(self, url, params, timeout=DEFAULT_TIMEOUT):
+        return self._json(url, lambda: self.session.get(url, params=params, timeout=timeout))
+
+    def post_json(self, url, body, timeout=DEFAULT_TIMEOUT):
+        """POST a JSON body; errors name only the URL, like get_json."""
+        return self._json(url, lambda: self.session.post(url, json=body, timeout=timeout))
+
+    def _json(self, url, send):
         """Retries rate limits, server errors, timeouts and dropped connections. Network errors
         are re-raised without their message, which can contain the full URL with parameters."""
         last = ""
         for attempt in range(1, MAX_ATTEMPTS + 1):
             try:
-                response = self.session.get(url, params=params, timeout=timeout)
+                response = send()
             except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as error:
                 last, wait = type(error).__name__, 2 ** attempt
             else:

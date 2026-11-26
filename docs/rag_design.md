@@ -428,12 +428,42 @@ The details belong to the retrieval step.
   gives Natasha Romanoff, and "Vormir" gives passages of Infinity War and Endgame.
 - Rebuilding the graph recreates every index.
 
+### Build (done 2026-11-26)
+
+`src/retrieval/indexes.py`, run after `load_neo4j`, `profiles` and `load_summaries`. `load_neo4j`
+creates `entity_names`. The OpenRouter client (embeddings only), the passage split and
+`JsonHttpClient.post_json` come back from 4945497.
+
+- **What is embedded (agreed 2026-11-26):** a passage's heading and text; a plot fact's whole
+  fact line as the summary inputs show it (`[Q… ep N] Title: Subject RELATION Object: "evidence"
+  (note: …)`), since many evidence sentences are fragments that don't say who acts or in which
+  title; a summary's name and text.
+- **Caches:** one file per kind in `processed_data/retrieval/embeddings/` (passages, evidence,
+  summaries), each vector keyed by a hash of the text it embeds, with the model's name. The 738
+  passage vectors of the first attempt were re-keyed into `passages.json`, so none were embedded
+  again; the old `embeddings.json` is gone.
+- **Indexes:** `passage_text`, `evidence_text` (evidence and note) and `summary_text` (name and
+  text), full-text; `passage_embedding`, `evidence_embedding` and `summary_embedding`, vector.
+  The evidence indexes cover all 14 plot relationship types in one index each (Neo4j 2026.10
+  accepts several types). Search indexes are dropped and created on every run, so they always
+  match the code; lookup indexes are created if missing. `actor_key` was a stale constraint and
+  was dropped once.
+- **Result:** 738 passage, 3,552 fact and 534 summary vectors (3,549 distinct fact lines and 534
+  summaries embedded, well under a cent); a second run embedded nothing.
+- **Validation** (`tests/neo4j/test_indexes.py`): exactly the expected indexes, all ONLINE; every
+  passage, fact and summary has a 1,536-dimension vector; each vector index finds a stored
+  vector's own item first; keyword lookups under 50 ms (median of three after a warm-up).
+  Two expectations above were wrong and were corrected: "Natalie Rushman" first finds the Thing
+  of that name (Natasha IMPERSONATES it in Iron Man 2), then Natasha; and no Endgame fact names
+  the Soul Stone, so "Soul Stone" finds Infinity War facts only. A probe by meaning, "who
+  sacrificed themselves", gave five sacrifices among the top five facts (Stark, Bakshi,
+  Nightcrawler, Riri and F.R.I.D.A.Y.).
+
 ## Open points
 
 
 - **Aggregation on retrieved data.** A count is right only if retrieval brought back the
   whole set being counted. "Who directed the most films?" needs every title. So the
   aggregation tool may need its retrieval to fetch complete sets.
-- **The leftover passages and indexes** are reused (see "Index set"). The graph rebuild of
-  2026-11-26 removed them from Neo4j. The vectors are still cached in
-  `processed_data/retrieval/embeddings.json`, and the code is in git history (4945497).
+- **The leftover passages and indexes** are reused and are now part of the build (see "Index
+  set", "Build").

@@ -81,8 +81,12 @@ The realities, team list, curated roles and other expert decisions are in
 | Person | 7,599 | An actor, director or writer | `key` |
 | Team | 12 | A team or organization from the curated list | `id` |
 | Thing | 691 | A plot-fact end that is not a character, team or title | `key` |
+| Summary | 534 | A written summary of a title, season, character, team or group (src.graph.load_summaries) | `id` |
+| Passage | 738 | A piece of a title's plot, for search (src.retrieval.indexes) | `id` |
 
-Each key is unique (a Neo4j constraint).
+Each key is unique (a Neo4j constraint). `(:Summary)-[:SUMMARIZES]->` its Title, Character or
+Team, `(:Summary)-[:PART_OF]->(:Summary)` its group, and `(:Passage)-[:FROM]->(:Title)`; see
+docs/rag_design.md ("Summary nodes", "Index set") for these and the search indexes.
 
 ### Title
 
