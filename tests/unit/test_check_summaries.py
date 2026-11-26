@@ -35,13 +35,16 @@ def test_missing_fields_are_problems():
     assert any("key_facts" in p for p in problems)
 
 
-def test_the_summary_must_be_between_60_and_250_words():
+def test_the_summary_must_be_between_30_and_250_words():
+    """A thin input gives a short summary: a 60-word floor made writers pad (wave 1)."""
     assert any("words" in p for p in check(INPUT, output(summary="Too short."))[0])
+    assert not check(INPUT, output(summary=" ".join(["word"] * 30)))[0]
     assert any("words" in p for p in check(INPUT, output(summary=" ".join(["word"] * 251)))[0])
 
 
-def test_key_facts_must_be_three_to_ten_and_cite_citations_of_the_input():
-    assert any("key facts" in p for p in check(INPUT, output(key_facts=output()["key_facts"][:2]))[0])
+def test_key_facts_must_be_one_to_ten_and_cite_citations_of_the_input():
+    assert any("key facts" in p for p in check(INPUT, output(key_facts=[]))[0])
+    assert not check(INPUT, output(key_facts=output()["key_facts"][:1]))[0]
     wrong = output()["key_facts"][:2] + [{"fact": "Sylvie meets Loki.", "cite": "[Q107185252 ep 3]"}]
     assert any("[Q107185252 ep 3]" in p for p in check(INPUT, output(key_facts=wrong))[0])
     uncited = output()["key_facts"][:2] + [{"fact": "Sylvie meets Loki.", "cite": "season one"}]
@@ -65,6 +68,11 @@ def test_adjacent_known_names_are_not_read_as_one_unknown_name():
     summary = ("He raids Dreykov's Budapest office. The Avengers (Earth-616) are Earth's Mightiest Heroes. "
                "In Infinity War Thanos wins.")
     assert unknown_names(summary, text) == []
+
+
+def test_a_possessive_of_a_name_ending_in_s_is_still_that_name():
+    """Wave 4: "Jones'" was flagged though the input names Jessica Jones."""
+    assert unknown_names("He takes Jessica Jones' case.", "Jessica Jones is a detective.") == []
 
 
 def test_a_nickname_in_quotes_does_not_hide_a_name():

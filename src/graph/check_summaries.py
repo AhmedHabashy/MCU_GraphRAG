@@ -3,7 +3,7 @@
 Problems (the writer must fix them):
   - a missing field, or kind / id / name / input_hash differing from the input
   - a summary outside MIN_WORDS..MAX_WORDS words
-  - fewer than 3 or more than 10 key facts; a key fact without a fact, or whose cite isn't
+  - no key fact, or more than 10; a key fact without a fact, or whose cite isn't
     citations like [Q1] or [Q1 ep 2], or cites one the input doesn't have
 Warnings (for review, not failures):
   - capitalized names in the summary that the input never mentions (a heuristic)
@@ -20,8 +20,8 @@ from src.source_data_collection.storage import read_json
 
 FIELDS = ("kind", "id", "name", "input_hash", "summary", "key_facts", "writer")
 COPIED = ("kind", "id", "name", "input_hash")
-MIN_WORDS, MAX_WORDS = 60, 250
-MIN_KEY_FACTS, MAX_KEY_FACTS = 3, 10
+MIN_WORDS, MAX_WORDS = 30, 250
+MIN_KEY_FACTS, MAX_KEY_FACTS = 1, 10
 CITE = re.compile(r"\[Q\d+(?: ep \d+)?\](?: \[Q\d+(?: ep \d+)?\])*")
 NAME_WORD = re.compile(r"[A-Z][\w'’.\-]*")
 EDGE_PUNCTUATION = "\"“”()[],;:!?."
@@ -58,7 +58,7 @@ def unknown_names(summary, input_text):
     for sentence in re.split(r"(?<=[.!?])\s+", summary):
         run = []
         for position, token in enumerate(sentence.split()):
-            word = token.strip(EDGE_PUNCTUATION).removesuffix("'s").removesuffix("’s")
+            word = token.strip(EDGE_PUNCTUATION).removesuffix("'s").removesuffix("’s").rstrip("'’")
             if NAME_WORD.fullmatch(word) and position > 0:
                 run.append(word)
             elif run:

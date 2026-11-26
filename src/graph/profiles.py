@@ -17,8 +17,10 @@ MAX_VARIANT_TITLES = 3
 PROFILE_FACTS = """
 MATCH (c:Character)
 RETURN c.id AS id, c.label AS label, c.reality AS reality, c.aliases AS aliases, c.species AS species,
-  COLLECT { MATCH (p:Person)-[r:PLAYS]->(c) WITH p, count(DISTINCT r.title_qid) AS n
-            RETURN {name: p.name, titles: n} } AS actors,
+  COLLECT { MATCH (p:Person)-[r:PLAYS]->(c)
+            WITH p, count(DISTINCT r.title_qid) AS n, collect(r.credited_as) AS credit_lists
+            RETURN {name: p.name, titles: n,
+                    credits: reduce(all = [], l IN credit_lists | all + [x IN l WHERE NOT x IN all])} } AS actors,
   COLLECT { MATCH (c)-[:APPEARS_IN]->(t:Title)
             RETURN {title: t.title, year: t.year, order: t.release_order} } AS titles,
   COLLECT { MATCH (c)-[m:MEMBER_OF]->(t:Team) WHERE m.source <> 'plot'
@@ -33,6 +35,20 @@ RETURN c.id AS id, c.label AS label, c.reality AS reality, c.aliases AS aliases,
 
 def _count(n, word):
     return f"{n} {word}{'' if n == 1 else 's'}"
+
+
+def _credits_matter(actors):
+    """Credits tell actors apart (a young version, a voice) only when several actors play the
+    character or one of them is a voice; otherwise they would only repeat the name."""
+    return len(actors) > 1 or any("voice" in credit.casefold() for a in actors for credit in a.get("credits", []))
+
+
+def _actor_text(actor, with_credits):
+    text = f"{actor['name']} ({_count(actor['titles'], 'title')}"
+    credits = [c for c in actor.get("credits", []) if c]
+    if with_credits and credits:
+        text += ", as " + ", ".join(f'"{c}"' for c in credits)
+    return text + ")"
 
 
 def memberships_text(memberships):
@@ -54,7 +70,7 @@ def profile_text(c):
         lines.append(f"Species: {', '.join(c['species'])}.")
     if c["actors"]:
         actors = sorted(c["actors"], key=lambda a: (-a["titles"], a["name"]))
-        lines.append("Played by: " + ", ".join(f"{a['name']} ({_count(a['titles'], 'title')})" for a in actors) + ".")
+        lines.append("Played by: " + ", ".join(_actor_text(a, _credits_matter(actors)) for a in actors) + ".")
     if c["titles"]:
         titles = sorted(c["titles"], key=lambda t: t["order"])
         lines.append("Appears in (release order): " + ", ".join(f"{t['title']} ({t['year']})" for t in titles) + ".")

@@ -28,8 +28,8 @@ level down (agreed 2026-11-25):
 | Level | Summary | Count | Written from |
 | --- | --- | --- | --- |
 | 1 | Title digests | 98 | the title's plot: the film's text, or a series' episode summaries |
-| 1 | Main characters: at least 5 plot facts or 3 titles | 391 | the profile, then the plot facts with their evidence sentences, in release order (on average 12 facts; Coulson has the most, 81) |
-| 1 | Teams | 12 | members with role, status and reality (MEMBER_OF), plus the team's plot facts |
+| 1 | Main characters: at least 5 plot facts, or 3 titles and at least 1 plot fact | 374 | the profile, then the plot facts with their evidence sentences, in release order (on average 12 facts; Coulson has the most, 81) |
+| 1 | Teams with at least 1 plot fact (all but the Defenders) | 11 | members with role, status and reality (MEMBER_OF), plus the team's plot facts |
 | 2 | Series: titles joined by FOLLOWS, film series included (the Iron Man trilogy, the five Avengers films, Loki's two seasons) | 18 | their title digests |
 | 2 | Phases | 6 | their title digests |
 | 2 | Universes | 10 | their title digests |
@@ -45,7 +45,8 @@ Of the 2,511, 1,571 have no plot fact.
 
 Profiles (built 2026-11-25 by `src/graph/profiles.py`):
 
-- One line per field: name and reality, aliases, species, actors (with how many titles),
+- One line per field: name and reality, aliases, species, actors (with how many titles, and
+  the TMDB credits when several actors or a voice play the character),
   appearances in release order, wiki team memberships (roles and status), and variants with
   their reality and up to three titles. Empty fields are left out.
 - Plot facts are left out of profiles. The written summaries cover them.
@@ -70,8 +71,15 @@ Profiles (built 2026-11-25 by `src/graph/profiles.py`):
   `processed_data/summaries/outputs/<kind>/<id>.json` and holds `kind`, `id`, `name` and
   `input_hash` (copied from the input), `summary`, `key_facts` (3 to 10, each a `fact` with its
   `cite`) and `writer`.
-- A summary is 150 to 250 words of prose. A thin input may give less, down to about 60 words:
-  the writer never pads. Every key fact is stated in the summary too.
+- A summary is 150 to 250 words of prose. A thin input may give less, down to about 30 words.
+  It has 1 to 10 key facts, as many as the input really has. The writer never pads: no fact
+  restated or split into several. Every key fact is stated in the summary too. (Changed after
+  wave 1 from at least 60 words and 3 key facts: those minimums made writers pad thin inputs.
+  Yusuf Khan's single plot fact became three key facts.)
+- An input with no plot fact gets no written summary. That covers 17 characters (Flash
+  Thompson, Stan Lee's cameo character, Dum Dum Dugan, ...) and the Defenders. A summary would
+  only restate the profile, and its key facts would have nothing to cite. The profile and the
+  graph's members remain.
 - Citations are copied from the input. A group summary carries up the title citations found in
   the key facts of the summaries below it, so every key fact leads back to a title.
 - The checker follows `src/graph/summary_check_prompt.md`. Its output goes to
@@ -86,6 +94,11 @@ Profiles (built 2026-11-25 by `src/graph/profiles.py`):
   rewrites from the checker's reasons and the checks run again. A summary is kept once **two
   checks in a row**, each by a new checker, pass it, since checkers vary and one may miss what
   another finds. After two failed rewrites, the summary is flagged for the user's review.
+
+- **Reviews (agreed 2026-11-26).** The user, or the main session, can send any summary back with
+  a review (`processed_data/summaries/reviews/<kind>/<id>.json`, a failing check in the same
+  shape), even one already kept. Two checks can both miss an error: wave 3 kept "is consoled
+  by her angrily", where the input has Fisk angry.
 
 ### Pilot (2026-11-26)
 
@@ -123,6 +136,23 @@ and the Avengers.
   Avengers summary now goes title by title, with no added place or purpose. So all five pilot
   summaries are kept. Iron Man and Agents of S.H.I.E.L.D. season 1 needed no new round, since
   their inputs didn't change.
+- **Wave 2 (first checks of 153 wave-1 summaries):** 129 passed (84%) and 24 failed. The
+  causes:
+  - about 11 paired an actor with a role the input didn't state ("Lily Chee as young Elektra",
+    "voiced by Cal Dodd");
+  - about 7 filled in who acts in a fragment ("learn that Eleanor killed Armand" became
+    "Barton and Kate learn...");
+  - about 5 joined facts with an order or a link the input lacks;
+  - 1 talked about the input.
+
+  Three changes followed:
+  - **Credited roles in profiles.** Where a character has several actors or a voice role, the
+    profile gives each actor's TMDB credit (`PLAYS.credited_as`): `Toby Nichols (1 title, as
+    "Young Danny Rand")`. This changed the input of 119 of the 374 main characters, and their
+    55 written summaries were written again.
+  - **Writers don't fill in a fragment.** Who acts is named only when the fact names them.
+  - **Checkers mark a doubtful statement unsupported.** Three checkers had passed statements
+    they called borderline.
 - **Data problem found and fixed: plot facts linked across realities.** A What If...? fact
   (Multiverse) was linked to `Avengers@Earth-616`, so the summary said Ultron defeats the
   Earth-616 Avengers. The extraction agents chose team IDs from one list for every title.
@@ -165,7 +195,8 @@ Each summary gets an input file that holds exactly what its subagent may use (bu
 processed_data/summaries/
   inputs/<kind>/<id>.json    id, kind, name, level, sources, the input text, input_hash
   outputs/<kind>/<id>.json   written by the subagents: summary, key facts, input_hash, writer
-  batches.json               pending inputs, grouped per subagent
+  checks/<kind>/<id>.check1.json, .check2.json   the two checks of the current version
+  status.json                every summary's state and the batches per next action (src/graph/summary_status.py)
 ```
 
 - The kinds are `title`, `season`, `character`, `team`, `series`, `phase`, `universe`, `saga`

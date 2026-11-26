@@ -26,6 +26,19 @@ def test_a_profile_has_one_line_per_field_in_a_fixed_order():
         "Variants: Wanda Maximoff (Earth-89521: Marvel Zombies), Wanda Maximoff (Multiverse: What If...?).")
 
 
+def test_credited_roles_are_given_when_several_actors_or_a_voice_play_a_character():
+    """Wave 2: writers guessed which actor played the young version, or wrote "voiced by" from
+    nothing; the TMDB credit says it ("Young Danny Rand", "Wolverine (voice)")."""
+    rand = dict(WANDA, actors=[{"name": "Finn Jones", "titles": 3, "credits": ["Danny Rand", "Danny Rand / Iron Fist"]},
+                               {"name": "Toby Nichols", "titles": 1, "credits": ["Young Danny Rand"]}])
+    assert ('Played by: Finn Jones (3 titles, as "Danny Rand", "Danny Rand / Iron Fist"), '
+            'Toby Nichols (1 title, as "Young Danny Rand").') in profile_text(rand)
+    voice = dict(WANDA, actors=[{"name": "Cal Dodd", "titles": 2, "credits": ["Wolverine (voice)"]}])
+    assert 'Played by: Cal Dodd (2 titles, as "Wolverine (voice)").' in profile_text(voice)
+    one = dict(WANDA, actors=[{"name": "Elizabeth Olsen", "titles": 8, "credits": ["Wanda Maximoff"]}])
+    assert "Played by: Elizabeth Olsen (8 titles)." in profile_text(one)       # nothing to tell apart
+
+
 def test_empty_fields_are_left_out():
     bare = {"label": "Bus Driver", "reality": "Earth-616", "aliases": [], "species": [], "actors": [],
             "titles": [{"title": "Iron Man", "year": 2008, "order": 1}], "teams": [], "variants": []}

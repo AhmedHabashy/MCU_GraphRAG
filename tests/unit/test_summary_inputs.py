@@ -41,9 +41,11 @@ def test_a_fact_line_cites_and_names_its_title_and_keeps_evidence_and_note():
         '[Q2] Loki, season 1: Sylvie KILLS He Who Remains: "Sylvie kills He Who Remains." (note: undone later)'
 
 
-def test_main_characters_have_at_least_five_plot_facts_or_three_titles():
-    assert is_main_character(facts=5, titles=1) and is_main_character(facts=0, titles=3)
-    assert not is_main_character(facts=4, titles=2)
+def test_main_characters_have_five_plot_facts_or_three_titles_and_at_least_one_fact():
+    """A character with no plot fact gets no written summary: it would only restate the profile,
+    and its key facts would have nothing to cite (wave 1: Flash Thompson, Stan Lee's cameo)."""
+    assert is_main_character(facts=5, titles=1) and is_main_character(facts=1, titles=3)
+    assert not is_main_character(facts=4, titles=2) and not is_main_character(facts=0, titles=19)
 
 
 OUTPUTS = {("title", "Q1"): {"name": "Iron Man", "summary": "Tony becomes Iron Man.", "input_hash": "h1",
@@ -135,3 +137,9 @@ def test_a_reality_too_big_from_digests_takes_its_universes_whole_and_names_thei
 def test_batches_group_inputs_up_to_a_size_and_never_split_one():
     inputs = [make_input("title", f"Q{i}", "t", 1, [], "x" * n) for i, n in enumerate((30, 30, 50, 10))]
     assert [[b["id"] for b in batch] for batch in batches(inputs, max_chars=60)] == [["Q0", "Q1"], ["Q2", "Q3"]]
+
+
+def test_a_batch_holds_at_most_a_set_number_of_summaries():
+    """Wave 1: an agent given 43 small summaries took 11 minutes and wrote other batches too."""
+    inputs = [make_input("character", f"C{i}", "c", 1, [], "x") for i in range(45)]
+    assert [len(batch) for batch in batches(inputs, max_chars=10_000, max_items=20)] == [20, 20, 5]

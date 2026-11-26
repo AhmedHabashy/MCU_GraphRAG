@@ -32,11 +32,19 @@ Two JSON files:
 5. Check the names. A character, team, place or title the input doesn't mention is
    unsupported, and so is a wrong reality for a character with variants.
 
-Be strict but fair. A statement that merely words the input differently is supported.
+Be strict but fair. A statement that merely words the input differently is supported. **When
+in doubt, mark it unsupported**, with the reason: a doubtful pass lets an error through for good,
+while a doubtful fail only costs a rewrite.
 
 6. Mark as unsupported any sentence that talks about the input instead of the story, such as
    "the input notes", "is recorded as" or "in one plot fact". The summary must state what
    happens. Give the reason "talks about the input".
+7. Mark as unsupported a key fact that only restates another key fact, or splits one fact into
+   two. Give the reason "padding".
+8. Check who does what. A statement that names who acts where the evidence is a fragment
+   without that subject ("learn that ...", "forces him to ..."), and the fact's own subject and
+   object don't name them either, is unsupported. So is an actor paired with a role (a young
+   version, a voice) that the profile's credits don't give.
 
 ## Output
 

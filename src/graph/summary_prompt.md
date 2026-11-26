@@ -43,6 +43,13 @@ A JSON file with:
   input doesn't state ("in Sokovia", "to defend Vision", "after that"), even when you know it
   from the films. Where facts come from different titles, tell them title by title, naming the
   title.
+- **Don't fill in a fragment.** Many evidence sentences are fragments: "forces him to reveal
+  Wesley's employer", "learn that Eleanor killed Armand". Name who does it only if the fact
+  itself names them (its subject and object). Otherwise say what happens without the missing
+  subject ("Wesley's employer is revealed").
+- **Actors as the profile gives them.** Say which actor plays which role (a younger version, a
+  voice) only when the profile's credits say so (`as "Young Danny Rand"`, `as "Wolverine
+  (voice)"`). Don't pair an actor with an alias yourself.
 - **Tell the story, not the input.** Write as a narrator. Never mention "the input", "plot
   facts", "the wikis", "the profile" or what is "recorded" or "listed"; state what happens.
 - **Plot facts with notes.** A KILLS fact with a note such as "undone later" is not a final
@@ -50,14 +57,17 @@ A JSON file with:
   FAMILY_OF note gives the kind of family tie: use it.
 - **Order.** Tell events in the order the input gives them (release order, episode order).
 - **Length.** 150 to 250 words of plain prose, without headings or lists. If the input is thin,
-  write less, down to about 60 words. Never pad.
+  write less, down to about 30 words. Never pad: don't repeat a fact in other words, and don't
+  describe the input to fill space.
 - **Neutral and factual.** No opinions, praise, trivia or speculation, and no "fans",
   "iconic", "beloved" and the like.
 
 ## Key facts
 
-Under the summary, list the 3 to 10 most important facts. Each one is a short sentence with
-the citations that support it, copied exactly from the input:
+Under the summary, list the most important facts: 1 to 10, as many as the input really has.
+Never split one fact into several, or restate it in other words: a thin input with one plot fact
+gets one key fact. Each one is a short sentence with the citations that support it, copied
+exactly from the input:
 
 - `[Q…]` or `[Q… ep N]` from a title, season, character or team input;
 - for a group, the citations found in the key facts of the summaries below it. Don't cite a
@@ -79,9 +89,11 @@ Write a JSON object to the output path you are given:
   "key_facts": [
     {"fact": "Sylvie kills He Who Remains.", "cite": "[Q107185252 ep 6]"}
   ],
-  "writer": "claude-sonnet-5.5 subagent"
+  "writer": "claude-sonnet-5.5 subagent",
+  "rewrites": 0
 }
 ```
 
 - `kind`, `id`, `name` and `input_hash`: copied from the input unchanged.
+- `rewrites`: 0 for a new summary. A rewrite sets the number it is given.
 - `cite`: one or more citations separated by spaces, such as `"[Q1] [Q3]"`.

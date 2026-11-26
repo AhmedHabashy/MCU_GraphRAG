@@ -37,7 +37,8 @@ def test_level_one_has_every_title_main_character_and_team_and_the_rest_waits(le
     for i in built:
         kinds[i["kind"]] = kinds.get(i["kind"], 0) + 1
     # Agents of S.H.I.E.L.D. (7 seasons), Daredevil and Jessica Jones (3 each) are split by season
-    assert kinds == {"title": 95, "season": 13, "character": 391, "team": 12}
+    # 17 main characters and the Defenders have no plot fact, so no written summary
+    assert kinds == {"title": 95, "season": 13, "character": 374, "team": 11}
     assert waiting == {"title": 3, "series": 18, "phase": 6, "universe": 10, "saga": 2, "reality": 2}
     assert {i["name"] for i in built if i["kind"] == "season"} >= {
         "Agents of S.H.I.E.L.D., season 7", "Daredevil, season 3", "Jessica Jones, season 1"}

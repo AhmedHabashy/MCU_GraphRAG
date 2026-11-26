@@ -13,7 +13,7 @@ another input (input_hash). Input files are rewritten only when their content ch
 
 Needs:  the loaded graph with character profiles (src.graph.load_neo4j, src.graph.profiles),
         source_data/wikipedia/plots/
-Output: processed_data/summaries/inputs/<kind>/<id>.json, processed_data/summaries/batches.json
+Output: processed_data/summaries/inputs/<kind>/<id>.json (src.graph.summary_status gives the next actions)
 Run:    .venv\\Scripts\\python.exe -m src.graph.summary_inputs
 """
 
@@ -25,15 +25,15 @@ from src.graph import prepare_extraction
 from src.graph.neo4j_db import connect
 from src.graph.prepare_extraction import PLOTS_DIR, episode_text, write_if_changed
 from src.graph.profiles import memberships_text
-from src.source_data_collection.storage import read_json, write_json
+from src.source_data_collection.storage import read_json
 from src.source_data_collection.tier_titles import PROJECT_ROOT
 
 SUMMARIES_DIR = PROJECT_ROOT / "processed_data" / "summaries"
 INPUTS_DIR = SUMMARIES_DIR / "inputs"
 OUTPUTS_DIR = SUMMARIES_DIR / "outputs"
-BATCHES_PATH = SUMMARIES_DIR / "batches.json"
 MAX_INPUT_CHARS = 40_000     # larger inputs are reported, not cut
 BATCH_CHARS = 60_000         # input text per subagent
+BATCH_ITEMS = 20             # summaries per subagent
 MIN_FACTS, MIN_TITLES = 5, 3  # a main character has at least this many plot facts or titles
 CITATION = re.compile(r"\[(Q\d+)(?: ep (\d+))?\]")
 
@@ -74,7 +74,9 @@ def fact_line(fact):
 
 
 def is_main_character(facts, titles):
-    return facts >= MIN_FACTS or titles >= MIN_TITLES
+    """At least MIN_FACTS plot facts, or MIN_TITLES titles; and at least one plot fact, since a
+    summary without one would only restate the profile, with nothing for its key facts to cite."""
+    return facts >= 1 and (facts >= MIN_FACTS or titles >= MIN_TITLES)
 
 
 def summary_block(kind, id_, output):
@@ -111,11 +113,13 @@ def reality_sources(reality, title_reality, title_universe):
     return sources
 
 
-def batches(inputs, max_chars=BATCH_CHARS):
-    """Inputs grouped per subagent up to max_chars of text; an input is never split."""
+def batches(inputs, max_chars=BATCH_CHARS, max_items=BATCH_ITEMS):
+    """Inputs grouped per subagent up to max_chars of text and max_items summaries; an input is
+    never split."""
     by_key = {(i["kind"], i["id"]): i for i in inputs}
     groups = prepare_extraction.batches([((i["kind"], i["id"]), len(i["text"])) for i in inputs], max_chars)
-    return [[by_key[k] for k in group] for group in groups]
+    return [[by_key[k] for k in group[start:start + max_items]] for group in groups
+            for start in range(0, len(group), max_items)]
 
 
 def file_name(id_):
@@ -186,6 +190,8 @@ def team_inputs(session):
                               RETURN {{label: c.label, reality: c.reality, role: m.role, status: m.status}} }}
                      AS members,
                    {PLOT_FACTS} AS plot_facts"""):
+        if not r["plot_facts"]:
+            continue        # like a character: no plot fact, no written summary (the Defenders)
         members = {}
         for m in r["members"]:
             members.setdefault((m["label"], m["reality"]), []).append(m)
@@ -303,9 +309,12 @@ def input_path(inp):
 
 
 def main():
+    # Upper levels are built only from kept summaries (two passing checks in a row). The import is
+    # here because summary_status itself builds on this module.
+    from src.graph.summary_status import kept_outputs
     outputs = read_outputs()
     with connect() as driver, driver.session() as session:
-        built, waiting = build(session, read_plots(), outputs)
+        built, waiting = build(session, read_plots(), kept_outputs())
     for inp in built:
         write_if_changed(input_path(inp), inp)
     current = {input_path(i) for i in built}
@@ -313,17 +322,14 @@ def main():
         stale.unlink()      # an input no longer built, such as a title now split by season
         print(f"removed stale input {stale.relative_to(PROJECT_ROOT)}")
     pending = [i for i in built if is_pending(i, outputs.get((i["kind"], i["id"])))]
-    groups = batches(pending)
-    write_json(BATCHES_PATH, [[{"kind": i["kind"], "id": i["id"], "input": str(input_path(i).relative_to(PROJECT_ROOT))}
-                               for i in group] for group in groups])
     for kind in dict.fromkeys(i["kind"] for i in built):
         of_kind = [i for i in built if i["kind"] == kind]
-        print(f"{kind:10} {len(of_kind):4} inputs, {sum(i in pending for i in of_kind):4} pending")
+        print(f"{kind:10} {len(of_kind):4} inputs, {sum(i in pending for i in of_kind):4} to write")
     for kind, n in waiting.items():
-        print(f"{kind:10} {n:4} waiting for the summaries below them")
+        print(f"{kind:10} {n:4} waiting for the summaries below them to be kept")
     for i in sorted((i for i in built if len(i["text"]) > MAX_INPUT_CHARS), key=lambda i: -len(i["text"])):
         print(f"over {MAX_INPUT_CHARS:,} characters: {i['kind']} {i['name']} ({len(i['text']):,})")
-    print(f"{len(pending)} pending in {len(groups)} batches: {BATCHES_PATH.relative_to(PROJECT_ROOT)}")
+    print("Next actions and their batches: src.graph.summary_status")
 
 
 if __name__ == "__main__":
