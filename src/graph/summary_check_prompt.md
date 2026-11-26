@@ -29,26 +29,28 @@ Two JSON files:
    defend Vision", "to save"), a cause ("because", "so") or an order ("after", "then") that the
    input doesn't state is unsupported, even when the two facts themselves are in the input.
    This is the error checkers have missed most often.
-5. Check the names. A character, team, place or title the input doesn't mention is
+5. An episode called the first, last, final or finale, or "in the end" / "by the end of the
+   series", is unsupported unless the input says so: the input gives episode numbers only.
+6. Check the names. A character, team, place or title the input doesn't mention is
    unsupported, and so is a wrong reality for a character with variants.
 
 Be strict but fair. A statement that merely words the input differently is supported. **When
 in doubt, mark it unsupported**, with the reason: a doubtful pass lets an error through for good,
 while a doubtful fail only costs a rewrite.
 
-6. In a title or season digest, compare each event with the plot sentence it comes from: the
+7. In a title or season digest, compare each event with the plot sentence it comes from: the
    same actors, the same object (who is carried, who is injured, by what), the same outcome (a
    plan is not a success), and no place or name the plot doesn't give. Writers know these films;
    anything from outside the plot is unsupported.
-7. In a team summary, a leader or member must have the status the member list gives (current,
+8. In a team summary, a leader or member must have the status the member list gives (current,
    former), or a cited plot fact with its title. Mark as unsupported a sentence that names a
    leader without its status or title when the summary names another leader too.
-8. Mark as unsupported any sentence that talks about the input instead of the story, such as
+9. Mark as unsupported any sentence that talks about the input instead of the story, such as
    "the input notes", "is recorded as" or "in one plot fact". The summary must state what
    happens. Give the reason "talks about the input".
-9. Mark as unsupported a key fact that only restates another key fact, or splits one fact into
+10. Mark as unsupported a key fact that only restates another key fact, or splits one fact into
    two. Give the reason "padding".
-10. Check who does what. A statement that names who acts where the evidence is a fragment
+11. Check who does what. A statement that names who acts where the evidence is a fragment
    without that subject ("learn that ...", "forces him to ..."), and the fact's own subject and
    object don't name them either, is unsupported. So is an actor paired with a role (a young
    version, a voice) that the profile's credits don't give.

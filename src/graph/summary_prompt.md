@@ -61,6 +61,9 @@ A JSON file with:
   member" when the list marks him both ways. Tell leadership or membership changes that the
   plot facts show in their order, naming the title ("In X-Men '97, Magneto leads the team").
   Never give two leaders without saying which is current or in which title.
+- **Name episodes by number or title only.** Never call an episode the first, last, final or
+  finale: the input gives its number, not where it falls in the series ("in episode 6", not "in
+  the last episode"). Likewise no "in the end" or "by the end of the series".
 - **Tell the story, not the input.** Write as a narrator. Never mention "the input", "plot
   facts", "the wikis", "the profile" or what is "recorded" or "listed"; state what happens.
 - **Plot facts with notes.** A KILLS fact with a note such as "undone later" is not a final

@@ -110,6 +110,10 @@ Profiles (built 2026-11-25 by `src/graph/profiles.py`):
   evidence sentences are found in their plots, and a test keeps it so. This changed every
   character and team input, so all 385 of those summaries were written and checked again
   (wave 9 onward). Titles and seasons were unaffected.
+- **Episodes by number only (agreed 2026-11-27).** Writers kept calling an episode "the last"
+  or "the final" one, or wrote "in the end", when the input gives only episode numbers (Gravik,
+  Karli Morgenthau, Arthur Harrow, Harold Meachum). Writers now name an episode by its number or
+  title, and checkers mark such phrases unsupported.
 - **Known limitation: release order for long series.** Plot facts are sorted by their title's
   first release, so all seven seasons of Agents of S.H.I.E.L.D. (2013 to 2020) come before the
   films released after 2013. A team's facts "in order" are therefore not quite chronological.
@@ -263,6 +267,23 @@ Validation: unit tests on the hash, the pending rule, the cascade and the charac
 threshold. On the real inputs, check the counts, that every citation names a real title
 (and a real episode), that Phase One holds exactly its six titles, and the 40,000-character
 limit.
+
+### Run result (2026-11-27)
+
+All 534 summaries are written and kept. Levels by kind:
+- level 1: 374 characters, 98 titles, 13 seasons, 11 teams;
+- level 2: 18 series, 6 phases, 10 universes;
+- level 3: 2 sagas, 2 realities.
+
+The run took 49 waves.
+
+Eight summaries were flagged after their last allowed rewrite: Shuri, the Earth-92131 X-Men, Wonder Man, Your Friendly Neighborhood Spider-Man, Agent Carter, X-Men: First Class, The Punisher and Phase Four.
+- The main session fixed each one by hand, taking the wording from the input (agreed 2026-11-27).
+- A hand fix makes the summary's old checks stale, so it goes back to check 1 and is kept only after two new passing checks, like any other summary.
+
+Problems found during the run:
+- **Lumped checks.** Some checkers marked a range of key facts as supported in one statement ("Key facts 1-5 match") instead of checking each one. The 45 such passes were deleted and redone, and the checker prompts now forbid lumping. The status script's count rule (at least as many statements as key facts) misses this, because the summary's own sentences already reach that count.
+- **Group inputs.** The headings in group inputs don't carry each title's medium, year, universe or reality. A group summary may state these for a title only where that title's own summary does.
 
 ### Storage and updates
 
