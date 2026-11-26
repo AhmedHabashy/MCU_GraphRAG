@@ -119,6 +119,16 @@ def test_box_office_is_wikidatas_else_tmdbs(db):
     assert rows == {"Q23781155": "wikidata", "Q112322116": "tmdb"}
 
 
+def test_a_plot_fact_reaches_a_team_of_another_reality_only_when_a_member_appears_in_the_title(db):
+    """The What If...? (Multiverse) facts the agents linked to the Earth-616 Avengers, HYDRA and
+    S.H.I.E.L.D. are Things of the Multiverse now."""
+    assert count(db, "MATCH ()-[r {source: 'plot'}]-(team:Team) MATCH (t:Title {qid: r.title_qid}) "
+                     "WHERE team.reality <> t.reality AND NOT EXISTS { MATCH (c:Character)-[m:MEMBER_OF]->(team) "
+                     "WHERE m.source <> 'plot' AND (c)-[:APPEARS_IN]->(t) } RETURN count(DISTINCT r) AS n") == 0
+    assert count(db, "MATCH ()-[r:LEADS {source: 'plot', title_qid: 'Q65980671'}]->(s:Thing) "
+                     "WHERE s.name = 'S.H.I.E.L.D.' AND s.reality = 'Multiverse' RETURN count(r) AS n") >= 1
+
+
 def test_an_unlinked_alias_in_a_plot_reaches_its_character(db):
     """Falcon and the Winter Soldier names the Power Broker without an ID; that is Sharon Carter."""
     rows = db("MATCH (:Character {label: 'Georges Batroc'})<-[r:KILLS {source: 'plot'}]-(c:Character) "

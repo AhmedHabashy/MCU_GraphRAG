@@ -24,6 +24,7 @@ import re
 from src.graph import prepare_extraction
 from src.graph.neo4j_db import connect
 from src.graph.prepare_extraction import PLOTS_DIR, episode_text, write_if_changed
+from src.graph.profiles import memberships_text
 from src.source_data_collection.storage import read_json, write_json
 from src.source_data_collection.tier_titles import PROJECT_ROOT
 
@@ -68,8 +69,8 @@ def cite(title_qid, episode=None):
 
 def fact_line(fact):
     note = f" (note: {fact['note']})" if fact["note"] else ""
-    return (f"{cite(fact['title_qid'], fact['episode'])} {fact['subject']} {fact['relation']} {fact['object']}: "
-            f"\"{fact['evidence']}\"{note}")
+    return (f"{cite(fact['title_qid'], fact['episode'])} {fact['title']}: {fact['subject']} {fact['relation']} "
+            f"{fact['object']}: \"{fact['evidence']}\"{note}")
 
 
 def is_main_character(facts, titles):
@@ -125,7 +126,7 @@ def file_name(id_):
 
 PLOT_FACTS = """COLLECT { MATCH (n)-[r]-() WHERE r.source = 'plot' WITH DISTINCT r
                       MATCH (t:Title {qid: r.title_qid})
-                      RETURN {title_qid: r.title_qid, episode: r.episode, order: t.release_order,
+                      RETURN {title_qid: r.title_qid, title: t.title, episode: r.episode, order: t.release_order,
                               subject: coalesce(startNode(r).label, startNode(r).name), relation: type(r),
                               object: coalesce(endNode(r).label, endNode(r).name),
                               evidence: r.evidence, note: r.note} }"""
@@ -187,14 +188,11 @@ def team_inputs(session):
                    {PLOT_FACTS} AS plot_facts"""):
         members = {}
         for m in r["members"]:
-            roles, statuses = members.setdefault((m["label"], m["reality"]), (set(), set()))
-            roles.add(m["role"])
-            statuses.add(m["status"])
+            members.setdefault((m["label"], m["reality"]), []).append(m)
         lines = [f"{r['name']} ({r['kind']}, {r['reality']})."
                  + (f" Also known as: {', '.join(r['aliases'])}." if r["aliases"] else ""),
                  "", "Members (from the wikis):"]
-        lines += [f"- {label} ({reality}): {', '.join(sorted(roles))}; {', '.join(sorted(statuses))}"
-                  for (label, reality), (roles, statuses) in sorted(members.items())]
+        lines += [f"- {label} ({reality}): {memberships_text(ms)}" for (label, reality), ms in sorted(members.items())]
         if r["plot_facts"]:
             lines += ["", "Plot facts (release order):", _facts_text(r["plot_facts"])]
         inputs.append(make_input("team", r["id"], r["name"], 1,

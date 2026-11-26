@@ -32,12 +32,13 @@ def test_a_film_plot_is_cited_once_and_a_series_cites_each_episode_with_a_summar
     assert citations(title_text(SERIES)) == {("Q2", 1)} and citations(title_text(FILM)) == {("Q1", None)}
 
 
-def test_a_fact_line_cites_its_title_and_episode_and_keeps_evidence_and_note():
-    fact = {"title_qid": "Q2", "episode": 6, "subject": "Sylvie", "relation": "KILLS", "object": "He Who Remains",
-            "evidence": "Sylvie kills He Who Remains.", "note": ""}
-    assert fact_line(fact) == '[Q2 ep 6] Sylvie KILLS He Who Remains: "Sylvie kills He Who Remains."'
+def test_a_fact_line_cites_and_names_its_title_and_keeps_evidence_and_note():
+    """The title's name is given, so the writer need not guess which film a citation is (pilot)."""
+    fact = {"title_qid": "Q2", "title": "Loki, season 1", "episode": 6, "subject": "Sylvie", "relation": "KILLS",
+            "object": "He Who Remains", "evidence": "Sylvie kills He Who Remains.", "note": ""}
+    assert fact_line(fact) == '[Q2 ep 6] Loki, season 1: Sylvie KILLS He Who Remains: "Sylvie kills He Who Remains."'
     assert fact_line(dict(fact, episode=None, note="undone later")) == \
-        '[Q2] Sylvie KILLS He Who Remains: "Sylvie kills He Who Remains." (note: undone later)'
+        '[Q2] Loki, season 1: Sylvie KILLS He Who Remains: "Sylvie kills He Who Remains." (note: undone later)'
 
 
 def test_main_characters_have_at_least_five_plot_facts_or_three_titles():

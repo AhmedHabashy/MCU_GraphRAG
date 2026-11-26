@@ -15,8 +15,8 @@ A JSON file with:
   - **title, season**: a header line, then the plot. A film's plot is under one citation
     `[Q…]`. A series' episodes each start with their own citation, `[Q… ep N]`.
   - **character**: the profile (names, reality, species, actors, appearances, teams,
-    variants), then the plot facts in release order. Each fact is one line:
-    `[Q… ep N] Subject RELATION Object: "evidence sentence" (note: …)`.
+    variants), then the plot facts in release order. Each fact is one line, naming its title:
+    `[Q… ep N] Title: Subject RELATION Object: "evidence sentence" (note: …)`.
   - **team**: the team, its members from the wikis (role and status), then its plot facts.
   - **series, phase, universe, saga, reality, or a title built from its seasons**: the summaries
     one level down, each under a `## Name [Q…]` or `## Name (kind id)` heading, with their key
@@ -38,8 +38,16 @@ A JSON file with:
   why something happens, don't explain why.
 - **Names as in the input.** Use the names the input uses. Where a character has variants in
   other realities, say which reality you mean.
+- **Join facts only with what the input says.** Plot facts are single sentences, often from
+  different titles. Don't link them with a place, a cause, a purpose or an order of events the
+  input doesn't state ("in Sokovia", "to defend Vision", "after that"), even when you know it
+  from the films. Where facts come from different titles, tell them title by title, naming the
+  title.
+- **Tell the story, not the input.** Write as a narrator. Never mention "the input", "plot
+  facts", "the wikis", "the profile" or what is "recorded" or "listed"; state what happens.
 - **Plot facts with notes.** A KILLS fact with a note such as "undone later" is not a final
-  death: say so. A FAMILY_OF note gives the kind of family tie: use it.
+  death: say it in one sentence, such as "the bombing seems to kill him, but he survives". A
+  FAMILY_OF note gives the kind of family tie: use it.
 - **Order.** Tell events in the order the input gives them (release order, episode order).
 - **Length.** 150 to 250 words of plain prose, without headings or lists. If the input is thin,
   write less, down to about 60 words. Never pad.

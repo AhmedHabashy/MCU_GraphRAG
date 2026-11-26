@@ -191,13 +191,31 @@ def _end_type(fact, side):
     return DEFAULT_TYPE if side == "subject" else fact["object_type"]
 
 
-def fact_end(fact, side, reality, team_ids, teams, characters):
+def team_presence(teams, memberships, appears):
+    """{team ID: (its reality, the titles where one of its wiki members appears)}."""
+    titles_of = {}
+    for a in appears:
+        titles_of.setdefault(a["character"], set()).add(a["title"])
+    presence = {t["id"]: (t["reality"], set()) for t in teams}
+    for m in memberships:
+        presence[m["team_id"]][1].update(titles_of.get(m["character_id"], set()))
+    return presence
+
+
+def fact_end(fact, side, title, reality, presence, teams, characters):
     """(label, ID) of a fact's subject or object; ID is None for a Thing. An unlinked end is the
     team (if a subject or typed team/organization) or else the character (if typed character)
-    with that name in the title's reality, when exactly one has it (see unique_match)."""
+    with that name in the title's reality, when exactly one has it (see unique_match).
+    A team linked from another reality counts only when one of its wiki members appears in the
+    title (the Earth-828 Fantastic Four in Doomsday); else the end is resolved as unlinked (the
+    agents linked What If...? facts to the Earth-616 S.H.I.E.L.D.)."""
     node_id, name, end_type = fact[f"{side}_id"], fact[f"{side}_name"], _end_type(fact, side)
+    if node_id and node_id not in presence:
+        return "Character", node_id
     if node_id:
-        return ("Team" if node_id in team_ids else "Character"), node_id
+        team_reality, titles = presence[node_id]
+        if team_reality == reality or title in titles:
+            return "Team", node_id
     if side == "subject" or end_type in GROUP_TYPES:
         if team := unique_match(teams, reality, name):
             return "Team", team
@@ -213,14 +231,16 @@ def thing_type(end_type, other_types):
     return next(iter(other_types)) if end_type == DEFAULT_TYPE and len(other_types) == 1 else end_type
 
 
-def fact_rows(outputs, realities, team_ids, teams, characters):
+def fact_rows(outputs, realities, presence, teams, characters):
     """(Thing nodes, fact edges by relation) from the extraction outputs ({chunk: output});
-    `teams` and `characters` are name_index results."""
+    `presence` is team_presence; `teams` and `characters` are name_index results."""
     resolved, other_types = [], {}
     for chunk, output in outputs.items():
-        reality = realities[output["title_qid"]]
+        title = output["title_qid"]
+        reality = realities[title]
         for fact in output["facts"]:
-            ends = {side: fact_end(fact, side, reality, team_ids, teams, characters) for side in ("subject", "object")}
+            ends = {side: fact_end(fact, side, title, reality, presence, teams, characters)
+                    for side in ("subject", "object")}
             for side, other in (("subject", "object"), ("object", "subject")):
                 if not fact[f"{side}_id"] and ends[side][1] is not None and ends[side][1] == ends[other][1]:
                     ends[side] = ("Thing", None)   # a name for the other end itself: a cover identity, a form
@@ -294,7 +314,9 @@ def read_data():
     crew = crew_rows(details, people)
     birth_dates(people, read_csv(ACTOR_BIRTHS_PATH), read_csv(TMDB_BIRTHDAYS_PATH))
     outputs = {p.stem: read_json(p) for p in sorted(OUTPUTS_DIR.glob("*.json"))}
-    things, facts = fact_rows(outputs, {t["wikidata_qid"]: t["reality"] for t in registry}, {t["id"] for t in teams},
+    memberships = [m for m in read_csv(MEMBERSHIPS_PATH) if m["character_id"]]
+    things, facts = fact_rows(outputs, {t["wikidata_qid"]: t["reality"] for t in registry},
+                              team_presence(teams, memberships, appears),
                               name_index(teams, "name"), name_index(characters, "label"))
     return {
         "titles": title_rows(registry, _by_qid(RELEASE_ORDER_PATH), _by_qid(TITLE_PHASES_PATH), _by_qid(TIMELINE_PATH),
@@ -305,7 +327,7 @@ def read_data():
         "teams": teams,
         "things": things,
         "variants": [l for l in read_csv(LINKS_PATH) if l["relation"] == "variant"],
-        "memberships": [m for m in read_csv(MEMBERSHIPS_PATH) if m["character_id"]],
+        "memberships": memberships,
         "facts": facts,
     }
 

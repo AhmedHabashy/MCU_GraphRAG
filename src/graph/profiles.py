@@ -35,6 +35,12 @@ def _count(n, word):
     return f"{n} {word}{'' if n == 1 else 's'}"
 
 
+def memberships_text(memberships):
+    """One team's memberships, each role with its own status: "founder (current), leader (former)"."""
+    pairs = sorted({(m["role"], m["status"]) for m in memberships})
+    return ", ".join(f"{role} ({status})" for role, status in pairs)
+
+
 def profile_text(c):
     """The profile of one character (a row of PROFILE_FACTS); fields without data are left out."""
     seen = {c["label"].casefold()}
@@ -55,12 +61,8 @@ def profile_text(c):
     if c["teams"]:
         teams = {}
         for m in c["teams"]:
-            roles, statuses = teams.setdefault(m["team"], (set(), set()))
-            roles.add(m["role"])
-            statuses.add(m["status"])
-        lines.append("Teams: " + ", ".join(
-            f"{team} ({', '.join(sorted(roles))}; {', '.join(sorted(statuses))})"
-            for team, (roles, statuses) in sorted(teams.items())) + ".")
+            teams.setdefault(m["team"], []).append(m)
+        lines.append("Teams: " + "; ".join(f"{team}: {memberships_text(ms)}" for team, ms in sorted(teams.items())) + ".")
     if c["variants"]:
         variants = sorted(c["variants"], key=lambda v: (v["reality"], v["label"]))
         lines.append("Variants: " + ", ".join(

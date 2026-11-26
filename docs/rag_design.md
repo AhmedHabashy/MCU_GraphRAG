@@ -83,8 +83,62 @@ Profiles (built 2026-11-25 by `src/graph/profiles.py`):
   never mentions; this is a warning to review, not a failure. The writer runs it on its own
   output and fixes problems until there are none.
 - One summary flows: writer, then the automatic check, then the checker. On a fail, the writer
-  rewrites from the checker's reasons and the checks run again. After two failed rewrites, the
-  summary is flagged for the user's review.
+  rewrites from the checker's reasons and the checks run again. A summary is kept once **two
+  checks in a row**, each by a new checker, pass it, since checkers vary and one may miss what
+  another finds. After two failed rewrites, the summary is flagged for the user's review.
+
+### Pilot (2026-11-26)
+
+Five summaries: Iron Man, Agents of S.H.I.E.L.D. season 1, Loki (Earth-616), Dreykov (5 facts)
+and the Avengers.
+
+- **The first drafts fail often.** Four of the five failed their first check, on 1 to 3 of 19
+  to 38 statements. Every error was a plausible detail the input doesn't give: a timing ("while"
+  demonstrating, not after), a place (Sokovia), an order of events, an inferred purpose ("help
+  defend Vision"), a dropped hedge ("apparently"), or a key fact citing the wrong episode. All
+  five passed after at most two rewrites.
+- **Checkers vary.** A new checker sometimes found an issue an earlier one missed. Hence the
+  rule of two passing checks in a row.
+- **Fixes made after the pilot:**
+  - The writer tells the story and never talks about the input ("the input notes", "is
+    recorded as", "in one plot fact"). The checker marks such sentences unsupported. A death
+    undone later takes one sentence.
+  - Each membership role keeps its own status, in profiles and team inputs:
+    `founder (current), leader (former)`. Before, `founder, leader; current, former` lost
+    which status went with which role.
+  - The name check no longer joins neighbouring known names into one unknown name (a
+    possessive, a bracket, a title next to a name), and it ignores quotes in the input
+    (James "Rhodey" Rhodes).
+- **Facts joined with outside knowledge.** The Avengers summary failed again after the fixes:
+  it placed a battle in Sokovia, and had the Wakandans fight "to defend Vision". The second
+  error passed both checkers. A team's input is single-sentence facts from many films, cited
+  by ID only, so the writer filled the gaps from what it knows of the films. Three changes:
+  - Fact lines name their title.
+  - The writer joins facts only with what the input says, and tells facts from different
+    titles title by title.
+  - The checker looks hardest at the words that join two facts: places, purposes, causes
+    and order.
+- **Round 2 (after these changes):** the Avengers, Loki and Dreykov summaries were written again
+  from their new inputs. All three passed two checks in a row on the first draft. The
+  Avengers summary now goes title by title, with no added place or purpose. So all five pilot
+  summaries are kept. Iron Man and Agents of S.H.I.E.L.D. season 1 needed no new round, since
+  their inputs didn't change.
+- **Data problem found and fixed: plot facts linked across realities.** A What If...? fact
+  (Multiverse) was linked to `Avengers@Earth-616`, so the summary said Ultron defeats the
+  Earth-616 Avengers. The extraction agents chose team IDs from one list for every title.
+  - Of the 56 plot-fact ends linked to a node of another reality than their title's, all 38
+    character links are right: each character appears in that title (the Raimi and Webb
+    characters in No Way Home). So are 14 of the 19 team links: one of the team's members
+    appears in the title (the Earth-838 Illuminati in Multiverse of Madness, the Earth-828
+    Fantastic Four in Doomsday).
+  - The other 5 are all What If...? facts linked to the Earth-616 Avengers, HYDRA and
+    S.H.I.E.L.D.
+  - The rule (in `src/graph/load_neo4j.py`): a team linked from another reality counts only when
+    one of its wiki members appears in the title. Otherwise the end is resolved as an unlinked
+    name: a team of that name in the title's reality, else a Thing. A test in
+    `tests/neo4j/test_graph.py` keeps it so. The graph evaluation is unchanged (39 PASS).
+  - Rebuilding the graph removed the leftover plot passages from Neo4j. Their vectors stay
+    cached, and the indexing step loads them again.
 - Pilot set: Iron Man (a film), Agents of S.H.I.E.L.D. season 1, Loki (Earth-616, many facts),
   a main character near the threshold (5 facts), and the Avengers.
 
@@ -124,7 +178,8 @@ processed_data/summaries/
   the lower summaries' text, so a rewritten title digest makes its phase pending again.
 - Citations in inputs are `[<title qid>]`, or `[<title qid> ep <n>]` for a series episode.
   A character fact looks like
-  `[Q107185252 ep 6] Sylvie KILLS He Who Remains: "Sylvie kills He Who Remains, ..."`.
+  `[Q107185252 ep 6] Loki, season 1: Sylvie KILLS He Who Remains: "Sylvie kills He Who Remains, ..."`.
+  It names its title, so the writer need not guess which film a citation is.
 - An input over 40,000 characters is reported, not cut. Two rules keep inputs under the
   limit (agreed 2026-11-25):
   - **A title too long for one input is split by season.** Each season gets a digest
@@ -270,8 +325,10 @@ The details belong to the retrieval step.
 
 ## Open points
 
+
 - **Aggregation on retrieved data.** A count is right only if retrieval brought back the
   whole set being counted. "Who directed the most films?" needs every title. So the
   aggregation tool may need its retrieval to fetch complete sets.
-- **The leftover passages and indexes** are reused (see "Index set"). Until they join the
-  graph build, `tests/neo4j/test_graph.py::test_only_known_relation_types` fails on FROM.
+- **The leftover passages and indexes** are reused (see "Index set"). The graph rebuild of
+  2026-11-26 removed them from Neo4j. The vectors are still cached in
+  `processed_data/retrieval/embeddings.json`, and the code is in git history (4945497).

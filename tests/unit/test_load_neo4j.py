@@ -1,7 +1,7 @@
 """Unit tests for src/graph/load_neo4j.py (row building only; no database)."""
 
 from src.graph.load_neo4j import (
-    birth_dates, crew_rows, fact_rows, follows_rows, name_index, performance_rows, title_rows,
+    birth_dates, crew_rows, fact_rows, follows_rows, name_index, performance_rows, team_presence, title_rows,
 )
 
 TEAMS = [{"id": "X-Men@Earth-92131", "name": "X-Men", "reality": "Earth-92131", "aliases": []},
@@ -14,7 +14,8 @@ CHARACTERS = [{"id": "N@Earth-616", "label": "Natasha Romanoff", "reality": "Ear
               {"id": "L2@Earth-616", "label": "Loki", "reality": "Earth-616", "aliases": []},
               {"id": "K@Earth-616", "label": "Kang the Conqueror", "reality": "Earth-616", "aliases": ["Victor Timely"]},
               {"id": "V@Earth-616", "label": "Victor Timely", "reality": "Earth-616", "aliases": []}]
-TEAM_IDS = {t["id"] for t in TEAMS}
+# a team's reality and the titles where one of its wiki members appears (team_presence)
+PRESENCE = {"X-Men@Earth-92131": ("Earth-92131", {"QX"}), "New Avengers@Earth-616": ("Earth-616", {"Q1", "QD"})}
 
 
 def fact(subject_id="", subject_name="", obj_id="", obj_name="", obj_type="character", relation="ALLY_OF"):
@@ -23,7 +24,7 @@ def fact(subject_id="", subject_name="", obj_id="", obj_name="", obj_type="chara
 
 
 def load_facts(*facts, title="Q1", reality="Earth-616"):
-    return fact_rows({"c1": {"title_qid": title, "facts": list(facts)}}, {title: reality}, TEAM_IDS,
+    return fact_rows({"c1": {"title_qid": title, "facts": list(facts)}}, {title: reality}, PRESENCE,
                      name_index(TEAMS, "name"), name_index(CHARACTERS, "label"))
 
 
@@ -34,6 +35,20 @@ def ends(edges, relation):
 def test_linked_ends_are_characters_or_teams_by_id():
     _, edges = load_facts(fact("C@Earth-616", "Yelena", "New Avengers@Earth-616", "New Avengers", "team", "MEMBER_OF"))
     assert ends(edges, "MEMBER_OF") == [("Character", "C@Earth-616", "Team", "New Avengers@Earth-616")]
+
+
+def test_a_team_of_another_reality_is_linked_only_when_one_of_its_members_appears_in_the_title():
+    """What If...? (Multiverse) facts were linked to the Earth-616 S.H.I.E.L.D.; Doomsday (Earth-616)
+    rightly links the Earth-828 Fantastic Four, whose members appear in it."""
+    _, edges = load_facts(fact("C@Earth-616", "Yelena", "New Avengers@Earth-616", "New Avengers", "team", "MEMBER_OF"),
+                          title="QD", reality="Earth-828")
+    assert edges["MEMBER_OF"][0]["to"] == "New Avengers@Earth-616"           # a member appears in QD
+    things, edges = load_facts(fact("C@Multiverse", "Hope", "New Avengers@Earth-616", "New Avengers", "team",
+                                    "MEMBER_OF"), title="QW", reality="Multiverse")
+    assert ends(edges, "MEMBER_OF") == [("Character", "C@Multiverse", "Thing", "team:new avengers@Multiverse")]
+    _, edges = load_facts(fact("C@Earth-92131", "Logan", "New Avengers@Earth-616", "X-Men", "team", "MEMBER_OF"),
+                          title="QX2", reality="Earth-92131")
+    assert edges["MEMBER_OF"][0]["to"] == "X-Men@Earth-92131"    # resolved by name in the title's own reality
 
 
 def test_an_unlinked_group_is_the_team_of_that_name_or_alias_in_the_titles_reality():
@@ -91,6 +106,13 @@ def test_an_unlinked_place_is_not_matched_to_a_team_or_character():
     things, _ = load_facts(fact("C@Earth-616", "Yelena", "", "Thunderbolts", "place", "TRAVELS_TO"),
                            fact("C@Earth-616", "Yelena", "", "Loki", "place", "TRAVELS_TO"))
     assert sorted(t["type"] for t in things) == ["place", "place"]
+
+
+def test_team_presence_is_the_titles_where_a_wiki_member_appears():
+    teams = [{"id": "A@E", "reality": "E"}, {"id": "B@E", "reality": "E"}]
+    memberships = [{"team_id": "A@E", "character_id": "c1"}, {"team_id": "A@E", "character_id": "c2"}]
+    appears = [{"character": "c1", "title": "T1"}, {"character": "c2", "title": "T2"}, {"character": "c3", "title": "T3"}]
+    assert team_presence(teams, memberships, appears) == {"A@E": ("E", {"T1", "T2"}), "B@E": ("E", set())}
 
 
 def perf(cid, actor_qid, tmdb_id, name, credit, billing=""):

@@ -56,3 +56,24 @@ def test_names_the_input_never_mentions_are_warnings_not_problems():
 
 def test_unknown_names_skip_a_capitalized_word_that_only_starts_a_sentence():
     assert unknown_names("After the fight, Sylvie rests. Then Kang appears.", INPUT["text"]) == ["Kang"]
+
+
+def test_adjacent_known_names_are_not_read_as_one_unknown_name():
+    """Seen in the pilot: a possessive, a bracket, and a title next to a name each joined two names."""
+    text = ("Dreykov's Budapest office. Avengers (team, Earth-616). Earth's Mightiest Heroes. "
+            "Avengers: Infinity War. Thanos.")
+    summary = ("He raids Dreykov's Budapest office. The Avengers (Earth-616) are Earth's Mightiest Heroes. "
+               "In Infinity War Thanos wins.")
+    assert unknown_names(summary, text) == []
+
+
+def test_a_nickname_in_quotes_does_not_hide_a_name():
+    assert unknown_names('Then James Rhodes helps.', 'James "Rhodey" Rhodes is his friend.') == []
+
+
+def test_a_name_must_match_whole_words_of_the_input():
+    assert unknown_names("He meets Ra and Mobius.", "Ravonna Renslayer runs the TVA.") == ["Ra", "Mobius"]
+
+
+def test_unknown_words_next_to_known_ones_are_named_alone():
+    assert unknown_names("He fights Loki Laufeyson Odinson.", "Loki is Odinson.") == ["Laufeyson"]

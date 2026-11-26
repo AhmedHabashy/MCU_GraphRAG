@@ -27,10 +27,34 @@ NAME_WORD = re.compile(r"[A-Z][\w'’.\-]*")
 EDGE_PUNCTUATION = "\"“”()[],;:!?."
 
 
+def _in_text(words, known):
+    return re.search(rf"(?<!\w){re.escape(' '.join(words).casefold())}(?!\w)", known) is not None
+
+
+def _unknown_parts(name, known):
+    """The words of a capitalized run that no whole-word phrase of the input covers. The run is
+    split into the longest pieces the input has, so "Infinity War Thanos" is two known names."""
+    words, unknown, i = name.split(), [], 0
+    while i < len(words):
+        j = next((j for j in range(len(words), i, -1) if _in_text(words[i:j], known)), None)
+        if j is None:
+            if unknown and unknown[-1][1] == i:          # extend the previous unknown piece
+                unknown[-1] = (f"{unknown[-1][0]} {words[i]}", i + 1)
+            else:
+                unknown.append((words[i], i + 1))
+            i += 1
+        else:
+            i = j
+    return [piece for piece, _ in unknown]
+
+
 def unknown_names(summary, input_text):
-    """Runs of capitalized words the input never mentions. A sentence's first word is skipped,
-    since it is capitalized anyway."""
-    known, found = input_text.casefold(), []
+    """Names in the summary the input never mentions: runs of capitalized words, less the parts
+    the input has as whole words. A sentence's first word is skipped, since it is capitalized
+    anyway. Quotes and brackets in the input are ignored ('James "Rhodey" Rhodes')."""
+    known = re.sub(r"[\"“”()\[\]]", "", input_text).replace("'s ", " ").replace("’s ", " ").casefold()
+    known = re.sub(r"\s+", " ", known)
+    found = []
     for sentence in re.split(r"(?<=[.!?])\s+", summary):
         run = []
         for position, token in enumerate(sentence.split()):
@@ -45,7 +69,7 @@ def unknown_names(summary, input_text):
                 run = []
         if run:
             found.append(" ".join(run))
-    return list(dict.fromkeys(n for n in found if n.casefold() not in known))
+    return list(dict.fromkeys(part for name in found for part in _unknown_parts(name, known)))
 
 
 def check(inp, out):

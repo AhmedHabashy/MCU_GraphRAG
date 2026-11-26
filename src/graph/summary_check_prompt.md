@@ -25,10 +25,18 @@ Two JSON files:
      later", told as final, is unsupported.
 3. For each key fact, also check that its `cite` names citations that appear in the input and
    that support the fact.
-4. Check the names. A character, team, place or title the input doesn't mention is
+4. Look hardest at the words that join two facts. A place ("in Sokovia"), a purpose ("to
+   defend Vision", "to save"), a cause ("because", "so") or an order ("after", "then") that the
+   input doesn't state is unsupported, even when the two facts themselves are in the input.
+   This is the error checkers have missed most often.
+5. Check the names. A character, team, place or title the input doesn't mention is
    unsupported, and so is a wrong reality for a character with variants.
 
 Be strict but fair. A statement that merely words the input differently is supported.
+
+6. Mark as unsupported any sentence that talks about the input instead of the story, such as
+   "the input notes", "is recorded as" or "in one plot fact". The summary must state what
+   happens. Give the reason "talks about the input".
 
 ## Output
 

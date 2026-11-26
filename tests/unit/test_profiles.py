@@ -1,6 +1,6 @@
 """Unit tests for src/graph/profiles.py (profile text only; no database)."""
 
-from src.graph.profiles import profile_text
+from src.graph.profiles import memberships_text, profile_text
 
 WANDA = {
     "label": "Wanda Maximoff", "reality": "Earth-616",
@@ -22,7 +22,7 @@ def test_a_profile_has_one_line_per_field_in_a_fixed_order():
         "Species: Human.\n"
         "Played by: Elizabeth Olsen (8 titles), Young Actor (1 title).\n"
         "Appears in (release order): Captain America: The Winter Soldier (2014), Avengers: Age of Ultron (2015).\n"
-        "Teams: Avengers (leader, member; former).\n"
+        "Teams: Avengers: leader (former), member (former).\n"
         "Variants: Wanda Maximoff (Earth-89521: Marvel Zombies), Wanda Maximoff (Multiverse: What If...?).")
 
 
@@ -37,7 +37,13 @@ def test_a_variant_lists_at_most_three_titles():
     assert profile_text(many).endswith("Variants: Loki (Multiverse: A, B, C, ...).")
 
 
-def test_a_team_with_mixed_statuses_names_both():
-    mixed = dict(WANDA, teams=[{"team": "X-Men", "role": "member", "status": "current"},
-                               {"team": "X-Men", "role": "member", "status": "former"}])
-    assert "Teams: X-Men (member; current, former)." in profile_text(mixed)
+def test_each_role_keeps_its_own_status():
+    """Nick Fury founded the Avengers and leads them now, but led them before as well: a role's
+    status must stay with that role ("founder, leader; current, former" lost which was which)."""
+    fury = dict(WANDA, teams=[{"team": "Avengers", "role": "leader", "status": "former"},
+                              {"team": "Avengers", "role": "founder", "status": "current"},
+                              {"team": "S.H.I.E.L.D.", "role": "member", "status": "former"}])
+    assert "Teams: Avengers: founder (current), leader (former); S.H.I.E.L.D.: member (former)." \
+        in profile_text(fury)
+    assert memberships_text([{"role": "member", "status": "former"}, {"role": "member", "status": "former"}]) \
+        == "member (former)"
