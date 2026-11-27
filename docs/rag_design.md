@@ -332,6 +332,35 @@ evaluation question (docs/evaluation_questions.md) we measure:
 - **quality**: does the retrieved data contain the facts the expected answer rests on?
 - **speed**: how long does retrieval take?
 
+### How it is judged (agreed 2026-11-27)
+
+- **Quality is judged by subagents, not by Python.** Matching strings can't tell a stated fact
+  from a passing mention, so Claude Code subagents on Sonnet 5.5 compare each retrieved context
+  with the expected answer (rules: `src/retrieval/judge_prompt.md`; runbook:
+  `docs/retrieval_agents.md`). A judge splits the expected answer into its items and marks each
+  `yes`, `partly` or `no` with the context line it rests on. A count or "the most" is `yes` only
+  if the context gives the whole set. It also lists context lines that contradict the answer.
+  The verdict is `complete` (every item yes), `partial` or `missing`.
+- **Python runs and times.** `src/retrieval/evaluation.py` runs a strategy on the 50 questions,
+  saves each context with its retrieval time, and batches the contexts for the judges; `report`
+  collects verdicts and timings into a report. The question vectors are embedded first,
+  through the cache, and timed apart, so a strategy's time is the retrieval alone.
+- **No LLM inside retrieval.** Retrieval finds its entry points with the name index and vector
+  search on the question, then walks the graph. The only model call is the question's
+  embedding. The LLM is left to the answer step.
+- **Sub-steps:** R1 the judging (this), R2 local search, R3 global search, R4 DRIFT, R5 the
+  aggregation tool. Each is reported and agreed before the next.
+- **Calibration (2026-11-27).** Two judges each scored the same eight contexts built from the
+  graph, without being told the verdicts expected. Both gave the expected verdict in all eight:
+  Captain Marvel's header alone (complete); Iron Man's header and Sylvie's profile (missing); the
+  header with 1996 planted (missing, and both quoted the conflict); all 66 films with their
+  directors for "who directed the most" (complete); only the Russo and Raimi films (partial,
+  "set may be incomplete"); Iron Man's summary for the Blip question (missing); the Captain
+  Marvel header among unrelated text (complete). The judgement call, Endgame's summary for how
+  the Blip was reversed, was complete for both: they took "Banner uses the gauntlet to undo
+  Thanos's disintegrations" as his snap, and one said so in its note. Judges split items
+  somewhat coarsely (the Russos' five films as one item), which the report shows per question.
+
 ## Inventory (checked 2026-11-25, read-only)
 
 ### Nodes
