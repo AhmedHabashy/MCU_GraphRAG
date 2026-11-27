@@ -42,11 +42,32 @@ def test_an_http_error_names_only_the_url():
     assert str(error.value) == f"{OPENROUTER_API}/embeddings returned HTTP 401"
 
 
+def test_chat_sends_the_qa_model_at_temperature_zero_and_returns_the_reply_message():
+    message = {"role": "assistant", "content": "1995."}
+    session = FakeSession([FakeResponse(200, payload={"choices": [{"message": message}]})])
+    client = OpenRouterClient("sk-or-SECRET", "embed/model", "qa/model", session=session, sleep=lambda _s: None)
+    tools = [{"type": "function", "function": {"name": "aggregate"}}]
+    assert client.chat([{"role": "user", "content": "When?"}], tools, "auto") == message
+    url, body = session.calls[0]
+    assert url == f"{OPENROUTER_API}/chat/completions"
+    assert (body["model"], body["temperature"], body["tools"], body["tool_choice"]) == ("qa/model", 0, tools, "auto")
+
+
+def test_a_chat_error_gives_the_message_but_not_the_key_or_the_messages():
+    session = FakeSession([FakeResponse(200, payload={"error": {"code": 429, "message": "rate limited"}})])
+    client = OpenRouterClient("sk-or-SECRET", "embed/model", "qa/model", session=session, sleep=lambda _s: None)
+    with pytest.raises(RuntimeError) as error:
+        client.chat([{"role": "user", "content": "private question"}])
+    assert "rate limited" in str(error.value)
+    assert "SECRET" not in str(error.value) and "private question" not in str(error.value)
+
+
 def test_from_env_names_missing_settings_without_values(tmp_path):
     env = tmp_path / ".env"
     env.write_text("OPENROUTER_API_KEY=sk-or-SECRET\n")
     with pytest.raises(RuntimeError) as error:
         from_env(env)
-    assert "EMBEDDING_MODEL" in str(error.value) and "SECRET" not in str(error.value)
-    env.write_text("OPENROUTER_API_KEY=sk-or-SECRET\nEMBEDDING_MODEL=embed/model\n")
-    assert from_env(env).embedding_model == "embed/model"
+    assert "EMBEDDING_MODEL, QA_MODEL" in str(error.value) and "SECRET" not in str(error.value)
+    env.write_text("OPENROUTER_API_KEY=sk-or-SECRET\nEMBEDDING_MODEL=embed/model\nQA_MODEL=qa/model\n")
+    client = from_env(env)
+    assert (client.embedding_model, client.qa_model) == ("embed/model", "qa/model")

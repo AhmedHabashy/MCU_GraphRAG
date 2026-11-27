@@ -341,6 +341,9 @@ evaluation question (docs/evaluation_questions.md) we measure:
   `yes`, `partly` or `no` with the context line it rests on. A count or "the most" is `yes` only
   if the context gives the whole set. It also lists context lines that contradict the answer.
   The verdict is `complete` (every item yes), `partial` or `missing`.
+- **Two judges per question (agreed 2026-11-27).** One judge changed two verdicts between local
+  runs 1 and 2 on the same evidence, so each question now gets two independent judges; the lower
+  verdict counts, and the report lists where they disagree.
 - **Python runs and times.** `src/retrieval/evaluation.py` runs a strategy on the 50 questions,
   saves each context with its retrieval time, and batches the contexts for the judges; `report`
   collects verdicts and timings into a report. The question vectors are embedded first,
@@ -360,6 +363,189 @@ evaluation question (docs/evaluation_questions.md) we measure:
   the Blip was reversed, was complete for both: they took "Banner uses the gauntlet to undo
   Thanos's disintegrations" as his snap, and one said so in its note. Judges split items
   somewhat coarsely (the Russos' five films as one item), which the report shows per question.
+
+## Local search (R2, agreed 2026-11-27)
+
+`src/retrieval/local.py`, no LLM; the strategy `local` of `src/retrieval/evaluation.py`.
+
+- **Entry points:** names and aliases from the name index, and the group summaries' names, that
+  occur in the question as a whole phrase with the same capitals (a hyphen joins words; "The X"
+  also matches "the X" with the span of X; a one-word match at the question's start is
+  skipped). The longest overlapping match wins; every entity sharing it is kept (variants).
+- **One step from each:** a title's header, summary, crew and every character with its actor; a
+  character's profile, summary and who plays each of its variants; a person's roles and crew
+  credits; a team's wiki members and summary; a group's summary and its titles (release and
+  in-universe years and order, universe, phases; money and ratings are left to the aggregation
+  tool); titles, characters, teams and things add their 8 plot facts closest to the question.
+- **Search:** plot facts (12), passages (3) and summaries (3), keyword and vector rankings fused
+  by reciprocal rank, without what the entry blocks already show.
+- **Size:** at most 20,000 characters. Each entry block gets a fair share (an equal share, what a
+  shorter block leaves going to the others) and is cut at its own end; 4,000 are kept for the
+  search hits. The run warms the database with one untimed call first.
+
+| Run | Complete | Partial | Missing | Local types (34): complete / partial / missing | Retrieval time |
+| --- | --- | --- | --- | --- | --- |
+| 1 (20261127T165455Z) | 19 | 19 | 12 | 16 / 15 / 3 | median 0.30 s, max 2.40 s (cold start) |
+| 2: fair shares, variants' actors, warm-up (20261127T170143Z) | 18 | 19 | 13 | 15 / 16 / 3 | median 0.22 s, max 0.45 s |
+| 3: in-universe order restored; two judges, the lower counts (20261127T172908Z) | 19 | 18 | 13 | 16 / 15 / 3 (18 / 14 / 2 by the higher verdict) | median 0.26 s, max 1.95 s |
+| 5: the cast's other titles, members' aliases, one per line (20261127T173811Z) | 16 | 19 | 15 | 13 / 17 / 4 | median 0.23 s, max 0.40 s |
+| 6: cap 32,000 (20261127T174313Z; 34 judgements carried over from 5) | 19 | 16 | 15 | 16 / 14 / 4 (22 by the higher verdict) | median 0.22 s, max 0.80 s |
+
+The goal (28 of the 34 complete, none missing) is not met. In run 3 the two judges agree on 47
+of 50; of the three splits, Q33 is a judge error (judge 1 says Doomsday has no cast list; it
+has, with Charles Xavier [Earth-10005]), Q27 a strict reading ("May is short for Maybelle"),
+Q02 partial against missing. Run 2 fixed what it aimed at (Q06
+variants' actors, Q33 Doomsday's cast no longer pushed out) but its group lines dropped the
+in-universe order (Q14; restored since, not yet re-judged), and two verdicts changed on the
+same evidence (Q01, Q25): one judge per question is not steady enough to measure a difference
+of a few questions. The remaining local gaps: an actor's other titles need a second step (Q05);
+facts not shown or not in the graph (Q19 Wikidata's "different from", Q26, Q28, Q30 aliases);
+questions that name nothing (Q15, Q16, Q18), for global search and DRIFT; questions over the
+whole graph (Q02, Q08, Q11), for the aggregation tool. Q13's judge listed four titles released
+after Endgame and set before it that the expected answer leaves out: a point for the expected
+answer, not for retrieval.
+
+## Global search, DRIFT and the aggregation tool (R3 to R5, built 2026-11-27)
+
+The user asked to finish every retrieval sub-step in one go (2026-11-27), so these were designed
+and built without a stop between them; the choices below are recorded for review. None uses an
+LLM: the only model call is the question's embedding.
+
+- **Global search** (`src/retrieval/global_search.py`, strategy `global`): the summaries of what
+  the question names (a title, main character, team or group, matched as in local search), then
+  the summaries found by the keyword and vector indexes, fused; at most 10, each with its key
+  facts and citations, a group's also with its titles. Same cap and fair shares as local.
+- **DRIFT** (`src/retrieval/drift.py`, strategy `drift`): a primer of at most 2 group summaries
+  (named, else the first level-2 or level-3 hits), then PART_OF steps down, keeping the 3
+  children closest to the question at each level, until the titles (at most 6); for each title
+  reached, its 6 plot facts and its plot passage closest to the question. A named title starts
+  there. Microsoft's DRIFT asks an LLM for follow-up questions; here the steps follow the
+  summary hierarchy, ranked by the question's vector.
+- **The aggregation tool** (`src/retrieval/aggregate.py`, strategy `aggregate`): 11 fixed views
+  over the whole graph (box office with the previous title in its series, budget, TMDB ratings,
+  average rating per phase, in-universe timeline, titles per phase, characters by titles,
+  actors by titles with cameos, characters by co-stars in films, directors by films, actors who
+  play two or more different characters). The question's vector picks the 2 views whose
+  descriptions are closest. Each view's header says it is computed over all titles,
+  characters or people, so a "the most" or a count rests on the complete set. This answers the
+  open point on aggregation: the tool doesn't count retrieved data, it queries the whole graph.
+- **What each is judged on** (to keep the judging proportionate; can be widened to all 50):
+  global and DRIFT on the big-picture questions (Q35 to Q40) and the plot questions that name
+  nothing or need a wide view (Q15 to Q18, Q34); the aggregation tool on the 14 questions over
+  the whole graph (Q02, Q08, Q11, Q38, Q39, Q41 to Q48, Q50).
+- **Local search, final (run 6):** the cap was raised to 32,000 characters (6,000 kept for the
+  search hits) after runs 2 to 5 showed 20,000 cutting questions that name several entities
+  (Q07's Endgame cast, Q17's Endgame hits, Q29's Avengers members, Q32's Doomsday cast). A
+  title's cast lists each actor's other titles on the actor's own line, and a team's members
+  their aliases, one per line, so a cut drops the lowest billed or last members, not a whole
+  list. `evaluation carry` copies a previous run's judgements where the context is the same, so
+  only changed questions are judged again.
+
+### Final runs (2026-11-27)
+
+After the runs above, cuts fall at the last line or sentence end (a summary is one long line, so
+cutting at line ends alone dropped all of it), and DRIFT keeps 3 summaries per step in all (3
+per parent spread 2 sagas over 18 titles and cut every summary to its heading). Verdicts are the
+lower of two judges; judgements are carried over where a context didn't change.
+
+| Strategy (run) | Judged on | Complete | Partial | Missing | Retrieval time |
+| --- | --- | --- | --- | --- | --- |
+| local (local/20261127T175130Z) | all 50 | 20 | 15 | 15 | median 0.24 s, max 0.41 s |
+| local, the 34 local-type questions | 34 | 17 | 13 | 4 | |
+| global (global/20261127T175144Z) | 11 | 3 | 8 | 0 | median 0.13 s, max 0.24 s |
+| DRIFT (drift/20261127T175147Z) | 11 | 2 | 7 | 2 | median 0.32 s, max 0.36 s |
+| aggregation (aggregate/20261127T175152Z) | 14 | 8 | 6 | 0 | median 0.04 s, max 0.12 s |
+
+Taking each question's best strategy: 29 of 50 complete, 21 partial, none missing.
+
+- **Aggregation** answers what local can't: Q08, Q11, Q38, Q39, Q41, Q42, Q47 and Q50 complete.
+  Its partials: Q02 (Peter Dinklage's Eitri is a one-title, non-main character), Q43 (Black
+  Panther: Wakanda Forever has no FOLLOWS link to Black Panther, a data gap), Q44 to Q46 (the
+  expected answers leave Stan Lee's cameo character out; the views show him), Q48 (the expected
+  answer calls Phase Three the highest while Phase Six's two films average higher).
+- **Global** completes Q35, Q37 and Q38 and is never missing on its 11; DRIFT completes Q17 and
+  Q35. Neither finds the nameless Q15 ("how long after the snap"): the summary and fact
+  searches don't reach Endgame from that wording. Q16, Q18, Q36 and Q40 stay partial with every
+  strategy: the missing items are a motive (overpopulation), No Way Home's spell, Steve Rogers
+  retiring, and Doom's actor.
+- **Open for the user:** whether to widen the judging of global and DRIFT to all 50; the
+  expected answers that rest on wording or on sources the graph doesn't hold (see Local search);
+  and the 32,000-character cap, raised during this step.
+
+## The answer step (stage 5, agreed 2026-11-27)
+
+- **Model:** QA_MODEL in .env (`openai/gpt-6-luna`) through OpenRouter, the client the
+  embeddings use. Temperature 0.
+- **Input:** the context of the strategy the user picked (local, global or DRIFT) and the
+  question. The rules are in `src/retrieval/answer_prompt.md`: answer only from the context and
+  the views, say what the data doesn't give, give full lists, keep realities apart.
+- **The aggregation tool is a tool the model calls.** It gets one function, `aggregate(view)`,
+  whose description lists the 11 views; a call returns that view's block over the whole graph.
+  The model is told to call it for counts, rankings, "the most" and averages instead of counting
+  from the context. At most 2 rounds of calls; after that the model must answer.
+- **Comparison:** all 50 questions with each of local, global and DRIFT (150 answers). Each
+  answer is judged by two Sonnet 5.5 subagents against the expected answer
+  (`src/retrieval/answer_judge_prompt.md`), the lower verdict counting, as for retrieval. The
+  judges see the answer and the expected answer, not the context: a miss is traced afterwards to
+  retrieval (its verdict on the same context) or to the answer step.
+- **Validation:** unit tests for the chat call (the key and the messages never in an error), the
+  tool loop (a view call, an unknown view, the forced last round) and the answer runs (saved,
+  carried, reported); a smoke run of three questions (Q12, Q08, Q35) read by hand before the
+  full run; then the full run. The measure: how many answers lose what their context held (the
+  retrieval verdict was complete, the answer's isn't), and whether the 14 whole-graph questions
+  reach at least the aggregation tool's 8 complete through the tool. Answer time is reported
+  per question, apart from retrieval time.
+
+### First answer runs (2026-11-27)
+
+Two judges per answer, the lower verdict counting; the judges disagree on 2, 1 and 1 questions.
+
+| Strategy (run under eval/answers/) | Complete | Partial | Missing | Answer time |
+| --- | --- | --- | --- | --- |
+| local (local/20261127T190551Z) | 19 | 28 | 3 | median 2.3 s, max 21.2 s |
+| global (global/20261127T190553Z) | 9 | 35 | 6 | median 2.6 s, max 14.1 s |
+| DRIFT (drift/20261127T190555Z) | 6 | 30 | 14 | median 2.6 s, max 21.7 s |
+
+Retrieval stays under 0.6 s; answers over 8 s are the ones that call a large view (timeline,
+box office, actors with two characters) or write a long list. Local leads on every question
+type; taking the best strategy per question gives 21 complete, 28 partial and 1 missing.
+
+- **The tool works:** the model called a view on every whole-graph question, and the right one.
+  Local answers gain on 13 questions over local retrieval (Q39, Q41, Q47, Q48 now complete), but
+  only 4 of the 14 whole-graph questions are complete, against the aggregation tool's 8.
+- **Lost by the answer step** (local retrieval complete, the answer not): Q03 (Wanda's variants
+  left out), Q07 (Cassie Lang dropped), Q23 (Doomsday and the X-Men '97 variant left out), Q32
+  (Reed as leader), Q34 (says Gamora rejoined, a misreading), Q35 (What If...? and I Am Groot
+  continuing into Phase Five).
+- **Why:** the answers are short and answer the question narrowly, while the expected answers
+  add the details around it: the runners-up of a "the most" (Q08, Q50), the earliest film after
+  the earliest title (Q11), the titles in two phases (Q38). Two are misreadings (Q34; Q42, The
+  Incredible Hulk instead of The Marvels as the lowest grossing MCU film). Q44 and Q46 lose
+  on Stan Lee's cameo character, which the expected answers leave out and the views show.
+
+### Answer run 2: answer fully (2026-11-27)
+
+The user agreed to widen the answer prompt (rules 3 and 4 of `answer_prompt.md`): check every
+list item again, and give the details around the answer the data holds (the runners-up and
+ties of a "the most", the top film when the top title isn't one, the earliest film, titles in
+two groups, a character's variants, members' roles, other titles). The views and the expected
+answers stay as they are; Stan Lee's cameo character is still open. Only 4 answers came out the
+same, so 146 were judged again.
+
+| Strategy (run under eval/answers/) | Complete | Partial | Missing | Answer time |
+| --- | --- | --- | --- | --- |
+| local (local/20261127T192736Z) | 18 (19) | 31 (28) | 1 (3) | median 3.3 s, max 16.0 s |
+| global (global/20261127T192739Z) | 13 (9) | 34 (35) | 3 (6) | median 3.1 s, max 18.1 s |
+| DRIFT (drift/20261127T192741Z) | 9 (6) | 29 (30) | 12 (14) | median 3.1 s, max 16.5 s |
+
+(Run 1 in brackets.) The best strategy per question gives 21 complete, 29 partial, none
+missing. The rules did what they aimed at: Q03, Q08, Q32, Q35, Q38, Q42 and Q46 went up for
+local, and 6 of the 14 whole-graph questions are complete (4 before; the aggregation tool's
+context, 8). But 6 local answers went down (Q05, Q06, Q10, Q16, Q22, Q29), and the causes are
+the model's, not the rules': list items dropped (Thor in Q29, Toby Leonard Moore in Q05, as
+Cassie Lang in Q07 before), a detail left out that the first answer had (Q10's ten titles,
+Q22's First Steps). With temperature 0 the same context still gives answers that keep
+different items, so the answer model drops items from long contexts in both runs.
 
 ## Inventory (checked 2026-11-25, read-only)
 
@@ -489,10 +675,8 @@ creates `entity_names`. The OpenRouter client (embeddings only), the passage spl
   Nightcrawler, Riri and F.R.I.D.A.Y.).
 
 ## Open points
-
-
-- **Aggregation on retrieved data.** A count is right only if retrieval brought back the
-  whole set being counted. "Who directed the most films?" needs every title. So the
-  aggregation tool may need its retrieval to fetch complete sets.
+- **Aggregation on retrieved data** (settled 2026-11-27). A count is right only if it rests on
+  the whole set, so the aggregation tool queries the whole graph instead of counting retrieved
+  data (see "Global search, DRIFT and the aggregation tool").
 - **The leftover passages and indexes** are reused and are now part of the build (see "Index
   set", "Build").
