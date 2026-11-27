@@ -65,12 +65,18 @@ function inline(text) {
 }
 
 function renderAnswer(text) {
-  const html = text.split(/\n{2,}/).map((para) => {
-    const lines = para.split("\n");
-    if (lines.every((l) => /^\s*[-*] /.test(l))) {
-      return "<ul>" + lines.map((l) => `<li>${inline(l.replace(/^\s*[-*] /, ""))}</li>`).join("") + "</ul>";
+  // paragraphs, and lists of "- " or "* " lines, also right under a line that introduces them
+  const html = text.split(/\n{2,}/).map((block) => {
+    const parts = [];
+    for (const line of block.split("\n")) {
+      const item = /^\s*[-*] /.test(line);
+      const last = parts[parts.length - 1];
+      if (last && last.item === item) last.lines.push(line);
+      else parts.push({ item, lines: [line] });
     }
-    return `<p>${lines.map(inline).join("<br>")}</p>`;
+    return parts.map((p) => p.item
+      ? "<ul>" + p.lines.map((l) => `<li>${inline(l.replace(/^\s*[-*] /, ""))}</li>`).join("") + "</ul>"
+      : `<p>${p.lines.map(inline).join("<br>")}</p>`).join("");
   }).join("");
   $("answer").innerHTML = html;
   $("answer").querySelectorAll(".cite").forEach((b) => b.addEventListener("click", () => highlight(b)));
@@ -221,11 +227,19 @@ async function ask(question) {
   $("status").className = "status";
   $("steps").hidden = true;
   $("answer").replaceChildren();
+  renderCited([]);                                  // nothing of the last question stays on screen
+  renderBoard({ cards: [], links: [] });
+  showSelected("Select a card or a link on the board to read its evidence.");
   $("ask").disabled = true;
   try {
-    const response = await fetch("/api/ask", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question, strategy }),
-    });
+    let response;
+    try {
+      response = await fetch("/api/ask", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question, strategy }),
+      });
+    } catch {
+      throw new Error("Could not reach the server; is it running?");
+    }
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
     $("status").textContent = "Done";
@@ -233,7 +247,6 @@ async function ask(question) {
     renderAnswer(data.answer);
     renderCited(data.cited);
     renderBoard(data.board);
-    showSelected("Select a card or a link on the board to read its evidence.");
   } catch (error) {
     $("status").textContent = error.message;
     $("status").className = "status error";

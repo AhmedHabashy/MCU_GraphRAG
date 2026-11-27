@@ -142,3 +142,9 @@ def test_a_shared_block_lists_what_two_titles_or_teams_have_in_common_or_says_no
 def test_a_shared_name_is_written_as_the_block_headers_write_it():
     assert shared_name({"kind": "Title", "key": "Q1", "names": ["Fantastic Four", "FF"]}) == "Fantastic Four [Q1]"
     assert shared_name({"kind": "Team", "key": "Avengers@Earth-616", "names": ["Avengers"]}) == "Avengers [Earth-616]"
+
+
+def test_each_entry_point_carries_the_span_it_is_named_at():
+    found = entry_points("Who is Black Widow?", [candidate("Title", "Q1", "Black Widow"),
+                                                 candidate("Character", "C1", "Natasha Romanoff", "Black Widow")])
+    assert [(c["key"], c["span"]) for c in found] == [("Q1", (7, 18)), ("C1", (7, 18))]

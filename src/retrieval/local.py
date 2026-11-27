@@ -71,9 +71,9 @@ def name_spans(question, names, skip_start=True):
 
 
 def entry_points(question, candidates, skip_start=True):
-    """The candidates ({kind, key, names, weight}) the question names: each at its longest span;
-    overlapping spans give way to the longest; entities sharing a kept span are all kept. In
-    question order, then by KIND_ORDER and weight."""
+    """The candidates ({kind, key, names, weight}) the question names, each with the span it is
+    named at ("span": (start, end), its longest); overlapping spans give way to the longest;
+    entities sharing a kept span are all kept. In question order, then by KIND_ORDER and weight."""
     best = {}
     for c in candidates:
         spans = name_spans(question, c["names"], skip_start)
@@ -85,7 +85,7 @@ def entry_points(question, candidates, skip_start=True):
             kept_spans.append(span)
     chosen = [(s, c) for s, c in best.values() if s in kept_spans]
     chosen.sort(key=lambda sc: (sc[0][0], KIND_ORDER.index(sc[1]["kind"]), -sc[1]["weight"]))
-    return [c for _, c in chosen]
+    return [dict(c, span=sp) for sp, c in chosen]
 
 
 def _money(value):

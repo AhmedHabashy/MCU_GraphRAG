@@ -586,7 +586,7 @@ answers. The graph-only evaluation (src.graph.evaluate) checks the same through 
 ## The front end (agreed 2026-11-27)
 
 For the MCU expert to test the system himself. The user chose: the case board with cited facts
-(the reference: a Heptabase-style case board, "D. Case board, Heptabase style@2x.png"), no
+(the reference: a Heptabase-style case board, "my_plan/D. Case board, Heptabase style@2x.png", not tracked), no
 feedback capture in the app, plain HTML/CSS/JS served by Flask (no build step), so it can be
 exposed later.
 
@@ -604,8 +604,8 @@ exposed later.
   answer runs above were made before citations; the next answer run measures them.
 - **The board** (`src/retrieval/board.py`, no LLM): cards for every entity the question names
   (variants included), then one per name the answer names (citations and italics taken out
-  first; the answer's first word counts, unlike a question's), 24 at most; an answer's card
-  with no link to the others is left out. Links: the graph's relationships between two cards
+  first; the answer's first word counts, unlike a question's), 24 at most; an answer's thing
+  (place, universe, object) with no link to the others is left out. Links: the graph's relationships between two cards
   (not ACTED_IN, which repeats PLAYS), one per direction and kind, plot (red) or data (grey), its
   label naming every type it stands for, its evidence the plot quote, the cast credit, the wiki
   role or the Wikidata shared identity. Groups (phases, sagas) are summaries, not cards.
@@ -619,6 +619,22 @@ exposed later.
   four questions across local and global, citation badges and the console. Found and fixed on
   the way: the board read "24-29" in a citation as X-24; italics hid "Loki, season 1"; the
   answer's first word was skipped like a question's; parallel links stacked their labels.
+- **Server and page tests (2026-11-27):** `tests/neo4j/test_web.py` runs `/api/ask` end to end
+  on the loaded graph with a fake model (every strategy answers from numbered lines and returns
+  the cited ones; the board shows Captain Carter's variants with their Wikidata identity and
+  cast credits; a view call is numbered on from the context; a question naming nothing still
+  answers). A live run with the real model (10 questions over the three strategies, a French
+  question with quotes and HTML, an off-topic one, bad requests): every citation names a real
+  line, answers in 2 to 10 s, bad requests 400, wrong method 405. In the browser: strategy
+  switch, typed question with Enter, card and link evidence, fit, citation badges, a phone-width
+  layout, HTML in answers and evidence shown as text, a clean console. Fixed on the way: the
+  network error showed the browser's "Failed to fetch" and left the last board up (now a plain
+  message, and each question clears the board and evidence first); a list under an intro line
+  rendered as plain lines; the Ask button and the legend were cut off at phone width; one name
+  the answer used put every entity with that alias on the board (Okoye, Ingrid for "Black
+  Widow"): the board now takes one entity per matched phrase, the one whose own name it is,
+  a person before a character of that name; the actors of a ranking were dropped as unlinked
+  (now only unlinked things are).
 
 ## Inventory (checked 2026-11-25, read-only)
 

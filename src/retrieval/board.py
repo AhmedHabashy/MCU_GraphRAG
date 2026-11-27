@@ -2,8 +2,8 @@
 name, and the links between them, each link with its evidence. No LLM.
 
 Cards: every entity the question names (src.retrieval.local.entry_points, variants included),
-then those the answer names, one per name (the best linked), MAX_CARDS in all; an answer's card
-with no link to the others is left out. Links: the graph's
+then one per name the answer uses (a title first, then the best linked), MAX_CARDS in all; an answer's thing
+(place, universe, object) with no link to the others is left out. Links: the graph's
 relationships between two cards, one link per direction and kind (data or plot), carrying the
 evidence of each relationship it stands for: a plot fact's quote, a cast credit's title, a wiki
 membership's role.
@@ -15,6 +15,7 @@ from src.retrieval.local import GraphReader
 
 MAX_CARDS = 24
 MAX_EVIDENCE = 8                  # per link
+BOARD_ORDER = ("Title", "Team", "Person", "Character", "Thing")     # for one name the answer uses
 HIDDEN = ["ACTED_IN", "SUMMARIZES", "FROM", "PART_OF"]     # ACTED_IN repeats PLAYS; the rest aren't story links
 CARDS = """MATCH (n:{kind}) WHERE n.{key} IN $keys
 RETURN elementId(n) AS id, n.{key} AS key, coalesce(n.title, n.label, n.name) AS label,
@@ -27,18 +28,26 @@ RETURN elementId(a) AS source, elementId(b) AS target, type(r) AS type, coalesce
        r.shared_qid AS shared"""
 
 
-def chosen(question_named, answer_named, max_cards=MAX_CARDS):
-    """The entry points to show: the question's, then one per name of the answer's, no repeats."""
-    cards, names = [], set()
-    for c in question_named:
-        if (c["kind"], c["key"]) not in {(x["kind"], x["key"]) for x in cards}:
-            cards.append(c)
-            names.add(c["names"][0])
+def chosen(question_named, answer_named, answer, max_cards=MAX_CARDS):
+    """The entry points to show: every one the question names (variants included), then one per
+    name the answer (the text answer_named was found in) uses: the entity whose own name it is
+    before those it is an alias of, then by BOARD_ORDER (a person before a character of the same
+    name: answers name actors), then the best linked; none when the question's cards already
+    have one of them."""
+    cards = [c for c in question_named if c["kind"] in KEYS]
+    keys = {(c["kind"], c["key"]) for c in cards}
+    by_span = {}
     for c in answer_named:
-        if c["names"][0] not in names and c["kind"] in KEYS:
-            cards.append(c)
-            names.add(c["names"][0])
-    return [c for c in cards if c["kind"] in KEYS][:max_cards]
+        if c["kind"] in KEYS:
+            by_span.setdefault(c["span"], []).append(c)
+    for (start, end), named_there in by_span.items():
+        if any((c["kind"], c["key"]) in keys for c in named_there):
+            continue
+        phrase = answer[start:end]
+        best = min(named_there, key=lambda c: (c["names"][0] != phrase, BOARD_ORDER.index(c["kind"]), -c["weight"]))
+        cards.append(best)
+        keys.add((best["kind"], best["key"]))
+    return cards[:max_cards]
 
 
 def card(kind, row):
@@ -91,7 +100,8 @@ class Board(GraphReader):
 
     def __call__(self, question, answer):
         asked = self.named(question)
-        picked = chosen(asked, self.named(without_citations(answer).replace("*", ""), skip_start=False))
+        text = without_citations(answer).replace("*", "")
+        picked = chosen(asked, self.named(text, skip_start=False), text)
         cards, from_question = [], set()
         for kind in KEYS:
             keys = [c["key"] for c in picked if c["kind"] == kind]
@@ -104,7 +114,8 @@ class Board(GraphReader):
 
 
 def linked(cards, found, keep):
-    """The cards the question names (ids in keep), and the others that have a link: a card the
-    answer names but nothing joins to the rest only clutters the board."""
+    """The cards to show: the question's (ids in keep), and the answer's, except a thing (a place,
+    a universe, an object) that no link joins to the rest: those only clutter the board, while an
+    unlinked person or character the answer names (the actors of a ranking) is still its subject."""
     ends = {x for link in found for x in (link["source"], link["target"])}
-    return [c for c in cards if c["id"] in keep or c["id"] in ends]
+    return [c for c in cards if c["id"] in keep or c["id"] in ends or c["kind"] != "thing"]

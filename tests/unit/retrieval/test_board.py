@@ -3,16 +3,22 @@
 from src.retrieval.board import card, chosen, evidence, linked, links
 
 
-def entry(kind, key, name):
-    return {"kind": kind, "key": key, "names": [name], "weight": 1}
+def entry(kind, key, name, span=(0, 1)):
+    return {"kind": kind, "key": key, "names": [name], "weight": 1, "span": span}
 
 
-def test_the_question_cards_come_first_then_one_per_name_from_the_answer():
+def test_the_question_cards_come_first_then_one_per_name_the_answer_uses():
+    text = "Peggy Carter and Black Widow; Stan Lee; Phase Four"
     question = [entry("Character", "C1@Earth-616", "Peggy Carter"), entry("Character", "C1@Earth-838", "Captain Carter")]
-    answer = [entry("Character", "C1@Earth-616", "Peggy Carter"), entry("Person", "P1", "Hayley Atwell"),
-              entry("Person", "P2", "Hayley Atwell"), entry("Group", "phase:Phase Four", "Phase Four")]
-    assert [c["key"] for c in chosen(question, answer)] == ["C1@Earth-616", "C1@Earth-838", "P1"]
-    assert len(chosen(question, answer, max_cards=1)) == 1
+    answer = [entry("Character", "C1@Earth-616", "Peggy Carter", (0, 12)),
+              entry("Character", "C1@Multiverse", "Peggy Carter", (0, 12)),        # same name: the question has it
+              entry("Character", "C2@Earth-616", "Natasha Romanoff", (17, 28)),      # an alias of hers ...
+              entry("Title", "Q1", "Black Widow", (17, 28)),                         # ... the title's own name
+              entry("Character", "C9@Earth-616", "Stan Lee", (30, 38)),              # own name too, but a character
+              entry("Person", "P1", "Stan Lee", (30, 38)),
+              entry("Group", "phase:Phase Four", "Phase Four", (40, 50))]
+    assert [c["key"] for c in chosen(question, answer, text)] == ["C1@Earth-616", "C1@Earth-838", "Q1", "P1"]
+    assert len(chosen(question, answer, text, max_cards=1)) == 1
 
 
 def test_a_card_names_what_it_is_and_the_line_under_its_name():
@@ -45,8 +51,8 @@ def test_rows_of_one_direction_and_kind_make_one_link_naming_every_type():
         ("enemy of · ally of", True, ['enemy of: Logan: "they fight"', 'ally of: Logan: "they team up"'])]
 
 
-def test_a_card_from_the_answer_with_no_link_is_left_out_but_the_questions_cards_stay():
-    cards = [{"id": "q"}, {"id": "a1"}, {"id": "a2"}]
+def test_an_answers_thing_with_no_link_is_left_out_but_its_people_and_the_questions_cards_stay():
+    cards = [{"id": "q", "kind": "character"}, {"id": "a1", "kind": "thing"}, {"id": "a2", "kind": "thing"},
+             {"id": "a3", "kind": "person"}]
     found = [{"source": "q", "target": "a1"}]
-    assert linked(cards, found, keep={"q"}) == [{"id": "q"}, {"id": "a1"}]
-    assert linked([{"id": "q"}], [], keep={"q"}) == [{"id": "q"}]
+    assert [c["id"] for c in linked(cards, found, keep={"q"})] == ["q", "a1", "a3"]
