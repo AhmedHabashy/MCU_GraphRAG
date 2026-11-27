@@ -15,6 +15,7 @@ A JSON file with:
 - `answer`: the system's answer.
 
 Other fields (`context`, `views`, timings) are not for you: don't read the context.
+The answer cites its sources as numbers in square brackets ([12], [12, 40]); ignore them.
 
 ## What to do
 

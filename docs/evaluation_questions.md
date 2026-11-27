@@ -74,7 +74,7 @@ scope for now.
 - The Avengers team lists have no T'Challa or Doctor Strange. (Nick Fury as the only founder
   is right, per the MCU expert.)
 - Stan Lee's cameos are one character, "Watcher Informant", which skews the counts in Q44
-  to Q46; the schema should mark cameos.
+  to Q46. Fixed 2026-11-27: his credits and cameo characters carry `cameo` (docs/db_schematics.md).
 - Iron Man's first release is 30 April 2008 in both Wikidata and TMDB; its Sydney premiere
   was 14 April 2008, which neither source has.
 - Wikidata does not link Black Panther: Wakanda Forever to Black Panther as its sequel; Q43

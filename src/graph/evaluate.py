@@ -466,29 +466,29 @@ def q50(db):
     return ("PASS" if got == expected else "FAIL"), f"{top['t']} {top['r']}; films: " + ", ".join(f"{f['t']} {f['r']}" for f in films)
 
 
-CAMEO = "Watcher Informant"
-
-
 @question("Q44")
 def q44(db):
-    rows = db("""MATCH (c:Character)-[:APPEARS_IN]->(t:Title) WHERE c.label <> $cameo
-                 RETURN c.id AS id, c.label AS label, count(DISTINCT t) AS n ORDER BY n DESC LIMIT 2""", cameo=CAMEO)
+    rows = db("""MATCH (c:Character)-[:APPEARS_IN]->(t:Title) WHERE NOT c.cameo
+                 RETURN c.id AS id, c.label AS label, count(DISTINCT t) AS n ORDER BY n DESC LIMIT 2""")
     top = [f"{r['label']} {r['n']}" for r in rows]
     return ("PASS" if top == ["Nick Fury 14", "Steve Rogers 12"] else "FAIL"), ", ".join(top)
 
 
 @question("Q45")
 def q45(db):
-    rows = db("""MATCH (a:Person)-[:ACTED_IN]->(t:Title) RETURN a.name AS name, count(t) AS n ORDER BY n DESC, name LIMIT 3""")
-    top = [f"{r['name']} {r['n']}" for r in rows]
-    return ("PASS" if top[0] == "Stan Lee 36" and set(top[1:]) == {"Samuel L. Jackson 15", "Chris Evans 15"} else "FAIL"), ", ".join(top)
+    rows = db("""MATCH (a:Person)-[r:ACTED_IN]->(t:Title)
+                 RETURN a.name AS name, count(t) AS n, count(CASE WHEN r.cameo THEN t END) AS cameos
+                 ORDER BY n DESC, name LIMIT 3""")
+    top = [f"{r['name']} {r['n']} ({r['cameos']} cameos)" for r in rows]
+    expected = ("Stan Lee 36 (36 cameos)", {"Samuel L. Jackson 15 (0 cameos)", "Chris Evans 15 (0 cameos)"})
+    return ("PASS" if (top[0], set(top[1:])) == expected else "FAIL"), ", ".join(top)
 
 
 @question("Q46")
 def q46(db):
     rows = db("""MATCH (c:Character)-[:APPEARS_IN]->(t:Title {type: 'Film'})<-[:APPEARS_IN]-(o:Character)
-                 WHERE c <> o AND c.label <> $cameo
-                 RETURN c.id AS id, c.label AS label, count(DISTINCT o) AS n ORDER BY n DESC LIMIT 3""", cameo=CAMEO)
+                 WHERE c <> o AND NOT c.cameo
+                 RETURN c.id AS id, c.label AS label, count(DISTINCT o) AS n ORDER BY n DESC LIMIT 3""")
     top = [f"{r['label']} {r['n']}" for r in rows]
     return ("PASS" if top == ["Steve Rogers 239", "Nick Fury 223", "Thor 201"] else "FAIL"), ", ".join(top)
 

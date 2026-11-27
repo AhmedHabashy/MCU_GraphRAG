@@ -87,35 +87,40 @@ VIEWS = {
     },
     "character_titles": {
         "description": "Characters ranked by the number of titles they appear in: which character appears in the most titles",
-        "query": """MATCH (c:Character)-[:APPEARS_IN]->(t:Title)
+        "query": """MATCH (c:Character)-[:APPEARS_IN]->(t:Title) WHERE NOT c.cameo
                     WITH c, t ORDER BY t.release_order
                     WITH c, collect(t.title) AS titles ORDER BY size(titles) DESC, c.label LIMIT 25
                     RETURN c.label AS label, c.reality AS reality, size(titles) AS count, titles,
                            COLLECT { MATCH (p:Person)-[:PLAYS]->(c) RETURN DISTINCT p.name } AS actors""",
-        "header": "The 25 characters in the most titles, counted over all characters and titles:",
+        "header": "The 25 characters in the most titles, counted over all characters and titles (cameo characters, "
+                  "such as Stan Lee's, left out):",
         "line": lambda r: (f"{r['label']} [{r['reality']}] ({', '.join(r['actors']) or 'no actor'}): "
                            f"{r['count']} titles: {_titles(r)}"),
     },
     "actor_titles": {
         "description": "Actors ranked by the number of titles they act in, with how many of those credits are cameos: "
                        "which actor appears in the most titles",
-        "query": """MATCH (p:Person)-[:ACTED_IN]->(t:Title)
-                    WITH p, count(DISTINCT t) AS count ORDER BY count DESC, p.name LIMIT 25
-                    RETURN p.name AS name, count,
+        "query": """MATCH (p:Person)-[a:ACTED_IN]->(t:Title)
+                    WITH p, count(DISTINCT t) AS count, count(DISTINCT CASE WHEN a.cameo THEN t END) AS cameos
+                    ORDER BY count DESC, p.name LIMIT 25
+                    RETURN p.name AS name, count, cameos,
                            COLLECT { MATCH (p)-[r:PLAYS]->(c:Character)
                                      WITH c, count(DISTINCT r.title_qid) AS n ORDER BY n DESC
                                      RETURN c.label + ' (' + toString(n) + ')' } AS characters""",
-        "header": "The 25 actors in the most titles, counted over all people and titles, with the characters they play "
-                  "(titles each):",
-        "line": lambda r: f"{r['name']}: {r['count']} titles; as {', '.join(r['characters']) or 'no character'}",
+        "header": "The 25 actors in the most titles, counted over all people and titles, with how many are cameos and "
+                  "the characters they play (titles each):",
+        "line": lambda r: (f"{r['name']}: {r['count']} titles ({r['cameos']} cameos, {r['count'] - r['cameos']} not); "
+                           f"as {', '.join(r['characters']) or 'no character'}"),
     },
     "costars": {
         "description": "Characters ranked by how many other characters they share films with",
-        "query": """MATCH (c:Character)-[:APPEARS_IN]->(t:Title {type: 'Film'})<-[:APPEARS_IN]-(o:Character) WHERE o <> c
+        "query": """MATCH (c:Character)-[:APPEARS_IN]->(t:Title {type: 'Film'})<-[:APPEARS_IN]-(o:Character)
+                    WHERE o <> c AND NOT c.cameo
                     WITH c, count(DISTINCT o) AS count ORDER BY count DESC, c.label LIMIT 20
                     RETURN c.label AS label, c.reality AS reality, count,
                            COLLECT { MATCH (p:Person)-[:PLAYS]->(c) RETURN DISTINCT p.name } AS actors""",
-        "header": "The 20 characters who share films with the most other characters, counted over all films:",
+        "header": "The 20 characters who share films with the most other characters, counted over all films (cameo "
+                  "characters, such as Stan Lee's, left out of the ranking):",
         "line": lambda r: f"{r['label']} [{r['reality']}] ({', '.join(r['actors']) or 'no actor'}): {r['count']} other characters",
     },
     "directors": {

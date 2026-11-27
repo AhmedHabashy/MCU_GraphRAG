@@ -7,8 +7,10 @@ Nodes:  Title {qid}, Character {id}, Person {key}, Team {id}, Thing {key}
         Title money: Wikidata's US dollars, else TMDB's (*_source says which); rating: TMDB's.
         Title years: in-universe start/end year, MCU wiki's, else Wikipedia's (negative = BC).
 Edges:  (Character)-[:APPEARS_IN]->(Title)
-        (Person)-[:PLAYS {title_qid, credited_as, billing_order}]->(Character)
-        (Person)-[:ACTED_IN]->(Title)           every credit, also those linked to no character
+        (Person)-[:PLAYS {title_qid, credited_as, billing_order, cameo}]->(Character)
+        (Person)-[:ACTED_IN {cameo}]->(Title)   every credit, also those linked to no character
+        Cameos: every acting credit of a CAMEO_PEOPLE person is a cameo, and a character all of whose
+        credits are cameos has cameo: true (Stan Lee's "Watcher Informant"), so counts can leave it out.
         (Person)-[:DIRECTED]->(Title), (Person)-[:WROTE]->(Title)         (Wikidata)
         (Title)-[:FOLLOWS]->(Title)             the title it follows in its series (Wikidata)
         (Character)-[:VARIANT_OF {shared_qid}]->(Character)
@@ -42,6 +44,7 @@ from src.source_data_collection.storage import read_csv, read_json
 BATCH = 1000
 KEYS = {"Title": "qid", "Character": "id", "Person": "key", "Team": "id", "Thing": "key"}
 NAME_INDEX = "entity_names"     # full-text over every node's names and aliases: the entry point for a name
+CAMEO_PEOPLE = {"Q181900"}      # Stan Lee: all 36 acting credits are cameos (MCU expert, evaluation Q44 to Q46)
 
 
 def _split(value):
@@ -105,7 +108,8 @@ def person_key(qid, tmdb_id):
 
 def performance_rows(performances):
     """(people, PLAYS edges, APPEARS_IN edges, ACTED_IN edges), each once. ACTED_IN counts every
-    credit with a known person, also those linked to no character (most of Stan Lee's cameos)."""
+    credit with a known person, also those linked to no character (most of Stan Lee's cameos). A
+    CAMEO_PEOPLE person's PLAYS and ACTED_IN edges have cameo True."""
     people, plays, appears, acted = {}, {}, set(), set()
     for p in performances:
         cid, has_person = p["character_id"], bool(p["actor_qid"] or p["tmdb_person_id"])
@@ -118,17 +122,28 @@ def performance_rows(performances):
                                          "name": p["actor_name"]})
         person["tmdb_id"] = person["tmdb_id"] or p["tmdb_person_id"]
         acted.add((key, p["title_qid"]))
+        cameo = key in CAMEO_PEOPLE
         if not cid:
             continue
         edge = plays.setdefault((key, cid, p["title_qid"]), {"person": key, "character": cid, "title_qid": p["title_qid"],
-                                                              "credited_as": [], "billing_order": None})
+                                                              "credited_as": [], "billing_order": None,
+                                                              "cameo": cameo})
         if p["tmdb_character"] and p["tmdb_character"] not in edge["credited_as"]:
             edge["credited_as"].append(p["tmdb_character"])
         billing = _int(p["billing_order"])
         if billing is not None and (edge["billing_order"] is None or billing < edge["billing_order"]):
             edge["billing_order"] = billing
     return (people, list(plays.values()), [{"character": c, "title": t} for c, t in sorted(appears)],
-            [{"person": k, "title": t} for k, t in sorted(acted)])
+            [{"person": k, "title": t, "cameo": k in CAMEO_PEOPLE} for k, t in sorted(acted)])
+
+
+def mark_cameos(characters, plays):
+    """Sets each character's cameo: True when it has credits and every one is a cameo."""
+    credits = {}
+    for edge in plays:
+        credits.setdefault(edge["character"], []).append(edge["cameo"])
+    for c in characters:
+        c["cameo"] = bool(credits.get(c["id"])) and all(credits[c["id"]])
 
 
 def crew_rows(details, people):
@@ -288,9 +303,9 @@ def load(session, data):
                      CREATE (c)-[:APPEARS_IN]->(t)""", data["appears"])
     run_batches(session, """UNWIND $rows AS r MATCH (p:Person {key: r.person}), (c:Character {id: r.character})
                      CREATE (p)-[:PLAYS {title_qid: r.title_qid, credited_as: r.credited_as,
-                                         billing_order: r.billing_order}]->(c)""", data["plays"])
+                                         billing_order: r.billing_order, cameo: r.cameo}]->(c)""", data["plays"])
     run_batches(session, """UNWIND $rows AS r MATCH (p:Person {key: r.person}), (t:Title {qid: r.title})
-                     CREATE (p)-[:ACTED_IN]->(t)""", data["acted_in"])
+                     CREATE (p)-[:ACTED_IN {cameo: r.cameo}]->(t)""", data["acted_in"])
     for relation in ("DIRECTED", "WROTE"):
         run_batches(session, f"""UNWIND $rows AS r MATCH (p:Person {{key: r.person}}), (t:Title {{qid: r.title}})
                           CREATE (p)-[:{relation}]->(t)""", data["crew"][relation])
@@ -315,6 +330,7 @@ def read_data():
               "aliases": _split(t["aliases"])} for t in read_csv(TEAMS_PATH)]
     characters = character_rows(read_csv(CHARACTERS_PATH), read_csv(ALIASES_PATH))
     people, plays, appears, acted_in = performance_rows(read_csv(PERFORMANCES_PATH))
+    mark_cameos(characters, plays)
     details = read_csv(TITLE_DETAILS_PATH)
     crew = crew_rows(details, people)
     birth_dates(people, read_csv(ACTOR_BIRTHS_PATH), read_csv(TMDB_BIRTHDAYS_PATH))

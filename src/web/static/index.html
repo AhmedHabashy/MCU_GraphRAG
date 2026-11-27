@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ask the Graph</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='4' fill='%23262626'/%3E%3Ccircle cx='8' cy='8' r='3' fill='%23fdd3b0'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="top">
+    <h1>Ask the Graph</h1>
+    <span class="subtitle">Marvel knowledge graph, Neo4j</span>
+  </header>
+
+  <main class="frame">
+    <div class="sheet">
+      <section class="ask">
+        <div class="label">Try a question</div>
+        <div id="examples" class="examples"></div>
+
+        <div class="label">Level of detail</div>
+        <div id="strategies" class="strategies" role="radiogroup" aria-label="Retrieval strategy"></div>
+        <p id="strategy-help" class="help"></p>
+
+        <div id="thread" class="thread" hidden>
+          <div id="asked" class="bubble"></div>
+          <div id="status" class="status"></div>
+          <details id="steps" class="steps" hidden>
+            <summary>How it got there</summary>
+            <dl id="steps-list"></dl>
+          </details>
+          <div id="answer" class="answer"></div>
+        </div>
+
+        <form id="form" class="composer">
+          <input id="question" type="text" maxlength="500" placeholder="Ask about the MCU" autocomplete="off" required>
+          <button id="ask" type="submit">Ask</button>
+        </form>
+      </section>
+
+      <section class="board-pane">
+        <div class="legend">
+          <span><i class="line plot"></i>Plot summary</span>
+          <span><i class="line data"></i>Data source</span>
+          <button id="fit" type="button" class="pill">Fit to view</button>
+        </div>
+        <div id="board" class="board"></div>
+        <div id="cards" class="cards-layer"></div>
+        <p id="board-empty" class="board-empty">Ask a question: the cards and links it uses appear here.</p>
+      </section>
+
+      <section class="evidence">
+        <div class="label">Evidence</div>
+        <div id="selected" class="selected">Select a card or a link on the board to read its evidence.</div>
+        <div id="cited-label" class="label"></div>
+        <ol id="cited" class="cited"></ol>
+      </section>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

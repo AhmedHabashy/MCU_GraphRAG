@@ -83,6 +83,19 @@ relationship means, and where it comes from: [docs/db_schematics.md](docs/db_sch
 .venv\Scripts\python.exe -m src.graph.evaluate     # run the 50 evaluation questions (docs/evaluation_questions.md)
 ```
 
+## Asking questions
+
+With Neo4j running, the graph loaded with its summaries and indexes, and `OPENROUTER_API_KEY`,
+`EMBEDDING_MODEL` and `QA_MODEL` in `.env`:
+
+```powershell
+.venv\Scripts\python.exe -m src.web.app    # then open http://127.0.0.1:5000
+```
+
+Pick the level of detail (local, global or DRIFT), ask, and read the answer with its numbered
+citations; the board shows the cards and links the question and the answer name, and the
+evidence panel the cited lines. Design: [docs/rag_design.md](docs/rag_design.md), "The front end".
+
 ## Tests
 
 ```powershell

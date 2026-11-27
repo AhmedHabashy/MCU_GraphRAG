@@ -142,3 +142,12 @@ def test_no_character_thing_has_the_name_of_exactly_one_character_in_its_reality
     assert count(db, "MATCH (t:Thing {type: 'character'}) MATCH (c:Character {reality: t.reality}) "
                      "WHERE toLower(c.label) = toLower(t.name) WITH t, collect(c) AS cs WHERE size(cs) = 1 "
                      "WITH t, cs[0] AS c WHERE NOT (t)--(c) RETURN count(t) AS n") == 0
+
+
+def test_stan_lees_credits_are_cameos_and_only_his_cameo_characters_are_marked(db):
+    assert count(db, "MATCH (:Person {qid: 'Q181900'})-[r:ACTED_IN]->() WHERE NOT r.cameo RETURN count(r) AS n") == 0
+    assert count(db, "MATCH (p:Person)-[r:ACTED_IN]->() WHERE r.cameo AND p.qid <> 'Q181900' RETURN count(r) AS n") == 0
+    marked = {r["label"] for r in db("MATCH (c:Character) WHERE c.cameo RETURN c.label AS label")}
+    assert "Watcher Informant" in marked and "Nick Fury" not in marked
+    assert count(db, "MATCH (c:Character) WHERE c.cameo AND EXISTS { (p:Person)-[:PLAYS]->(c) WHERE p.qid <> 'Q181900' } "
+                     "RETURN count(c) AS n") == 0

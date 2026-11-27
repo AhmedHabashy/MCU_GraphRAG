@@ -5,7 +5,9 @@ import json
 import pytest
 
 from src.retrieval.aggregate import VIEWS
-from src.retrieval.answer import MAX_TOOL_ROUNDS, Answerer, aggregate_tool, view_name
+from src.retrieval.answer import (
+    MAX_TOOL_ROUNDS, Answerer, Lines, aggregate_tool, cited_numbers, view_name, without_citations,
+)
 
 
 def call(view, cid="c1", name="aggregate"):
@@ -45,7 +47,7 @@ def test_an_answer_without_a_tool_call_comes_from_the_rules_the_question_and_the
     assert out["retrieval_seconds"] >= 0 and out["answer_seconds"] >= 0
     messages, tools, choice = chat.sent[0]
     assert messages[0] == {"role": "system", "content": "RULES"}
-    assert messages[1]["content"] == "Question: When is Captain Marvel set?\n\nContext:\ncontext for When is Captain Marvel set?"
+    assert messages[1]["content"] == "Question: When is Captain Marvel set?\n\nContext:\n[1] context for When is Captain Marvel set?"
     assert tools[0]["function"]["name"] == "aggregate" and choice == "auto"
 
 
@@ -80,3 +82,21 @@ def test_after_the_last_tool_round_the_model_must_answer():
 def test_no_answer_text_raises():
     with pytest.raises(RuntimeError, match="no answer"):
         answerer(FakeChat({"role": "assistant", "content": "  "}))("Who?", [1.0])
+
+
+def test_lines_are_numbered_across_texts_without_headings_or_cut_marks_and_cited_ones_come_back():
+    lines = Lines()
+    assert lines.number("## Title: Logan\nLogan dies.\n\n[cut]") == "## Title: Logan\n[1] Logan dies.\n\n[cut]"
+    assert lines.number("## Directors\n- Russo: 5") == "## Directors\n[2] - Russo: 5"
+    assert lines.cited("Logan dies [1]. The Russos lead [2, 1]; see [9].") == [
+        {"n": 1, "block": "Title: Logan", "text": "Logan dies."}, {"n": 2, "block": "Directors", "text": "- Russo: 5"}]
+
+
+def test_the_answer_comes_back_with_the_lines_it_cites():
+    chat = FakeChat({"role": "assistant", "content": "It is set in 1995 [1]."})
+    assert answerer(chat)("When?", [1.0])["cited"] == [{"n": 1, "block": "", "text": "context for When?"}]
+
+
+def test_citations_may_be_ranges_and_come_out_before_names_are_read():
+    assert cited_numbers("Yes [1–3, 6] and [24-25].") == {1, 2, 3, 6, 24, 25}
+    assert without_citations("X-24 is a clone [24–29].") == "X-24 is a clone ."

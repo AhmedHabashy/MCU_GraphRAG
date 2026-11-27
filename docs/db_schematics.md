@@ -112,6 +112,7 @@ docs/rag_design.md ("Summary nodes", "Index set") for these and the search index
 | `aliases` | Other names (Scarlet Witch, Skye, ...) | Wikidata, MCU wiki, Marvel Database, TMDB credits |
 | `species` | From the MCU wiki infobox (Inhuman, Asgardian, Human, Kree, ...) | MCU wiki |
 | `identity_source` | `wikidata` or `mcu_wiki` | derived |
+| `cameo` | True when every credit for the character is a cameo (Stan Lee's "Watcher Informant" and his other cameo roles) | derived |
 | `marvel_db_page`, `mcu_wiki_page` | The character's page on each wiki | Wikidata, matching |
 
 ### Person
@@ -146,8 +147,8 @@ organization and as an object).
 | Relationship | From → To | Count | Meaning | Properties |
 | --- | --- | --- | --- | --- |
 | APPEARS_IN | Character → Title | 3,285 | The character is in the title | |
-| PLAYS | Person → Character | 3,407 | The person plays the character (one arrow per title) | `title_qid`, `credited_as` (TMDB credit text), `billing_order` (0 = top-billed) |
-| ACTED_IN | Person → Title | 8,889 | Every acting credit, also those not linked to a character (most of Stan Lee's cameos) | |
+| PLAYS | Person → Character | 3,407 | The person plays the character (one arrow per title) | `title_qid`, `credited_as` (TMDB credit text), `billing_order` (0 = top-billed), `cameo` |
+| ACTED_IN | Person → Title | 8,889 | Every acting credit, also those not linked to a character (most of Stan Lee's cameos) | `cameo` |
 | DIRECTED, WROTE | Person → Title | 112, 205 | Director, screenwriter | |
 | FOLLOWS | Title → Title | 38 | The title follows the other in its own film or TV series (Iron Man 2 → Iron Man; Loki season 2 → season 1). Release order in the MCU, its phases or the Netflix series is not a sequel and is not used | |
 | VARIANT_OF | Character → Character | 197 | Two versions of one character in different realities (shared Wikidata identity, "based on" item, or curated "variant of") | `shared_qid` |
@@ -237,8 +238,10 @@ The 50 evaluation questions and their Cypher are in `src/graph/evaluate.py`
 - **Plot facts depend on the summaries.** A fact missing from Wikipedia's summary is missing
   from the graph (Heimdall's death is not among the Infinity War facts). Some series share one
   summary across several episodes (Agents of S.H.I.E.L.D., X-Men '97).
-- **Cameos are not marked.** Stan Lee's cameos are one character ("Watcher Informant"),
-  which skews "most titles" counts.
+- **Cameos are marked for Stan Lee only** (user decision, 2026-11-27). Every acting credit of
+  Stan Lee's is a cameo (`cameo` on PLAYS and ACTED_IN), and a character all of whose credits
+  are cameos has `cameo: true` (his "Watcher Informant", 19 titles), so "most titles" counts can
+  leave it out. Other actors' cameos are not marked: no source says which credits are cameos.
 - **No comics.** Comics are out of scope for now (expert decision).
 - **Ratings drift.** TMDB ratings change daily; the graph holds the values of the last
   collection.

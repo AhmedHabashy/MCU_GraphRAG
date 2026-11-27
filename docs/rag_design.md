@@ -547,6 +547,79 @@ Cassie Lang in Q07 before), a detail left out that the first answer had (Q10's t
 Q22's First Steps). With temperature 0 the same context still gives answers that keep
 different items, so the answer model drops items from long contexts in both runs.
 
+### Shared characters and members (2026-11-27)
+
+The user ruled out trying a stronger answer model ("a stronger model shouldn't do much
+difference"). Tracing the dropped items to the contexts: Q07 asks for the characters in two
+casts and Q29 for the members of two teams, so the model has to intersect two long lists, and
+in Q29 the Avengers list was cut after 24 of its members (Thor among those left out). So
+local search now adds, when a question names two titles or two teams, what they share, worked
+out by the graph: "Characters in both casts" or "Characters who are members of both", first in
+the context, with each title's QID and each team's reality (the four titles named "Fantastic
+Four" otherwise read alike). It shows on 7 questions (Q07, Q17, Q26, Q29, Q31, Q32, Q33);
+Q07's block is exactly the expected ten, Q29's Nebula, Rocket and Thor. The other 43 contexts
+are unchanged (local/20261127T195339Z). Q05, Q10 and Q22 are not this: the item was in the
+context and the answer left it out.
+
+Judged (retrieval local/20261127T195339Z: 20 / 15 / 15 as before, Q07 and Q29 still complete;
+answers answers/local/20261127T195439Z): **local answers 26 complete, 23 partial, 1 missing**
+(run 2: 18 / 31 / 1). Q07 and Q29 went from partial to complete as aimed; Q17 and Q26 stay
+partial, Q31 to Q33 complete. But the other six gains (Q05, Q06, Q09, Q11, Q19, Q22) come
+from contexts that didn't change: the QA model at temperature 0 gave the same text for only 1
+of the 50 questions, so a rerun alone moves about 6 verdicts (here all up, none down). A
+difference of a few questions between two answer runs is within that noise; the shared blocks
+account for 2. 7 of the 14 whole-graph questions are complete.
+
+### Cameos (agreed 2026-11-27)
+
+Q44 to Q46 lost on Stan Lee's cameo character: the expected answers leave it out, the views
+ranked it first (19 titles, 337 co-stars). The user chose to teach the graph about cameos rather
+than change the expected answers: every acting credit of Stan Lee's is a cameo, and a character
+with only cameo credits has `cameo: true` (src/graph/load_neo4j.py, CAMEO_PEOPLE; docs/
+db_schematics.md). The character views (characters by titles, by co-stars) leave cameo
+characters out and say so in their headers; the actors view gives each actor's cameos ("Stan
+Lee: 36 titles (36 cameos, 0 not)"). The graph rebuilt (load, profiles, summaries, indexes; no
+embedding redone); the views now give Nick Fury 14 and Steve Rogers 12, Stan Lee 36 then
+Samuel L. Jackson and Chris Evans 15, Steve Rogers 239, Nick Fury 223 and Thor 201, the expected
+answers. The graph-only evaluation (src.graph.evaluate) checks the same through `cameo`.
+
+## The front end (agreed 2026-11-27)
+
+For the MCU expert to test the system himself. The user chose: the case board with cited facts
+(the reference: a Heptabase-style case board, "D. Case board, Heptabase style@2x.png"), no
+feedback capture in the app, plain HTML/CSS/JS served by Flask (no build step), so it can be
+exposed later.
+
+- **Backend:** `src/web/app.py`. `GET /` serves the page; `POST /api/ask` takes the question
+  (1 to 500 characters) and the strategy (local, global or DRIFT) and returns the answer, the
+  lines it cites, the views called, what the question names, the board and the timings. A
+  failure returns a message without the question or the error text; the log keeps the error
+  type only. The question is embedded directly, not through the query cache (which keeps only
+  the evaluation questions). Run: `python -m src.web.app` (http://127.0.0.1:5000, Flask's own
+  server; a production server comes with exposing it).
+- **Citations:** the answer step numbers every line of the context and of the views it calls
+  ([1], [2], ... across them, headings and cut marks unnumbered), and the prompt (rule 6) asks
+  the model to cite the numbers each statement rests on; ranges ([1-3]) are read too. The answer
+  comes back with the lines it cites. The answer judges are told to ignore the numbers. The
+  answer runs above were made before citations; the next answer run measures them.
+- **The board** (`src/retrieval/board.py`, no LLM): cards for every entity the question names
+  (variants included), then one per name the answer names (citations and italics taken out
+  first; the answer's first word counts, unlike a question's), 24 at most; an answer's card
+  with no link to the others is left out. Links: the graph's relationships between two cards
+  (not ACTED_IN, which repeats PLAYS), one per direction and kind, plot (red) or data (grey), its
+  label naming every type it stands for, its evidence the plot quote, the cast credit, the wiki
+  role or the Wikidata shared identity. Groups (phases, sagas) are summaries, not cards.
+- **The page** (`src/web/static`): left, example questions, the level of detail, the question,
+  "How it got there" (strategy, what was named, views, lines cited, times) and the answer with
+  one badge per citation; middle, the board (Cytoscape.js 3.30.2 for layout, pan and zoom, with
+  HTML cards over its nodes); right, the evidence of the selected card or link, and the cited
+  lines, which a badge lights up.
+- **Checked:** unit tests for the numbering, citations with ranges, the board's choices, links
+  and evidence, and the endpoints (bad requests, failures without the question); in the browser,
+  four questions across local and global, citation badges and the console. Found and fixed on
+  the way: the board read "24-29" in a citation as X-24; italics hid "Loki, season 1"; the
+  answer's first word was skipped like a question's; parallel links stacked their labels.
+
 ## Inventory (checked 2026-11-25, read-only)
 
 ### Nodes

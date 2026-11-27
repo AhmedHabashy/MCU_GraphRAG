@@ -2,7 +2,7 @@
 name = "mcu-graphrag"
 version = "0.1.0"
 requires-python = ">=3.13"
-dependencies = ["requests", "python-dotenv", "mwparserfromhell", "neo4j"]
+dependencies = ["requests", "python-dotenv", "mwparserfromhell", "neo4j", "flask"]
 
 [project.optional-dependencies]
 dev = ["pytest"]

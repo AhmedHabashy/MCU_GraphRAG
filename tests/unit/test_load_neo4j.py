@@ -1,7 +1,7 @@
 """Unit tests for src/graph/load_neo4j.py (row building only; no database)."""
 
 from src.graph.load_neo4j import (
-    birth_dates, crew_rows, fact_rows, follows_rows, name_index, performance_rows, team_presence, title_rows,
+    birth_dates, crew_rows, fact_rows, follows_rows, mark_cameos, name_index, performance_rows, team_presence, title_rows,
 )
 
 TEAMS = [{"id": "X-Men@Earth-92131", "name": "X-Men", "reality": "Earth-92131", "aliases": []},
@@ -129,7 +129,19 @@ def test_performances_give_one_person_and_one_plays_edge_per_title_with_the_best
         ("QA", ["Logan"], 1), ("tmdb:2", ["Logan (young)"], None)]
     assert appears == [{"character": "C@E", "title": "Q1"}]
     # every credit with a person counts as acting in the title, linked or not (Stan Lee's cameos)
-    assert acted == [{"person": "QA", "title": "Q1"}, {"person": "QX", "title": "Q1"}, {"person": "tmdb:2", "title": "Q1"}]
+    assert acted == [{"person": "QA", "title": "Q1", "cameo": False}, {"person": "QX", "title": "Q1", "cameo": False},
+                     {"person": "tmdb:2", "title": "Q1", "cameo": False}]
+
+
+def test_a_cameo_persons_credits_are_cameos_and_a_character_with_only_cameo_credits_is_one():
+    perfs = [perf("W@E", "Q181900", "", "Stan Lee", "Thirsty Gambler"), perf("F@E", "QA", "1", "A", "Nick Fury"),
+             perf("F@E", "Q181900", "", "Stan Lee", "Fury (voice)")]
+    _, plays, _, acted = performance_rows(perfs)
+    assert [(p["character"], p["cameo"]) for p in plays] == [("W@E", True), ("F@E", False), ("F@E", True)]
+    assert {(a["person"], a["cameo"]) for a in acted} == {("Q181900", True), ("QA", False)}
+    characters = [{"id": "W@E"}, {"id": "F@E"}, {"id": "N@E"}]
+    mark_cameos(characters, plays)
+    assert [c["cameo"] for c in characters] == [True, False, False]      # no credits at all: not a cameo
 
 
 REGISTRY = [{"wikidata_qid": "Q1", "title": "Iron Man", "type": "Film", "year": "2008", "universe": "MCU",

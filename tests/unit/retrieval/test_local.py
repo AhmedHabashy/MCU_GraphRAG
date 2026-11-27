@@ -2,7 +2,7 @@
 
 from src.retrieval.local import (
     CUT, cast_line, character_block, entry_points, fit, fuse, group_title_line, lucene_text, name_spans,
-    other_names, person_block, shares, team_block, title_line,
+    other_names, person_block, shared_block, shared_name, shares, team_block, title_line,
 )
 
 
@@ -76,6 +76,7 @@ def test_a_name_matches_only_as_a_whole_phrase_with_its_capitals():
 def test_a_one_word_name_at_the_start_is_skipped_as_a_sentence_capital():
     assert name_spans("Who plays Kang?", ["Who", "Kang"]) == {(10, 14)}
     assert name_spans("Thanos snaps.", ["Thanos"]) == set()
+    assert name_spans("Thanos snaps.", ["Thanos"], skip_start=False) == {(0, 6)}
     assert name_spans("Iron Man flies.", ["Iron Man"]) == {(0, 8)}
 
 
@@ -128,3 +129,16 @@ def test_the_context_is_cut_at_line_ends_and_keeps_room_for_the_search_hits():
     text = fit(entries, ["## Hit\nh"], max_chars=100, search_chars=20)
     assert len(text) <= 100 and text.endswith("## Hit\nh") and CUT in text
     assert fit(["## A\nshort"], [], max_chars=100) == "## A\nshort"
+
+
+def test_a_shared_block_lists_what_two_titles_or_teams_have_in_common_or_says_none():
+    rows = [{"label": "Nebula", "reality": "Earth-616"}, {"label": "Thor", "reality": "Earth-616"}]
+    assert shared_block("Team", "Avengers", "Guardians of the Galaxy", rows) == (
+        "## Characters who are members of both: Avengers and Guardians of the Galaxy (2)\n"
+        "Nebula [Earth-616], Thor [Earth-616]")
+    assert shared_block("Title", "Logan", "Eternals", []) == "## Characters in both casts: Logan and Eternals (0)\nnone"
+
+
+def test_a_shared_name_is_written_as_the_block_headers_write_it():
+    assert shared_name({"kind": "Title", "key": "Q1", "names": ["Fantastic Four", "FF"]}) == "Fantastic Four [Q1]"
+    assert shared_name({"kind": "Team", "key": "Avengers@Earth-616", "names": ["Avengers"]}) == "Avengers [Earth-616]"

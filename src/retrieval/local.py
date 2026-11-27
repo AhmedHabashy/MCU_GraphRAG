@@ -13,12 +13,15 @@ embedding, made by the caller.
    closest to the question.
 3. Search: plot facts, passages and summaries, each by the keyword and the vector index, the two
    rankings fused by reciprocal rank.
+When the question names two titles or two teams, what they share (characters in both casts,
+members of both) comes first, worked out by the graph.
 The context is cut to MAX_CONTEXT_CHARS: entry points first, in question order, each to a fair
 share of the room (a block is cut at its own end); SEARCH_CHARS kept for the search hits. A
 character's block also names who plays each of its variants.
 """
 
 import re
+from itertools import combinations
 
 from src.graph.load_neo4j import KEYS
 from src.graph.summary_inputs import fact_line
@@ -52,27 +55,28 @@ def fuse(rankings, k=RRF_K):
     return sorted(scores, key=lambda item: -scores[item])
 
 
-def name_spans(question, names):
+def name_spans(question, names, skip_start=True):
     """[(start, end)] of every whole-phrase occurrence of the names, capitals as written; a hyphen
     joins words ("Earth" is not in "Earth-828"). "The X" also matches "the X", with the span of X
     alone, so it ties with an entity named X ("the Avengers": the team, not only the film). A
-    one-word match at the question's start is skipped: its capital may only start the sentence."""
+    one-word match at the question's start is skipped: its capital may only start the sentence
+    (skip_start False for a text such as an answer, which often starts with a name)."""
     spans = set()
     for name in names:
         for phrase, skip in [(name, 0)] + ([(f"the {name[4:]}", 4)] if name.startswith("The ") else []):
             for m in re.finditer(rf"(?<![\w-]){re.escape(phrase)}(?![\w-])", question):
-                if not (m.start() == 0 and " " not in phrase):
+                if not (skip_start and m.start() == 0 and " " not in phrase):
                     spans.add((m.start() + skip, m.end()))
     return spans
 
 
-def entry_points(question, candidates):
+def entry_points(question, candidates, skip_start=True):
     """The candidates ({kind, key, names, weight}) the question names: each at its longest span;
     overlapping spans give way to the longest; entities sharing a kept span are all kept. In
     question order, then by KIND_ORDER and weight."""
     best = {}
     for c in candidates:
-        spans = name_spans(question, c["names"])
+        spans = name_spans(question, c["names"], skip_start)
         if spans:
             best[(c["kind"], c["key"])] = (max(spans, key=lambda s: (s[1] - s[0], -s[0])), c)
     kept_spans = []
@@ -215,6 +219,22 @@ def group_block(row):
     return "\n".join(lines + [f"- {group_title_line(t)}" for t in row["titles"]])
 
 
+def shared_block(kind, a, b, rows):
+    """What two named titles (their casts) or two named teams (their wiki members) share, worked out
+    by the graph: an answer can't intersect two long lists reliably, and a cut list loses some."""
+    what = "Characters in both casts" if kind == "Title" else "Characters who are members of both"
+    names = [_who(r["label"], r["reality"]) for r in rows]
+    return f"## {what}: {a} and {b} ({len(names)})\n" + (", ".join(names) or "none")
+
+
+def shared_name(c):
+    """A named title or team as its block's header writes it (titles with their QID, teams with
+    their reality), so two titles of one name can be told apart."""
+    if c["kind"] == "Title":
+        return f"{c['names'][0]} [{c['key']}]"
+    return _who(c["names"][0], c["key"].split("@", 1)[1])
+
+
 def _facts_lines(facts):
     return (["Plot facts closest to the question:"] + [f"- {fact_line(f)}" for f in facts]) if facts else []
 
@@ -303,6 +323,13 @@ RETURN t.name AS name, t.reality AS reality, t.kind AS kind, t.aliases AS aliase
             WITH c, collect(DISTINCT coalesce(m.role, 'member') + ', ' + coalesce(m.status, 'status unknown')) AS roles
             RETURN {label: c.label, reality: c.reality, aliases: c.aliases, roles: roles} AS m
             ORDER BY m.label } AS members"""
+SHARED = {
+    "Title": """MATCH (:Title {qid: $a})<-[:APPEARS_IN]-(c:Character)-[:APPEARS_IN]->(:Title {qid: $b})
+                RETURN DISTINCT c.label AS label, c.reality AS reality ORDER BY label, reality""",
+    "Team": """MATCH (:Team {id: $a})<-[m:MEMBER_OF]-(c:Character)-[n:MEMBER_OF]->(:Team {id: $b})
+               WHERE m.source <> 'plot' AND n.source <> 'plot'
+               RETURN DISTINCT c.label AS label, c.reality AS reality ORDER BY label, reality""",
+}
 THING = "MATCH (t:Thing {key: $key}) RETURN t.name AS name, t.reality AS reality, t.type AS type"
 GROUP = """MATCH (s:Summary {id: $key})
 RETURN s.kind AS kind, s.name AS name, s.text AS text,
@@ -343,10 +370,11 @@ class GraphReader:
         with self.driver.session() as session:
             return session.execute_read(lambda tx: [r.data() for r in tx.run(query, **params)])
 
-    def named(self, question):
+    def named(self, question, skip_start=True):
         """The entities and groups the question names (see entry_points)."""
         words = lucene_text(question)
-        return entry_points(question, (self._read(CANDIDATES_QUERY, q=words) if words else []) + self.groups)
+        return entry_points(question, (self._read(CANDIDATES_QUERY, q=words) if words else []) + self.groups,
+                            skip_start)
 
     def searched(self, kind, question, vector):
         """Ids of kind ("facts", "passages", "summaries") by the keyword and vector rankings fused."""
@@ -362,12 +390,24 @@ class LocalSearch(GraphReader):
     """A strategy for src.retrieval.evaluation: (question, question vector) -> context text."""
 
     def __call__(self, question, vector):
-        entries, shown = [], set()
-        for c in self.named(question):
+        named = self.named(question)
+        entries, shown = self._shared(named), set()
+        for c in named:
             block, lines = self._block(c, vector)
             entries.append(block)
             shown |= lines
         return fit(entries, self._search(question, vector, shown))
+
+    def _shared(self, named):
+        """A shared_block for each pair of named titles and each pair of named teams; first, as
+        they are short and exact."""
+        blocks = []
+        for kind in SHARED:
+            of_kind = [c for c in named if c["kind"] == kind]
+            for a, b in combinations(of_kind, 2):
+                rows = self._read(SHARED[kind], a=a["key"], b=b["key"])
+                blocks.append(shared_block(kind, shared_name(a), shared_name(b), rows))
+        return blocks
 
     def _facts(self, c, vector):
         if c["kind"] == "Title":
